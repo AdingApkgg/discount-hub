@@ -5,7 +5,14 @@
     "dev": "turbo dev",
     "build": "turbo build",
     "lint": "turbo lint",
-    "typecheck": "turbo typecheck"
+    "typecheck": "turbo typecheck",
+    "mobile:tauri": "pnpm --filter mobile tauri",
+    "mobile:desktop:dev": "pnpm --filter mobile desktop:dev",
+    "mobile:desktop:build": "pnpm --filter mobile desktop:build",
+    "mobile:ios:dev": "pnpm --filter mobile ios:dev",
+    "mobile:ios:build": "pnpm --filter mobile ios:build",
+    "mobile:android:dev": "pnpm --filter mobile android:dev",
+    "mobile:android:build": "pnpm --filter mobile android:build"
   },
   "devDependencies": {
     "turbo": "^2"

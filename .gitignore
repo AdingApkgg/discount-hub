@@ -44,3 +44,5 @@ apps/web/src/generated/
 *.pem
 .lock
 grok.md
+apps/mobile/src-tauri/gen/
+apps/mobile/src-tauri/target/

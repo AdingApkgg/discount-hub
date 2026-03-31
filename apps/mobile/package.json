@@ -1,0 +1,17 @@
+{
+  "name": "mobile",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "tauri": "tauri",
+    "desktop:dev": "tauri dev",
+    "desktop:build": "tauri build",
+    "ios:dev": "tauri ios dev",
+    "ios:build": "tauri ios build",
+    "android:dev": "tauri android dev",
+    "android:build": "tauri android build"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2"
+  }
+}

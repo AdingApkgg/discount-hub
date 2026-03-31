@@ -1,1 +1,2 @@
-export { getSupabaseClient, getSupabaseServerClient } from './client';
+export { prisma, PrismaClient } from './client';
+export type { PrismaClientType } from './client';

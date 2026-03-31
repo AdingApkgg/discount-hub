@@ -1,0 +1,14 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Discount Hub Mobile",
+  "version": "0.1.0",
+  "identifier": "com.discountshopping.mobile",
+  "build": {},
+  "app": {
+    "windows": []
+  },
+  "bundle": {
+    "active": true,
+    "icon": []
+  }
+}

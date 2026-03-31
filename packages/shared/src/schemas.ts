@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { PAY_METHOD_IDS } from './types';
 
 export const scrollItemSchema = z.object({
   id: z.string(),
@@ -27,7 +28,7 @@ export const couponSchema = z.object({
 export const purchaseRequestSchema = z.object({
   scrollId: z.string(),
   qty: z.number().int().min(1).max(10),
-  payMethod: z.enum(['alipay', 'wechat', 'unionpay', 'paypal', 'crypto']),
+  payMethod: z.enum(PAY_METHOD_IDS),
 });
 
 export const verifyCodeSchema = z.object({

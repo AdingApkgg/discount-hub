@@ -5,9 +5,9 @@ import {
   CheckCircle2,
   Copy,
   CreditCard,
+  Loader2,
   QrCode,
   ShieldCheck,
-  Loader2,
 } from "lucide-react";
 import {
   Dialog,
@@ -20,20 +20,23 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import FakeQr from "./FakeQr";
 import { toast } from "sonner";
-import type { ScrollItem, PayMethod } from "@discount-hub/shared";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useTRPC } from "@/trpc/client";
+import type { RouterOutputs } from "@/trpc/types";
+import type { PaymentSession, ScrollItem, PayMethod } from "@discount-hub/shared";
 import {
   PAY_METHODS,
   clampInt,
   formatDateTime,
   formatExpires,
   formatMoney,
-  createOrderId,
-  createSerial,
-  createCouponCode,
 } from "@discount-hub/shared";
 import { cn } from "@/lib/utils";
 
-type Step = "offer" | "pay" | "success";
+type Step = "offer" | "pay" | "pending" | "success";
+type PurchasePayload = RouterOutputs["order"]["purchase"];
+type CompletePaymentPayload = RouterOutputs["order"]["completePayment"];
+type PaymentPayload = PurchasePayload | CompletePaymentPayload;
 
 export default function PurchaseFlowDialog({
   open,
@@ -50,6 +53,9 @@ export default function PurchaseFlowDialog({
   const [qty, setQty] = useState(1);
   const [method, setMethod] = useState<PayMethod>("alipay");
   const [paying, setPaying] = useState(false);
+  const [confirming, setConfirming] = useState(false);
+  const [pendingOrderId, setPendingOrderId] = useState<string | null>(null);
+  const [paymentSession, setPaymentSession] = useState<PaymentSession | null>(null);
   const [order, setOrder] = useState<{
     orderId: string;
     serial: string;
@@ -63,6 +69,9 @@ export default function PurchaseFlowDialog({
     setQty(1);
     setMethod("alipay");
     setPaying(false);
+    setConfirming(false);
+    setPendingOrderId(null);
+    setPaymentSession(null);
     setOrder(null);
   }, [open, scroll.id]);
 
@@ -72,18 +81,42 @@ export default function PurchaseFlowDialog({
     return { cash, points };
   }, [qty, scroll]);
 
-  const payNow = async () => {
-    if (paying) return;
-    setPaying(true);
-    await new Promise((r) => setTimeout(r, 900));
-    const now = new Date();
-    const orderId = createOrderId();
-    const serial = createSerial();
-    const couponCode = createCouponCode(scroll.id);
-    setOrder({ orderId, serial, paidAt: formatDateTime(now), couponCode });
-    setPaying(false);
+  const trpc = useTRPC();
+  const queryClient = useQueryClient();
+  const purchaseMutation = useMutation(
+    trpc.order.purchase.mutationOptions(),
+  );
+  const completePaymentMutation = useMutation(
+    trpc.order.completePayment.mutationOptions(),
+  );
+
+  const applySuccess = async (result: PaymentPayload) => {
+    if (!result.coupon) {
+      toast.error("支付完成，但券码尚未生成");
+      return;
+    }
+
+    const paidAt = result.order.paidAt
+      ? new Date(result.order.paidAt)
+      : new Date();
+
+    setPaymentSession(result.paymentSession);
+    setPendingOrderId(result.order.id);
+    setOrder({
+      orderId: result.order.id,
+      serial: result.order.id.slice(-8).toUpperCase(),
+      paidAt: formatDateTime(paidAt),
+      couponCode: result.coupon.code,
+    });
     setStep("success");
-    toast.success("支付成功！券码已生成");
+
+    await queryClient.invalidateQueries();
+
+    toast.success(
+      result.taskReward > 0
+        ? `支付成功！券码已生成，额外奖励 +${result.taskReward} 积分`
+        : "支付成功！券码已生成",
+    );
 
     window.dispatchEvent(
       new CustomEvent("jz:purchaseSuccess", {
@@ -91,11 +124,59 @@ export default function PurchaseFlowDialog({
           scrollId: scroll.id,
           app: scroll.app,
           title: scroll.title,
-          couponCode,
-          paidAt: now.toISOString(),
+          couponCode: result.coupon.code,
+          paidAt: paidAt.toISOString(),
         },
       }),
     );
+  };
+
+  const payNow = async () => {
+    if (paying) return;
+    setPaying(true);
+
+    try {
+      const result = await purchaseMutation.mutateAsync({
+        productId: scroll.id,
+        qty,
+        payMethod: method,
+      });
+
+      if (result.completed) {
+        await applySuccess(result);
+        return;
+      }
+
+      setPendingOrderId(result.order.id);
+      setPaymentSession(result.paymentSession);
+      setStep("pending");
+      await queryClient.invalidateQueries();
+      toast.success("订单已创建，请按页面指引完成支付");
+    } catch (err: unknown) {
+      const message =
+        err instanceof Error ? err.message : "支付失败，请稍后重试";
+      toast.error(message);
+    } finally {
+      setPaying(false);
+    }
+  };
+
+  const confirmPayment = async () => {
+    if (!pendingOrderId || confirming) return;
+    setConfirming(true);
+
+    try {
+      const result = await completePaymentMutation.mutateAsync({
+        orderId: pendingOrderId,
+      });
+      await applySuccess(result);
+    } catch (err: unknown) {
+      const message =
+        err instanceof Error ? err.message : "确认支付失败，请稍后重试";
+      toast.error(message);
+    } finally {
+      setConfirming(false);
+    }
   };
 
   const copyText = async (text: string) => {
@@ -107,6 +188,12 @@ export default function PurchaseFlowDialog({
     }
   };
 
+  const pendingQrValue =
+    paymentSession?.qrCodeText ??
+    paymentSession?.walletAddress ??
+    pendingOrderId ??
+    "";
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-lg bg-card border-border max-h-[90vh] flex flex-col p-0">
@@ -116,7 +203,9 @@ export default function PurchaseFlowDialog({
               ? "去兑换"
               : step === "pay"
                 ? "支付订单"
-                : "支付成功"}
+                : step === "pending"
+                  ? "等待支付"
+                  : "支付成功"}
           </DialogTitle>
         </DialogHeader>
 
@@ -185,8 +274,8 @@ export default function PurchaseFlowDialog({
                   <div className="text-sm font-semibold text-foreground">规则说明</div>
                   <div className="mt-3 grid gap-2 text-sm text-muted-foreground">
                     {[
-                      "购买方式：选择任一支付方式完成支付。",
-                      "兑换核销：成功后生成券码与二维码，用于核销。",
+                      "购买流程：先创建订单与支付会话，再由模拟确认或未来真实网关回调完成入账。",
+                      "兑换核销：支付成功后生成券码与二维码，用于核销。",
                       "限购一张：本原型限制为 1 张。",
                     ].map((text, i) => (
                       <div key={i} className="flex gap-2">
@@ -274,8 +363,13 @@ export default function PurchaseFlowDialog({
                       >
                         <CardContent className="p-3">
                           <div className="flex items-center justify-between gap-3">
-                            <div className="text-sm font-semibold text-foreground">
-                              {m.name}
+                            <div>
+                              <div className="text-sm font-semibold text-foreground">
+                                {m.name}
+                              </div>
+                              <div className="mt-1 text-[11px] text-muted-foreground">
+                                {m.providerLabel}
+                              </div>
                             </div>
                             <Badge variant="outline" className="text-[11px] border-border">
                               {m.hint}
@@ -287,6 +381,134 @@ export default function PurchaseFlowDialog({
                   </div>
                 </CardContent>
               </Card>
+            </div>
+          )}
+
+          {step === "pending" && paymentSession && pendingOrderId && (
+            <div className="space-y-4">
+              <Card
+                className={cn(
+                  paymentSession.productionReady
+                    ? "border-sky-400/30 bg-sky-500/10"
+                    : "border-amber-400/30 bg-amber-500/10",
+                )}
+              >
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="text-sm font-semibold text-foreground">
+                        {paymentSession.methodLabel}
+                      </div>
+                      <div className="mt-1 text-xs text-muted-foreground">
+                        网关：{paymentSession.providerLabel}
+                      </div>
+                    </div>
+                    <Badge
+                      variant="outline"
+                      className="border-current text-[11px] text-foreground"
+                    >
+                      {paymentSession.productionReady ? "已预留实单接口" : "占位联调模式"}
+                    </Badge>
+                  </div>
+                  <div className="mt-3 text-sm text-muted-foreground">
+                    {paymentSession.productionReady
+                      ? "支付会话已按未来生产接入结构生成，当前仍保留模拟完成入口方便联调。"
+                      : "接口层、回调地址和订单标识都已预留好，后续只需在对应 provider 文件补真实网关调用。"}
+                  </div>
+                </CardContent>
+              </Card>
+
+              <div className="grid gap-4 sm:grid-cols-[1fr_200px]">
+                <Card className="border-border">
+                  <CardContent className="p-4">
+                    <div className="text-sm font-semibold text-foreground mb-3">
+                      支付信息
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3 text-sm">
+                      {[
+                        { label: "应付金额", value: paymentSession.amountText },
+                        {
+                          label: "到期时间",
+                          value: formatDateTime(new Date(paymentSession.expiresAt)),
+                        },
+                        { label: "订单号", value: pendingOrderId, mono: true },
+                        { label: "支付方式", value: paymentSession.methodLabel },
+                      ].map((item) => (
+                        <Card key={item.label} className="border-border bg-secondary/50">
+                          <CardContent className="p-3">
+                            <div className="text-xs text-muted-foreground">{item.label}</div>
+                            <div
+                              className={cn(
+                                "mt-1 font-semibold text-foreground",
+                                item.mono && "font-mono text-xs",
+                              )}
+                            >
+                              {item.value}
+                            </div>
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
+
+                    <div className="mt-4 grid gap-2">
+                      {paymentSession.fields.map((field) => (
+                        <Card key={`${field.label}-${field.value}`} className="border-border bg-secondary/50">
+                          <CardContent className="p-3">
+                            <div className="flex items-center justify-between gap-3">
+                              <div className="min-w-0">
+                                <div className="text-xs text-muted-foreground">{field.label}</div>
+                                <div
+                                  className={cn(
+                                    "mt-1 text-sm text-foreground break-all",
+                                    field.emphasized && "font-mono font-semibold",
+                                  )}
+                                >
+                                  {field.value}
+                                </div>
+                              </div>
+                              {field.copyable && (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => copyText(field.value)}
+                                  className="gap-2 border-border"
+                                >
+                                  <Copy className="h-3.5 w-3.5" />
+                                  复制
+                                </Button>
+                              )}
+                            </div>
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
+
+                    <div className="mt-4 grid gap-2 text-xs text-muted-foreground">
+                      {paymentSession.instructions.map((text, index) => (
+                        <div key={index} className="flex gap-2">
+                          <span className="text-[var(--accent)]">{index + 1}</span>
+                          <span>{text}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card className="border-border">
+                  <CardContent className="p-4">
+                    <div className="text-sm font-semibold text-foreground">
+                      支付二维码
+                    </div>
+                    <div className="mt-3 flex justify-center">
+                      <FakeQr value={pendingQrValue} />
+                    </div>
+                    <div className="mt-3 text-xs text-muted-foreground text-center">
+                      当前为示意二维码，未来可替换为真实收银台二维码或钱包转账码
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
             </div>
           )}
 
@@ -318,7 +540,10 @@ export default function PurchaseFlowDialog({
                     </div>
                     <div className="grid grid-cols-2 gap-3 text-sm">
                       {[
-                        { label: "实付", value: formatMoney(summary.cash) },
+                        {
+                          label: "实付",
+                          value: paymentSession?.amountText ?? formatMoney(summary.cash),
+                        },
                         { label: "消耗积分", value: String(summary.points) },
                         { label: "数量", value: String(qty) },
                         { label: "订单时间", value: order.paidAt, mono: true },
@@ -374,6 +599,14 @@ export default function PurchaseFlowDialog({
                         <ShieldCheck className="h-4 w-4" />
                         <span>有效期：{formatExpires(scroll.expiresAt)}</span>
                       </div>
+                      {paymentSession && (
+                        <div className="flex items-center gap-2">
+                          <CreditCard className="h-4 w-4" />
+                          <span>
+                            渠道：{paymentSession.methodLabel} / {paymentSession.providerLabel}
+                          </span>
+                        </div>
+                      )}
                     </div>
                   </CardContent>
                 </Card>
@@ -427,10 +660,36 @@ export default function PurchaseFlowDialog({
                 {paying ? (
                   <>
                     <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                    支付中…
+                    创建订单中…
                   </>
+                ) : summary.cash > 0 ? (
+                  `创建支付订单 ${formatMoney(summary.cash)}`
                 ) : (
-                  `确认支付 ${formatMoney(summary.cash)}`
+                  `确认兑换 ${summary.points} 积分`
+                )}
+              </Button>
+            </div>
+          )}
+          {step === "pending" && paymentSession && (
+            <div className="flex items-center justify-between gap-3">
+              <Button variant="outline" onClick={() => onOpenChange(false)}>
+                稍后支付
+              </Button>
+              <Button
+                onClick={confirmPayment}
+                className="bg-[var(--gradient-primary)] hover:brightness-110 text-white"
+                style={{ boxShadow: "var(--shadow-glow)" }}
+                disabled={confirming || !paymentSession.demoActionEnabled}
+              >
+                {confirming ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                    确认中…
+                  </>
+                ) : paymentSession.demoActionEnabled ? (
+                  "模拟支付完成"
+                ) : (
+                  "等待支付回调"
                 )}
               </Button>
             </div>

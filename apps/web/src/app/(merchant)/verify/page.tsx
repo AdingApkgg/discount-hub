@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import { QrCode, KeyRound, Check, Search, Loader2 } from "lucide-react";
+import { useMutation } from "@tanstack/react-query";
+import { useTRPC } from "@/trpc/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -20,17 +22,31 @@ export default function VerifyPage() {
     userName: string;
   } | null>(null);
 
+  const trpc = useTRPC();
+  const verifyMutation = useMutation(
+    trpc.verify.verifyCoupon.mutationOptions(),
+  );
+
   const handleVerify = async () => {
     if (!code.trim()) return;
     setResult("loading");
-    await new Promise((r) => setTimeout(r, 800));
-    setVerifiedInfo({
-      code: code,
-      productTitle: "通用八折卷",
-      userName: "用户 0xA3F2",
-    });
-    setResult("success");
-    toast.success(`券码 ${code} 核销成功！`);
+    try {
+      const res = await verifyMutation.mutateAsync({ code: code.trim() });
+      setVerifiedInfo({
+        code: res.coupon.code,
+        productTitle: res.coupon.productTitle,
+        userName: res.coupon.userName,
+      });
+      setResult("success");
+      toast.success(`券码 ${res.coupon.code} 核销成功！`);
+    } catch (err: unknown) {
+      setResult("error");
+      const message =
+        err instanceof Error ? err.message : "核销失败，请检查券码";
+      toast.error(message);
+      // Reset to idle so user can retry
+      setTimeout(() => setResult("idle"), 2000);
+    }
   };
 
   const resetVerify = () => {

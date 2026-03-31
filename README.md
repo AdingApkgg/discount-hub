@@ -20,6 +20,7 @@
 | 层级 | 选型 |
 |------|------|
 | 框架 | Next.js 16 (App Router) + React 19 |
+| 移动端壳 | Tauri 2（直接加载 Web URL，不再维护独立 RN 界面） |
 | 样式 | Tailwind CSS 4 + shadcn/ui + Radix |
 | API | tRPC v11 + TanStack Query |
 | 数据库 | PostgreSQL + Prisma 7 |
@@ -34,16 +35,18 @@
 
 ```
 ├── apps/
-│   └── web/              # Next.js 主应用（C 端 + B 端）
-│       ├── prisma/        # Prisma schema
-│       └── src/
-│           ├── app/       # App Router 页面
-│           │   ├── (auth)/       # 登录 / 注册
-│           │   ├── (consumer)/   # 消费者页面
-│           │   └── (merchant)/   # 商家后台
-│           ├── components/ # UI 组件
-│           ├── lib/        # 认证、数据库、Redis 等
-│           └── trpc/       # tRPC 路由与客户端
+│   ├── web/              # Next.js 主应用（C 端 + B 端）
+│   │   ├── prisma/       # Prisma schema
+│   │   └── src/
+│   │       ├── app/      # App Router 页面
+│   │       │   ├── (auth)/      # 登录 / 注册
+│   │       │   ├── (consumer)/  # 消费者页面
+│   │       │   └── (merchant)/  # 商家后台
+│   │       ├── components/ # UI 组件
+│   │       ├── lib/        # 认证、数据库、Redis 等
+│   │       └── trpc/       # tRPC 路由与客户端
+│   └── mobile/           # Tauri 移动端壳（直接指向 Web URL）
+│       └── src-tauri/    # 原生壳与移动平台工程
 ├── packages/
 │   ├── db/               # 数据库客户端（Supabase）
 │   └── shared/           # 共享类型、Schema、工具函数
@@ -80,6 +83,27 @@ pnpm dev
 ```
 
 访问 http://localhost:3000 即可。
+
+## 移动端方案
+
+移动端改为 `Tauri 2 + 远程 WebView`：
+
+- 不再额外维护 React Native UI
+- 移动壳直接打开已有 Web 站点
+- 本地默认连接 `http://localhost:3000`
+- 打包时可通过 `DISCOUNT_HUB_WEB_URL` 覆盖为正式站点地址
+- 真机联调时可配合 `tauri ... dev --host` 自动把 `localhost` 替换成 `TAURI_DEV_HOST`
+
+常用命令：
+
+```bash
+# 启动 Web 端
+pnpm dev
+
+# iOS / Android 壳工程调试
+DISCOUNT_HUB_WEB_URL=http://localhost:3000 pnpm mobile:ios:dev
+DISCOUNT_HUB_WEB_URL=http://localhost:3000 pnpm mobile:android:dev
+```
 
 ## 许可证
 

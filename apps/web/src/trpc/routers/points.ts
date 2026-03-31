@@ -63,34 +63,36 @@ export const pointsRouter = createTRPCRouter({
   }),
 
   checkin: protectedProcedure.mutation(async ({ ctx }) => {
-    const existing = await ctx.prisma.checkin.findFirst({
-      where: { userId: ctx.user.id, checkedAt: { gte: todayStart() } },
-    });
+    return ctx.prisma.$transaction(async (tx) => {
+      // Check inside transaction to prevent race conditions
+      const existing = await tx.checkin.findFirst({
+        where: { userId: ctx.user.id, checkedAt: { gte: todayStart() } },
+      });
 
-    if (existing) {
-      throw new TRPCError({ code: "BAD_REQUEST", message: "今日已签到" });
-    }
+      if (existing) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "今日已签到" });
+      }
 
-    const lastCheckin = await ctx.prisma.checkin.findFirst({
-      where: { userId: ctx.user.id },
-      orderBy: { checkedAt: "desc" },
-    });
+      const lastCheckin = await tx.checkin.findFirst({
+        where: { userId: ctx.user.id },
+        orderBy: { checkedAt: "desc" },
+      });
 
-    let dayIndex = 1;
-    if (lastCheckin) {
-      const wasYesterday =
-        lastCheckin.checkedAt >= yesterdayStart() &&
-        lastCheckin.checkedAt < todayStart();
-      if (wasYesterday) dayIndex = Math.min(4, lastCheckin.dayIndex + 1);
-    }
+      let dayIndex = 1;
+      if (lastCheckin) {
+        const wasYesterday =
+          lastCheckin.checkedAt >= yesterdayStart() &&
+          lastCheckin.checkedAt < todayStart();
+        if (wasYesterday) dayIndex = Math.min(4, lastCheckin.dayIndex + 1);
+      }
 
-    const reward = checkinReward(dayIndex);
+      const reward = checkinReward(dayIndex);
 
-    await ctx.prisma.$transaction([
-      ctx.prisma.checkin.create({
+      await tx.checkin.create({
         data: { userId: ctx.user.id, dayIndex, reward },
-      }),
-      ctx.prisma.user.update({
+      });
+
+      const user = await tx.user.update({
         where: { id: ctx.user.id },
         data: {
           points: { increment: reward },
@@ -101,44 +103,45 @@ export const pointsRouter = createTRPCRouter({
             ),
           },
         },
-      }),
-    ]);
+      });
 
-    return { dayIndex, reward };
+      return { dayIndex, reward, points: user.points };
+    });
   }),
 
   completeTask: protectedProcedure
     .input(z.object({ taskId: z.string(), reward: z.number().int().min(0) }))
     .mutation(async ({ ctx, input }) => {
-      const existing = await ctx.prisma.taskCompletion.findFirst({
-        where: {
-          userId: ctx.user.id,
-          taskId: input.taskId,
-          doneAt: { gte: todayStart() },
-        },
-      });
-
-      if (existing) {
-        throw new TRPCError({
-          code: "BAD_REQUEST",
-          message: "今日已完成该任务",
+      return ctx.prisma.$transaction(async (tx) => {
+        const existing = await tx.taskCompletion.findFirst({
+          where: {
+            userId: ctx.user.id,
+            taskId: input.taskId,
+            doneAt: { gte: todayStart() },
+          },
         });
-      }
 
-      await ctx.prisma.$transaction([
-        ctx.prisma.taskCompletion.create({
+        if (existing) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "今日已完成该任务",
+          });
+        }
+
+        await tx.taskCompletion.create({
           data: {
             userId: ctx.user.id,
             taskId: input.taskId,
             reward: input.reward,
           },
-        }),
-        ctx.prisma.user.update({
+        });
+
+        await tx.user.update({
           where: { id: ctx.user.id },
           data: { points: { increment: input.reward } },
-        }),
-      ]);
+        });
 
-      return { taskId: input.taskId, reward: input.reward };
+        return { taskId: input.taskId, reward: input.reward };
+      });
     }),
 });

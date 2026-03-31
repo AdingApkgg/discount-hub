@@ -14,8 +14,22 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "折扣中心 - 诱惑优惠，先到先得",
-  description: "团购优惠券虚拟物品购物核销平台",
+  title: {
+    default: "Discount Hub — 优惠券交易平台",
+    template: "%s | Discount Hub",
+  },
+  description: "C2B2C 虚拟优惠券交易平台，积分+现金兑换，商家扫码核销",
+  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"),
+  openGraph: {
+    title: "Discount Hub — 优惠券交易平台",
+    description: "积分+现金超值兑换优惠券，商家扫码即核销",
+    siteName: "Discount Hub",
+    type: "website",
+    locale: "zh_CN",
+  },
+  icons: {
+    icon: "/favicon.svg",
+  },
 };
 
 export default function RootLayout({

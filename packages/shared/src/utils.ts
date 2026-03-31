@@ -55,8 +55,11 @@ const APP_LINKS: Record<string, AppLink> = {
   抖音: { scheme: 'snssdk1128://', web: 'https://www.douyin.com/' },
   支付宝: { scheme: 'alipays://', web: 'https://www.alipay.com/' },
   微信支付: { scheme: 'weixin://', web: 'https://weixin.qq.com/' },
+  银联: { web: 'https://www.unionpayintl.com/' },
   银联卡: { web: 'https://www.unionpayintl.com/' },
   PayPal: { scheme: 'paypal://', web: 'https://www.paypal.com/' },
+  VISA: { web: 'https://www.visa.com/' },
+  'USDT TRC20': { web: 'https://tronscan.org/' },
   加密货币: { web: 'https://ethereum.org/' },
 };
 
