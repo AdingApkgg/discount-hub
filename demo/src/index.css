@@ -1,0 +1,40 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg: #0b0b10;
+  --panel: #12121a;
+  --panel2: #161625;
+  --text: #f5f5f7;
+  --text-muted: #b6b6c2;
+  --border: rgba(255, 255, 255, 0.12);
+  --primary: #ff2d55;
+  --primary-hover: #ff4d6d;
+  --accent: #8a2be2;
+  --accent-hover: #9b4dff;
+  --gradient-primary: linear-gradient(135deg, #ff2d55 0%, #8a2be2 100%);
+  --shadow-glow: 0 0 24px rgba(255, 45, 85, 0.2), 0 0 32px rgba(138, 43, 226, 0.18);
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+}
+
+::selection {
+  background: rgba(255, 45, 85, 0.28);
+}
+
+.text-gradient {
+  background: var(--gradient-primary);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}

@@ -1,0 +1,50 @@
+---
+description: 项目技术栈版本约束 — 防止 AI 写出过时 API
+globs: **/*.{ts,tsx}
+alwaysApply: true
+---
+
+# 技术栈版本约束
+
+本项目使用的包版本（2026-03）：
+
+## 绝对禁止的过时写法
+
+### Prisma 7
+- ❌ 不要在 `schema.prisma` 的 `datasource` 里写 `url = env("DATABASE_URL")`
+- ✅ 必须用 `prisma.config.ts` 的 `datasource.url` 传入连接字符串
+- ✅ `generator client` 的 `output` 指向 `../src/generated/prisma`
+- 参考: https://pris.ly/d/config-datasource
+
+### tRPC v11
+- ❌ 不要用 `createTRPCReact`（已废弃，那是 v10 的 `@trpc/react-query`）
+- ❌ 不要从 `@trpc/tanstack-react-query` 导入 `httpBatchLink`
+- ✅ 从 `@trpc/tanstack-react-query` 导入 `createTRPCContext`，返回 `{ TRPCProvider, useTRPC }`
+- ✅ 从 `@trpc/client` 导入 `createTRPCClient` 和 `httpBatchLink`
+- ✅ 客户端组件用 `useTRPC()` + `useQuery(trpc.xxx.queryOptions())` 而非 `trpc.xxx.useQuery()`
+- ✅ 服务端组件用 `createTRPCOptionsProxy` 从 `@trpc/tanstack-react-query`
+- 参考: https://trpc.io/docs/client/nextjs/app-router-setup
+
+### Next.js 16
+- ✅ 只用 App Router（`app/` 目录）
+- ❌ 不要用 Pages Router（`pages/` 目录）
+- ✅ `params` 在动态路由中是 `Promise`，需要 `use(params)` 或 `await params`
+
+### React 19
+- ✅ 使用 `use()` hook 解包 Promise
+
+### Zod 4
+- ✅ zod v4 API（`z.object`, `z.string` 等基本不变）
+
+### Tailwind CSS 4
+- ✅ 使用 `@import "tailwindcss"` 而非 `@tailwind base/components/utilities`
+- ✅ 使用 `@theme inline {}` 而非 `tailwind.config.js`
+
+### TypeScript 6
+- ✅ `moduleResolution: "bundler"`
+
+## 防错原则
+
+1. 写任何包的代码前，如不确定 API，先用 Context7 MCP 查最新文档
+2. 遇到导入报错，先检查包的实际导出（`node -e "console.log(Object.keys(require('pkg')))""`）
+3. 不要凭记忆猜 API，版本差异可能导致完全不同的接口

@@ -1,0 +1,221 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─── Auth (better-auth) ─────────────────────────────
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  emailVerified Boolean   @default(false)
+  name          String?
+  phone         String?
+  image         String?
+  role          Role      @default(CONSUMER)
+  points        Int       @default(0)
+  vipLevel      Int       @default(0)
+  inviteCode    String?   @unique
+  invitedById   String?
+  invitedBy     User?     @relation("Referral", fields: [invitedById], references: [id])
+  referrals     User[]    @relation("Referral")
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  sessions       Session[]
+  accounts       Account[]
+  orders         Order[]
+  coupons        Coupon[]
+  checkins       Checkin[]
+  taskCompletions TaskCompletion[]
+  verifications  VerificationRecord[] @relation("VerifiedBy")
+
+  @@map("users")
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model Account {
+  id                    String    @id @default(cuid())
+  userId                String
+  accountId             String
+  providerId            String
+  accessToken           String?
+  refreshToken          String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("accounts")
+}
+
+model Verification {
+  id         String   @id @default(cuid())
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@map("verifications")
+}
+
+enum Role {
+  CONSUMER
+  MERCHANT
+  ADMIN
+}
+
+// ─── Products / Scrolls ─────────────────────────────
+
+model Product {
+  id                String   @id @default(cuid())
+  app               String
+  title             String
+  subtitle          String   @default("")
+  description       String   @default("")
+  pointsPrice       Int      @default(0)
+  cashPrice         Decimal  @default(0) @db.Decimal(10, 2)
+  originalCashPrice Decimal? @db.Decimal(10, 2)
+  stock             Int      @default(0)
+  expiresAt         DateTime
+  tags              String[] @default([])
+  status            ProductStatus @default(ACTIVE)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  orders  Order[]
+  coupons Coupon[]
+
+  @@map("products")
+}
+
+enum ProductStatus {
+  ACTIVE
+  SOLD_OUT
+  EXPIRED
+  DRAFT
+}
+
+// ─── Orders ─────────────────────────────────────────
+
+model Order {
+  id          String      @id @default(cuid())
+  userId      String
+  productId   String
+  qty         Int         @default(1)
+  cashPaid    Decimal     @db.Decimal(10, 2)
+  pointsPaid  Int         @default(0)
+  payMethod   String
+  status      OrderStatus @default(PENDING)
+  paidAt      DateTime?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  user    User    @relation(fields: [userId], references: [id])
+  product Product @relation(fields: [productId], references: [id])
+  coupon  Coupon?
+
+  @@map("orders")
+}
+
+enum OrderStatus {
+  PENDING
+  PAID
+  CANCELLED
+  REFUNDED
+}
+
+// ─── Coupons ────────────────────────────────────────
+
+model Coupon {
+  id         String       @id @default(cuid())
+  code       String       @unique
+  userId     String
+  productId  String
+  orderId    String       @unique
+  status     CouponStatus @default(ACTIVE)
+  expiresAt  DateTime
+  usedAt     DateTime?
+  createdAt  DateTime     @default(now())
+
+  user    User    @relation(fields: [userId], references: [id])
+  product Product @relation(fields: [productId], references: [id])
+  order   Order   @relation(fields: [orderId], references: [id])
+  verificationRecords VerificationRecord[]
+
+  @@map("coupons")
+}
+
+enum CouponStatus {
+  ACTIVE
+  USED
+  EXPIRED
+}
+
+// ─── Verification / 核销 ────────────────────────────
+
+model VerificationRecord {
+  id         String   @id @default(cuid())
+  couponId   String
+  verifiedBy String
+  notes      String   @default("")
+  verifiedAt DateTime @default(now())
+
+  coupon   Coupon @relation(fields: [couponId], references: [id])
+  verifier User   @relation("VerifiedBy", fields: [verifiedBy], references: [id])
+
+  @@map("verification_records")
+}
+
+// ─── Checkin / 签到 ─────────────────────────────────
+
+model Checkin {
+  id        String   @id @default(cuid())
+  userId    String
+  dayIndex  Int
+  reward    Int
+  checkedAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@unique([userId, checkedAt])
+  @@map("checkins")
+}
+
+// ─── Task Completion / 任务 ─────────────────────────
+
+model TaskCompletion {
+  id        String   @id @default(cuid())
+  userId    String
+  taskId    String
+  reward    Int      @default(0)
+  doneAt    DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@unique([userId, taskId, doneAt])
+  @@map("task_completions")
+}
