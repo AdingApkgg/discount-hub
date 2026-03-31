@@ -23,10 +23,10 @@ export default function Countdown({
   const s = Math.floor((diff % 60000) / 1000);
   const chipClassName =
     variant === "light"
-      ? "border border-slate-200 bg-white text-slate-900 shadow-sm"
+      ? "border border-[var(--app-card-border)] bg-[var(--app-card)] text-[var(--app-heading)] shadow-sm"
       : "border border-white/10 bg-white/10 text-[var(--text)]";
   const separatorClassName =
-    variant === "light" ? "text-slate-400" : "text-[var(--text-muted)]";
+    variant === "light" ? "text-[var(--app-text-muted)]" : "text-[var(--text-muted)]";
 
   const pad = (n: number) => String(n).padStart(2, "0");
 

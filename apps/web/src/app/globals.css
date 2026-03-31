@@ -4,12 +4,13 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
-  --bg: #0b0b10;
-  --panel: #12121a;
-  --panel2: #161625;
-  --text: #f5f5f7;
-  --text-muted: #b6b6c2;
-  --border: rgba(255, 255, 255, 0.12);
+  color-scheme: light;
+  --bg: #eef1f5;
+  --panel: #ffffff;
+  --panel2: #f8fafc;
+  --text: #0f172a;
+  --text-muted: #64748b;
+  --border: rgba(15, 23, 42, 0.08);
   --primary: #ff2d55;
   --primary-hover: #ff4d6d;
   --accent: #8a2be2;
@@ -18,40 +19,124 @@
   --shadow-glow: 0 0 24px rgba(255, 45, 85, 0.2),
     0 0 32px rgba(138, 43, 226, 0.18);
 
-  /* shadcn tokens (dark-first since our app is always dark) */
   --radius: 0.75rem;
-  --background: 240 20% 4%;
-  --foreground: 240 10% 96%;
-  --card: 240 15% 7%;
-  --card-foreground: 240 10% 96%;
-  --popover: 240 15% 7%;
-  --popover-foreground: 240 10% 96%;
+  --background: 210 33% 98%;
+  --foreground: 222 47% 11%;
+  --card: 0 0% 100%;
+  --card-foreground: 222 47% 11%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 222 47% 11%;
   --primary-hsl: 346 100% 59%;
   --primary-foreground: 0 0% 100%;
-  --secondary: 240 10% 12%;
-  --secondary-foreground: 240 10% 96%;
-  --muted: 240 10% 14%;
-  --muted-foreground: 240 10% 72%;
-  --accent-hsl: 271 74% 53%;
-  --accent-foreground: 0 0% 100%;
+  --secondary: 210 20% 96%;
+  --secondary-foreground: 222 47% 11%;
+  --muted: 210 20% 96%;
+  --muted-foreground: 215 16% 47%;
+  --accent-hsl: 210 40% 96%;
+  --accent-foreground: 222 47% 11%;
   --destructive: 0 84% 60%;
   --destructive-foreground: 0 0% 100%;
-  --border-hsl: 240 10% 15%;
-  --input: 240 10% 15%;
+  --border-hsl: 214 20% 88%;
+  --input: 214 20% 91%;
   --ring: 346 100% 59%;
   --chart-1: 346 100% 59%;
   --chart-2: 271 74% 53%;
   --chart-3: 160 60% 45%;
   --chart-4: 210 70% 55%;
   --chart-5: 40 90% 55%;
-  --sidebar: 240 15% 6%;
-  --sidebar-foreground: 240 10% 96%;
+  --sidebar: 210 20% 98%;
+  --sidebar-foreground: 222 47% 11%;
   --sidebar-primary: 346 100% 59%;
   --sidebar-primary-foreground: 0 0% 100%;
+  --sidebar-accent: 210 20% 96%;
+  --sidebar-accent-foreground: 222 47% 11%;
+  --sidebar-border: 214 20% 88%;
+  --sidebar-ring: 346 100% 59%;
+
+  --app-shell-bg: #ececec;
+  --app-shell-surface: #f7f7f7;
+  --app-card: #ffffff;
+  --app-card-border: rgba(148, 163, 184, 0.28);
+  --app-card-shadow: 0 12px 36px rgba(15, 23, 42, 0.06);
+  --app-frame-shadow: 0 20px 60px rgba(15, 23, 42, 0.08);
+  --app-soft: #f8fafc;
+  --app-soft-strong: #f1f5f9;
+  --app-heading: #0f172a;
+  --app-strong: #334155;
+  --app-text-muted: #64748b;
+  --app-nav-bg: rgba(255, 255, 255, 0.95);
+  --app-nav-active-bg: #0f172a;
+  --app-nav-active-text: #ffffff;
+  --app-nav-text: #64748b;
+  --app-nav-hover: #f1f5f9;
+  --app-hero-bg: #111827;
+  --app-hero-border: #111827;
+  --app-hero-shadow: 0 18px 50px rgba(15, 23, 42, 0.22);
+  --app-hero-cta-bg: #ffffff;
+  --app-hero-cta-text: #0f172a;
+  --app-hero-cta-hover: #f3f4f6;
+  --app-danger-bg: #ffffff;
+  --app-danger-border: rgba(248, 113, 113, 0.35);
+  --app-danger-text: #ef4444;
+  --app-danger-hover: rgba(239, 68, 68, 0.06);
+  --app-input-bg: #f8fafc;
+}
+
+.dark {
+  color-scheme: dark;
+  --bg: #0b0b10;
+  --panel: #12121a;
+  --panel2: #161625;
+  --text: #f5f5f7;
+  --text-muted: #b6b6c2;
+  --border: rgba(255, 255, 255, 0.12);
+  --background: 240 20% 4%;
+  --foreground: 240 10% 96%;
+  --card: 240 15% 7%;
+  --card-foreground: 240 10% 96%;
+  --popover: 240 15% 7%;
+  --popover-foreground: 240 10% 96%;
+  --secondary: 240 10% 12%;
+  --secondary-foreground: 240 10% 96%;
+  --muted: 240 10% 14%;
+  --muted-foreground: 240 10% 72%;
+  --accent-hsl: 271 74% 53%;
+  --accent-foreground: 0 0% 100%;
+  --border-hsl: 240 10% 15%;
+  --input: 240 10% 15%;
+  --sidebar: 240 15% 6%;
+  --sidebar-foreground: 240 10% 96%;
   --sidebar-accent: 240 10% 12%;
   --sidebar-accent-foreground: 240 10% 96%;
   --sidebar-border: 240 10% 15%;
-  --sidebar-ring: 346 100% 59%;
+
+  --app-shell-bg: #09090b;
+  --app-shell-surface: #101114;
+  --app-card: #17181d;
+  --app-card-border: rgba(255, 255, 255, 0.08);
+  --app-card-shadow: 0 18px 50px rgba(0, 0, 0, 0.24);
+  --app-frame-shadow: 0 28px 80px rgba(0, 0, 0, 0.36);
+  --app-soft: #1f2128;
+  --app-soft-strong: #272a34;
+  --app-heading: #f8fafc;
+  --app-strong: #d7dee9;
+  --app-text-muted: #9aa4b2;
+  --app-nav-bg: rgba(23, 24, 29, 0.92);
+  --app-nav-active-bg: #f8fafc;
+  --app-nav-active-text: #0f172a;
+  --app-nav-text: #9aa4b2;
+  --app-nav-hover: rgba(255, 255, 255, 0.06);
+  --app-hero-bg: #0f172a;
+  --app-hero-border: rgba(255, 255, 255, 0.08);
+  --app-hero-shadow: 0 18px 50px rgba(0, 0, 0, 0.42);
+  --app-hero-cta-bg: #ffffff;
+  --app-hero-cta-text: #0f172a;
+  --app-hero-cta-hover: #e2e8f0;
+  --app-danger-bg: #17181d;
+  --app-danger-border: rgba(248, 113, 113, 0.25);
+  --app-danger-text: #fca5a5;
+  --app-danger-hover: rgba(248, 113, 113, 0.08);
+  --app-input-bg: #1f2128;
 }
 
 @theme inline {
@@ -92,6 +177,41 @@ body,
 body {
   background: var(--bg);
   color: var(--text);
+}
+
+.dark .consumer-theme .text-slate-900 {
+  color: var(--app-heading) !important;
+}
+
+.dark .consumer-theme .text-slate-800,
+.dark .consumer-theme .text-slate-700 {
+  color: var(--app-strong) !important;
+}
+
+.dark .consumer-theme .text-slate-600,
+.dark .consumer-theme .text-slate-500,
+.dark .consumer-theme .text-slate-400 {
+  color: var(--app-text-muted) !important;
+}
+
+.dark .consumer-theme .bg-slate-50 {
+  background-color: var(--app-soft) !important;
+}
+
+.dark .consumer-theme .bg-slate-100 {
+  background-color: var(--app-soft-strong) !important;
+}
+
+.dark .consumer-theme .border-slate-200 {
+  border-color: var(--app-card-border) !important;
+}
+
+.dark .consumer-theme .hover\:bg-slate-50:hover {
+  background-color: var(--app-soft) !important;
+}
+
+.dark .consumer-theme .hover\:bg-slate-100:hover {
+  background-color: var(--app-soft-strong) !important;
 }
 
 ::selection {

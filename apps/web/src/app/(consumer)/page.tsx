@@ -26,7 +26,7 @@ type ProductItem = RouterOutputs["product"]["list"][number];
 type UserProfile = RouterOutputs["user"]["me"];
 
 const surfaceClassName =
-  "gap-0 rounded-[28px] border border-slate-200 bg-white py-0 shadow-[0_12px_36px_rgba(15,23,42,0.06)]";
+  "gap-0 rounded-[28px] border border-[var(--app-card-border)] bg-[var(--app-card)] py-0 shadow-[var(--app-card-shadow)]";
 
 function cashNum(v: number | { toNumber(): number }): number {
   return typeof v === "number" ? v : v.toNumber();
@@ -47,7 +47,7 @@ function SectionHeading({
   action?: React.ReactNode;
 }) {
   return (
-    <div className="flex items-end justify-between gap-3">
+    <div className="flex items-start justify-between gap-3 md:items-end">
       <div className="min-w-0">
         <h2 className="text-lg font-semibold text-slate-900">{title}</h2>
         {subtitle ? (
@@ -74,7 +74,7 @@ function QuickAction({
     <button
       type="button"
       onClick={onClick}
-      className="rounded-[24px] border border-slate-200 bg-white p-4 text-left shadow-[0_10px_30px_rgba(15,23,42,0.05)] transition hover:-translate-y-0.5 hover:shadow-[0_16px_36px_rgba(15,23,42,0.08)]"
+      className="rounded-[24px] border border-[var(--app-card-border)] bg-[var(--app-card)] p-4 text-left shadow-[0_10px_30px_rgba(15,23,42,0.05)] transition hover:-translate-y-0.5 hover:bg-[var(--app-soft)] hover:shadow-[0_16px_36px_rgba(15,23,42,0.08)]"
     >
       <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-slate-100">
         <Icon className="h-5 w-5 text-slate-700" />
@@ -96,17 +96,17 @@ function ProductCard({
 
   return (
     <Card
-      className={`${surfaceClassName} w-[250px] shrink-0 overflow-hidden`}
+      className={`${surfaceClassName} w-[250px] shrink-0 overflow-hidden md:w-auto md:shrink`}
       onClick={onClick}
     >
       <div className="relative h-28 overflow-hidden bg-[linear-gradient(135deg,#111827_0%,#1f2937_55%,#374151_100%)]">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.18),transparent_48%),radial-gradient(circle_at_bottom_right,rgba(255,255,255,0.1),transparent_42%)]" />
         <div className="absolute inset-x-0 bottom-0 flex items-end justify-between p-4">
-          <div>
+          <div className="min-w-0">
             <Badge className="bg-white/12 text-white hover:bg-white/12">
               {item.app}
             </Badge>
-            <div className="mt-3 text-lg font-semibold text-white">
+            <div className="mt-3 truncate text-lg font-semibold text-white">
               {item.title}
             </div>
           </div>
@@ -135,6 +135,47 @@ function ProductCard({
         </div>
       </CardContent>
     </Card>
+  );
+}
+
+function ProductSection({
+  title,
+  subtitle,
+  action,
+  items,
+  isLoading,
+  emptyText,
+  onOpen,
+}: {
+  title: string;
+  subtitle: string;
+  action?: React.ReactNode;
+  items: ProductItem[];
+  isLoading: boolean;
+  emptyText: string;
+  onOpen: (id: string) => void;
+}) {
+  return (
+    <section className="space-y-3">
+      <SectionHeading title={title} subtitle={subtitle} action={action} />
+      {isLoading ? (
+        <div className="flex justify-center py-10">
+          <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
+        </div>
+      ) : items.length === 0 ? (
+        <Card className={surfaceClassName}>
+          <CardContent className="p-6 text-center text-sm text-slate-500">
+            {emptyText}
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="-mx-1 flex gap-3 overflow-x-auto px-1 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden md:mx-0 md:grid md:grid-cols-2 md:overflow-visible md:px-0 lg:grid-cols-3 2xl:grid-cols-4">
+          {items.map((item) => (
+            <ProductCard key={item.id} item={item} onClick={() => onOpen(item.id)} />
+          ))}
+        </div>
+      )}
+    </section>
   );
 }
 
@@ -179,13 +220,13 @@ export default function HomePage() {
   const openScroll = (id: string) => router.push(`/scroll/${id}`);
 
   return (
-    <div className="space-y-4 px-4 py-4">
-      <section className="flex items-center justify-between gap-3">
+    <div className="space-y-4 px-4 py-4 md:space-y-6 md:px-8 md:py-8">
+      <section className="flex items-center justify-between gap-4">
         <div>
           <div className="text-[11px] font-medium uppercase tracking-[0.28em] text-slate-400">
             Discount Hub
           </div>
-          <h1 className="mt-2 text-[28px] font-semibold tracking-tight text-slate-900">
+          <h1 className="mt-2 text-[28px] font-semibold tracking-tight text-slate-900 md:text-[34px]">
             今日精选
           </h1>
         </div>
@@ -193,274 +234,223 @@ export default function HomePage() {
           variant="outline"
           size="sm"
           onClick={() => router.push("/member")}
-          className="rounded-full border-slate-200 bg-white px-4 text-slate-700 shadow-sm hover:bg-slate-50"
+          className="rounded-full border-[var(--app-card-border)] bg-[var(--app-card)] px-4 text-[var(--app-strong)] shadow-sm hover:bg-[var(--app-soft)]"
         >
           {getVipLabel(profile)}
         </Button>
       </section>
 
-      <Card className="overflow-hidden rounded-[30px] border border-slate-900 bg-[#111827] py-0 text-white shadow-[0_18px_50px_rgba(15,23,42,0.22)]">
-        <CardContent className="relative p-5">
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.16),transparent_40%),radial-gradient(circle_at_bottom_right,rgba(255,45,85,0.28),transparent_40%)]" />
-          <div className="relative">
-            <div className="flex items-center justify-between gap-3">
-              <Badge className="border-none bg-white/12 text-white hover:bg-white/12">
-                本周主推
-              </Badge>
-              <div className="text-xs text-white/60">
-                {bannerIndex + 1}/{banners.length}
-              </div>
-            </div>
-
-            <div className="mt-5 max-w-[16rem] text-[28px] font-semibold leading-tight">
-              {currentBanner.title}
-            </div>
-            <p className="mt-3 max-w-[17rem] text-sm leading-6 text-white/72">
-              {currentBanner.subtitle}
-            </p>
-
-            <div className="mt-5 flex items-center gap-3">
-              <Button
-                onClick={() => openScroll(currentBanner.scrollId)}
-                className="rounded-full bg-white px-5 text-slate-900 hover:bg-white/90"
-              >
-                {currentBanner.cta}
-              </Button>
-              <Button
-                variant="outline"
-                onClick={() => router.push("/member")}
-                className="rounded-full border-white/15 bg-white/10 px-5 text-white hover:bg-white/16 hover:text-white"
-              >
-                会员中心
-              </Button>
-            </div>
-
-            <div className="mt-6 grid grid-cols-3 gap-3">
-              <div className="rounded-2xl bg-white/10 p-3 backdrop-blur">
-                <div className="text-[11px] text-white/60">会员等级</div>
-                <div className="mt-2 text-base font-semibold">
-                  {getVipLabel(profile)}
+      <section className="grid gap-4 xl:grid-cols-[minmax(0,1.45fr)_minmax(340px,0.95fr)]">
+        <Card className="overflow-hidden rounded-[30px] border border-[var(--app-hero-border)] bg-[var(--app-hero-bg)] py-0 text-white shadow-[var(--app-hero-shadow)]">
+          <CardContent className="relative p-5 md:p-7">
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.16),transparent_40%),radial-gradient(circle_at_bottom_right,rgba(255,45,85,0.28),transparent_40%)]" />
+            <div className="relative">
+              <div className="flex items-center justify-between gap-3">
+                <Badge className="border-none bg-white/12 text-white hover:bg-white/12">
+                  本周主推
+                </Badge>
+                <div className="text-xs text-white/60">
+                  {bannerIndex + 1}/{banners.length}
                 </div>
               </div>
-              <div className="rounded-2xl bg-white/10 p-3 backdrop-blur">
-                <div className="text-[11px] text-white/60">可用积分</div>
-                <div className="mt-2 text-base font-semibold">
-                  {(profile?.points ?? 0).toLocaleString("zh-CN")}
-                </div>
+
+              <div className="mt-5 max-w-[18rem] text-[28px] font-semibold leading-tight md:max-w-[24rem] md:text-[38px]">
+                {currentBanner.title}
               </div>
-              <div className="rounded-2xl bg-white/10 p-3 backdrop-blur">
-                <div className="text-[11px] text-white/60">我的券包</div>
-                <div className="mt-2 text-base font-semibold">
-                  {profile?._count.coupons ?? 0} 张
-                </div>
+              <p className="mt-3 max-w-[22rem] text-sm leading-6 text-white/72 md:text-base">
+                {currentBanner.subtitle}
+              </p>
+
+              <div className="mt-5 flex flex-wrap items-center gap-3">
+                <Button
+                  onClick={() => openScroll(currentBanner.scrollId)}
+                  className="rounded-full bg-[var(--app-hero-cta-bg)] px-5 text-[var(--app-hero-cta-text)] hover:bg-[var(--app-hero-cta-hover)]"
+                >
+                  {currentBanner.cta}
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => router.push("/member")}
+                  className="rounded-full border-white/15 bg-white/10 px-5 text-white hover:bg-white/16 hover:text-white"
+                >
+                  会员中心
+                </Button>
               </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
 
-      <div className="rounded-[24px] border border-slate-200 bg-white px-4 py-3 shadow-[0_10px_30px_rgba(15,23,42,0.05)]">
-        <button
-          type="button"
-          onClick={() => router.push("/coupons")}
-          className="flex w-full items-center gap-3 text-left"
-        >
-          <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-slate-100">
-            <Search className="h-4 w-4 text-slate-600" />
-          </div>
-          <div className="min-w-0 flex-1">
-            <div className="text-sm font-medium text-slate-700">
-              搜索会员、券包、积分兑换权益
-            </div>
-            <div className="mt-1 text-xs text-slate-400">
-              推荐先查看限时神券和 0 元兑专区
-            </div>
-          </div>
-          <ChevronRight className="h-4 w-4 text-slate-400" />
-        </button>
-      </div>
-
-      <section className="grid grid-cols-2 gap-3">
-        <QuickAction
-          icon={Sparkles}
-          title="会员任务"
-          subtitle="签到、浏览、分享都能拿积分"
-          onClick={() => router.push("/member")}
-        />
-        <QuickAction
-          icon={Ticket}
-          title="我的券包"
-          subtitle="购买后的权益都在这里查看"
-          onClick={() => router.push("/coupons")}
-        />
-        <QuickAction
-          icon={Gift}
-          title="邀请有礼"
-          subtitle="复制邀请码，持续拉新赚奖励"
-          onClick={() => router.push("/profile")}
-        />
-        <QuickAction
-          icon={WalletCards}
-          title="账户资料"
-          subtitle="完善昵称与手机号，方便联系"
-          onClick={() => router.push("/profile")}
-        />
-      </section>
-
-      <section id="limited" className="space-y-3">
-        <SectionHeading
-          title="限时神券"
-          subtitle="今天的放量权益都集中在这里，倒计时结束后会自动下架。"
-          action={<Countdown targetAt={targetAt} variant="light" />}
-        />
-        {loadingLimited ? (
-          <div className="flex justify-center py-10">
-            <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
-          </div>
-        ) : limited.length === 0 ? (
-          <Card className={surfaceClassName}>
-            <CardContent className="p-6 text-center text-sm text-slate-500">
-              暂无限时商品
-            </CardContent>
-          </Card>
-        ) : (
-          <div className="-mx-1 flex gap-3 overflow-x-auto px-1 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-            {limited.map((item) => (
-              <ProductCard
-                key={item.id}
-                item={item}
-                onClick={() => openScroll(item.id)}
-              />
-            ))}
-          </div>
-        )}
-      </section>
-
-      <section id="today" className="space-y-3">
-        <SectionHeading
-          title="今日值得兑"
-          subtitle="今天最稳妥的三类组合，适合直接下单。"
-        />
-        {loadingToday ? (
-          <div className="flex justify-center py-10">
-            <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
-          </div>
-        ) : today.length === 0 ? (
-          <Card className={surfaceClassName}>
-            <CardContent className="p-6 text-center text-sm text-slate-500">
-              暂无推荐商品
-            </CardContent>
-          </Card>
-        ) : (
-          <div className="-mx-1 flex gap-3 overflow-x-auto px-1 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-            {today.map((item) => (
-              <ProductCard
-                key={item.id}
-                item={item}
-                onClick={() => openScroll(item.id)}
-              />
-            ))}
-          </div>
-        )}
-      </section>
-
-      <section id="zero" className="space-y-3">
-        <SectionHeading
-          title="0 元兑专区"
-          subtitle="只消耗积分，不额外花现金，适合先攒后换。"
-        />
-        {loadingZero ? (
-          <div className="flex justify-center py-10">
-            <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
-          </div>
-        ) : zero.length === 0 ? (
-          <Card className={surfaceClassName}>
-            <CardContent className="p-6 text-center text-sm text-slate-500">
-              暂无零元购商品
-            </CardContent>
-          </Card>
-        ) : (
-          <div className="-mx-1 flex gap-3 overflow-x-auto px-1 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-            {zero.map((item) => (
-              <ProductCard
-                key={item.id}
-                item={item}
-                onClick={() => openScroll(item.id)}
-              />
-            ))}
-          </div>
-        )}
-      </section>
-
-      <Card className={surfaceClassName}>
-        <CardContent className="p-5">
-          <SectionHeading
-            title="热门兑换榜"
-            subtitle="帮你快速看今天最热门的权益趋势。"
-            action={
-              <Badge
-                variant="outline"
-                className="border-slate-200 bg-slate-50 text-slate-600"
-              >
-                <TrendingUp className="mr-1 h-3.5 w-3.5" />
-                TOP 5
-              </Badge>
-            }
-          />
-          <div className="mt-5 space-y-3">
-            {hotRanking.map((item) => (
-              <div
-                key={item.rank}
-                className="flex items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white text-sm font-semibold text-slate-900 shadow-sm">
-                    {item.rank}
+              <div className="mt-6 grid grid-cols-3 gap-3 md:max-w-[34rem]">
+                <div className="rounded-2xl bg-white/10 p-3 backdrop-blur">
+                  <div className="text-[11px] text-white/60">会员等级</div>
+                  <div className="mt-2 text-base font-semibold">
+                    {getVipLabel(profile)}
                   </div>
-                  <div>
+                </div>
+                <div className="rounded-2xl bg-white/10 p-3 backdrop-blur">
+                  <div className="text-[11px] text-white/60">可用积分</div>
+                  <div className="mt-2 text-base font-semibold">
+                    {(profile?.points ?? 0).toLocaleString("zh-CN")}
+                  </div>
+                </div>
+                <div className="rounded-2xl bg-white/10 p-3 backdrop-blur">
+                  <div className="text-[11px] text-white/60">我的券包</div>
+                  <div className="mt-2 text-base font-semibold">
+                    {profile?._count.coupons ?? 0} 张
+                  </div>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <div className="space-y-4">
+          <div className="rounded-[24px] border border-[var(--app-card-border)] bg-[var(--app-card)] px-4 py-3 shadow-[0_10px_30px_rgba(15,23,42,0.05)]">
+            <button
+              type="button"
+              onClick={() => router.push("/coupons")}
+              className="flex w-full items-center gap-3 text-left"
+            >
+              <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-slate-100">
+                <Search className="h-4 w-4 text-slate-600" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="text-sm font-medium text-slate-700">
+                  搜索会员、券包、积分兑换权益
+                </div>
+                <div className="mt-1 text-xs text-slate-400">
+                  推荐先查看限时神券和 0 元兑专区
+                </div>
+              </div>
+              <ChevronRight className="h-4 w-4 text-slate-400" />
+            </button>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <QuickAction
+              icon={Sparkles}
+              title="会员任务"
+              subtitle="签到、浏览、分享都能拿积分"
+              onClick={() => router.push("/member")}
+            />
+            <QuickAction
+              icon={Ticket}
+              title="我的券包"
+              subtitle="购买后的权益都在这里查看"
+              onClick={() => router.push("/coupons")}
+            />
+            <QuickAction
+              icon={Gift}
+              title="邀请有礼"
+              subtitle="复制邀请码，持续拉新赚奖励"
+              onClick={() => router.push("/profile")}
+            />
+            <QuickAction
+              icon={WalletCards}
+              title="账户资料"
+              subtitle="完善昵称与手机号，方便联系"
+              onClick={() => router.push("/profile")}
+            />
+          </div>
+        </div>
+      </section>
+
+      <ProductSection
+        title="限时神券"
+        subtitle="今天的放量权益都集中在这里，倒计时结束后会自动下架。"
+        action={<Countdown targetAt={targetAt} variant="light" />}
+        items={limited}
+        isLoading={loadingLimited}
+        emptyText="暂无限时商品"
+        onOpen={openScroll}
+      />
+
+      <ProductSection
+        title="今日值得兑"
+        subtitle="今天最稳妥的三类组合，适合直接下单。"
+        items={today}
+        isLoading={loadingToday}
+        emptyText="暂无推荐商品"
+        onOpen={openScroll}
+      />
+
+      <ProductSection
+        title="0 元兑专区"
+        subtitle="只消耗积分，不额外花现金，适合先攒后换。"
+        items={zero}
+        isLoading={loadingZero}
+        emptyText="暂无零元购商品"
+        onOpen={openScroll}
+      />
+
+      <section className="grid gap-4 xl:grid-cols-[minmax(0,1.2fr)_360px]">
+        <Card className={surfaceClassName}>
+          <CardContent className="p-5 md:p-6">
+            <SectionHeading
+              title="福利攻略"
+              subtitle="把首页信息流做得更像线框稿里的运营内容位。"
+            />
+            <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-1">
+              {hotPosts.map((post) => (
+                <button
+                  key={post.id}
+                  type="button"
+                  className="flex w-full items-start justify-between gap-3 rounded-2xl border border-[var(--app-card-border)] bg-[var(--app-card)] px-4 py-4 text-left transition hover:bg-[var(--app-soft)]"
+                >
+                  <div className="min-w-0">
                     <div className="text-sm font-semibold text-slate-900">
-                      {item.name}
+                      {post.title}
                     </div>
-                    <div className="mt-1 text-xs text-slate-500">{item.hot}</div>
+                    <div className="mt-1 text-xs leading-5 text-slate-500">
+                      {post.excerpt}
+                    </div>
+                    <div className="mt-3 inline-flex rounded-full bg-slate-100 px-2.5 py-1 text-[11px] text-slate-600">
+                      {post.app}
+                    </div>
                   </div>
-                </div>
-                <ArrowRight className="h-4 w-4 text-slate-400" />
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
+                  <ArrowRight className="mt-1 h-4 w-4 shrink-0 text-slate-400" />
+                </button>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
 
-      <Card className={surfaceClassName}>
-        <CardContent className="p-5">
-          <SectionHeading
-            title="福利攻略"
-            subtitle="把首页信息流做得更像线框稿里的运营内容位。"
-          />
-          <div className="mt-5 space-y-3">
-            {hotPosts.map((post) => (
-              <button
-                key={post.id}
-                type="button"
-                className="flex w-full items-start justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-4 text-left transition hover:bg-slate-50"
-              >
-                <div className="min-w-0">
-                  <div className="text-sm font-semibold text-slate-900">
-                    {post.title}
+        <Card className={surfaceClassName}>
+          <CardContent className="p-5 md:p-6">
+            <SectionHeading
+              title="热门兑换榜"
+              subtitle="帮你快速看今天最热门的权益趋势。"
+              action={
+                <Badge
+                  variant="outline"
+                  className="border-[var(--app-card-border)] bg-[var(--app-soft)] text-[var(--app-text-muted)]"
+                >
+                  <TrendingUp className="mr-1 h-3.5 w-3.5" />
+                  TOP 5
+                </Badge>
+              }
+            />
+            <div className="mt-5 space-y-3">
+              {hotRanking.map((item) => (
+                <div
+                  key={item.rank}
+                  className="flex items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white text-sm font-semibold text-slate-900 shadow-sm">
+                      {item.rank}
+                    </div>
+                    <div>
+                      <div className="text-sm font-semibold text-slate-900">
+                        {item.name}
+                      </div>
+                      <div className="mt-1 text-xs text-slate-500">{item.hot}</div>
+                    </div>
                   </div>
-                  <div className="mt-1 text-xs leading-5 text-slate-500">
-                    {post.excerpt}
-                  </div>
-                  <div className="mt-3 inline-flex rounded-full bg-slate-100 px-2.5 py-1 text-[11px] text-slate-600">
-                    {post.app}
-                  </div>
+                  <ArrowRight className="h-4 w-4 text-slate-400" />
                 </div>
-                <ArrowRight className="mt-1 h-4 w-4 shrink-0 text-slate-400" />
-              </button>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      </section>
     </div>
   );
 }

@@ -10,7 +10,8 @@ export function Providers({ children }: { children: React.ReactNode }) {
     <TRPCReactProvider>
       <ThemeProvider
         attribute="class"
-        defaultTheme="dark"
+        defaultTheme="system"
+        enableSystem
         disableTransitionOnChange
       >
         <TooltipProvider>

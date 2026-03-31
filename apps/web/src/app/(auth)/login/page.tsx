@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Mail, Lock, Loader2, Sparkles, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,12 +13,15 @@ import { useUserStore } from "@/stores/user";
 
 export default function LoginPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const setDemoMode = useUserStore((s) => s.setDemoMode);
+  const callbackUrl = searchParams.get("callbackUrl");
+  const nextUrl = callbackUrl?.startsWith("/") ? callbackUrl : "/";
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -31,7 +34,7 @@ export default function LoginPage() {
           toast.error(res.error.message ?? "登录失败");
         } else {
           toast.success("登录成功");
-          router.push("/");
+          router.push(nextUrl);
         }
       } else {
         const res = await signUp.email({ email, password, name });
@@ -39,7 +42,7 @@ export default function LoginPage() {
           toast.error(res.error.message ?? "注册失败");
         } else {
           toast.success("注册成功");
-          router.push("/");
+          router.push(nextUrl);
         }
       }
     } finally {
@@ -55,7 +58,7 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen bg-[radial-gradient(circle_at_20%_20%,rgba(255,45,85,0.25),transparent_55%),radial-gradient(circle_at_80%_70%,rgba(138,43,226,0.25),transparent_55%)] flex items-center justify-center p-4">
       <div className="w-full max-w-md">
-        <Card className="border-white/10 bg-[var(--panel)] shadow-[0_30px_80px_rgba(0,0,0,0.6)]">
+        <Card className="border-[var(--border)] bg-[var(--panel)] shadow-[0_30px_80px_rgba(15,23,42,0.18)] dark:shadow-[0_30px_80px_rgba(0,0,0,0.6)]">
           <CardContent className="p-8">
             <div className="text-center mb-8">
               <div
@@ -81,7 +84,7 @@ export default function LoginPage() {
                     <Input
                       value={name}
                       onChange={(e) => setName(e.target.value)}
-                      className="pl-11 bg-white/5 border-white/10 text-[var(--text)]"
+                      className="border-[var(--border)] bg-[var(--app-input-bg)] pl-11 text-[var(--text)] placeholder:text-[var(--text-muted)]"
                       placeholder="你的名字"
                     />
                   </div>
@@ -96,7 +99,7 @@ export default function LoginPage() {
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    className="pl-11 bg-white/5 border-white/10 text-[var(--text)]"
+                    className="border-[var(--border)] bg-[var(--app-input-bg)] pl-11 text-[var(--text)] placeholder:text-[var(--text-muted)]"
                     placeholder="your@email.com"
                     required
                   />
@@ -111,7 +114,7 @@ export default function LoginPage() {
                     type="password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    className="pl-11 bg-white/5 border-white/10 text-[var(--text)]"
+                    className="border-[var(--border)] bg-[var(--app-input-bg)] pl-11 text-[var(--text)] placeholder:text-[var(--text-muted)]"
                     placeholder="••••••••"
                     required
                     minLength={6}
@@ -141,7 +144,7 @@ export default function LoginPage() {
                 type="button"
                 variant="outline"
                 onClick={enterDemo}
-                className="w-full border-white/10 bg-white/5 text-[var(--text)] hover:bg-white/10"
+                className="w-full border-[var(--border)] bg-[var(--panel2)] text-[var(--text)] hover:bg-[var(--app-input-bg)]"
               >
                 进入演示
               </Button>

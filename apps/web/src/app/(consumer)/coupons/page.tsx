@@ -19,7 +19,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 const surfaceClassName =
-  "gap-0 rounded-[28px] border border-slate-200 bg-white py-0 shadow-[0_12px_36px_rgba(15,23,42,0.06)]";
+  "gap-0 rounded-[28px] border border-[var(--app-card-border)] bg-[var(--app-card)] py-0 shadow-[var(--app-card-shadow)]";
 
 export default function CouponsPage() {
   const [tab, setTab] = useState("all");
@@ -65,7 +65,7 @@ export default function CouponsPage() {
         </div>
         <Badge
           variant="outline"
-          className="rounded-full border-slate-200 bg-white px-3 py-1 text-slate-600"
+          className="rounded-full border-[var(--app-card-border)] bg-[var(--app-card)] px-3 py-1 text-[var(--app-text-muted)]"
         >
           <Flame className="mr-1 h-3.5 w-3.5" />
           购买后自动入包
@@ -78,25 +78,25 @@ export default function CouponsPage() {
             <TabsList className="h-auto w-full rounded-[22px] bg-slate-100 p-1">
               <TabsTrigger
                 value="all"
-                className="rounded-[18px] data-[state=active]:bg-white data-[state=active]:text-slate-900"
+                className="rounded-[18px] data-[state=active]:bg-[var(--app-card)] data-[state=active]:text-[var(--app-heading)]"
               >
                 全部
               </TabsTrigger>
               <TabsTrigger
                 value="active"
-                className="rounded-[18px] data-[state=active]:bg-white data-[state=active]:text-slate-900"
+                className="rounded-[18px] data-[state=active]:bg-[var(--app-card)] data-[state=active]:text-[var(--app-heading)]"
               >
                 未使用
               </TabsTrigger>
               <TabsTrigger
                 value="used"
-                className="rounded-[18px] data-[state=active]:bg-white data-[state=active]:text-slate-900"
+                className="rounded-[18px] data-[state=active]:bg-[var(--app-card)] data-[state=active]:text-[var(--app-heading)]"
               >
                 已使用
               </TabsTrigger>
               <TabsTrigger
                 value="expired"
-                className="rounded-[18px] data-[state=active]:bg-white data-[state=active]:text-slate-900"
+                className="rounded-[18px] data-[state=active]:bg-[var(--app-card)] data-[state=active]:text-[var(--app-heading)]"
               >
                 已过期
               </TabsTrigger>

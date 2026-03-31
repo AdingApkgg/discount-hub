@@ -34,7 +34,7 @@ type UserProfile = RouterOutputs["user"]["me"];
 type ReferralRecord = RouterOutputs["user"]["referrals"][number];
 
 const surfaceClassName =
-  "gap-0 rounded-[28px] border border-slate-200 bg-white py-0 shadow-[0_12px_36px_rgba(15,23,42,0.06)]";
+  "gap-0 rounded-[28px] border border-[var(--app-card-border)] bg-[var(--app-card)] py-0 shadow-[var(--app-card-shadow)]";
 
 function SectionHeading({
   title,
@@ -46,7 +46,7 @@ function SectionHeading({
   action?: React.ReactNode;
 }) {
   return (
-    <div className="flex items-start justify-between gap-3">
+    <div className="flex items-start justify-between gap-3 md:items-center">
       <div className="min-w-0">
         <h2 className="text-lg font-semibold text-slate-900">{title}</h2>
         {subtitle ? (
@@ -142,13 +142,13 @@ export default function ProfilePage() {
   ];
 
   return (
-    <div className="space-y-4 px-4 py-4">
-      <section className="flex items-center justify-between gap-3">
+    <div className="space-y-4 px-4 py-4 md:space-y-6 md:px-8 md:py-8">
+      <section className="flex items-center justify-between gap-4">
         <div>
           <div className="text-[11px] font-medium uppercase tracking-[0.28em] text-slate-400">
             Profile
           </div>
-          <h1 className="mt-2 text-[28px] font-semibold tracking-tight text-slate-900">
+          <h1 className="mt-2 text-[28px] font-semibold tracking-tight text-slate-900 md:text-[34px]">
             我的
           </h1>
         </div>
@@ -156,271 +156,267 @@ export default function ProfilePage() {
           variant="outline"
           size="sm"
           onClick={handleCopyInvite}
-          className="rounded-full border-slate-200 bg-white px-4 text-slate-700 shadow-sm hover:bg-slate-50"
+          className="rounded-full border-[var(--app-card-border)] bg-[var(--app-card)] px-4 text-[var(--app-strong)] shadow-sm hover:bg-[var(--app-soft)]"
         >
           <Copy className="h-4 w-4" />
           复制邀请
         </Button>
       </section>
 
-      <Card className="overflow-hidden rounded-[30px] border border-slate-900 bg-[#111827] py-0 text-white shadow-[0_18px_50px_rgba(15,23,42,0.2)]">
-        <CardContent className="relative p-5">
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.16),transparent_38%),radial-gradient(circle_at_bottom_right,rgba(255,45,85,0.2),transparent_36%)]" />
-          <div className="relative flex items-start justify-between gap-4">
-            <div className="flex items-center gap-4">
-              <Avatar className="h-16 w-16 border border-white/15">
-                <AvatarFallback className="bg-white/10 text-xl text-white">
-                  {userName.slice(0, 1)}
-                </AvatarFallback>
-              </Avatar>
-              <div className="min-w-0">
-                <div className="text-2xl font-semibold text-white">{userName}</div>
-                <div className="mt-2 flex flex-wrap items-center gap-2 text-sm text-white/70">
-                  <span className="rounded-full bg-white/10 px-2.5 py-1 text-xs text-white">
-                    {vipLabel}
-                  </span>
-                  <span>{(profile?.points ?? 0).toLocaleString("zh-CN")} 积分</span>
+      <section className="grid gap-4 xl:grid-cols-[minmax(0,1.2fr)_320px]">
+        <Card className="overflow-hidden rounded-[30px] border border-[var(--app-hero-border)] bg-[var(--app-hero-bg)] py-0 text-white shadow-[var(--app-hero-shadow)]">
+          <CardContent className="relative p-5 md:p-7">
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.16),transparent_38%),radial-gradient(circle_at_bottom_right,rgba(255,45,85,0.2),transparent_36%)]" />
+            <div className="relative flex flex-col gap-5 md:flex-row md:items-start md:justify-between">
+              <div className="flex items-center gap-4">
+                <Avatar className="h-16 w-16 border border-white/15 md:h-20 md:w-20">
+                  <AvatarFallback className="bg-white/10 text-xl text-white md:text-2xl">
+                    {userName.slice(0, 1)}
+                  </AvatarFallback>
+                </Avatar>
+                <div className="min-w-0">
+                  <div className="text-2xl font-semibold text-white md:text-3xl">
+                    {userName}
+                  </div>
+                  <div className="mt-2 flex flex-wrap items-center gap-2 text-sm text-white/70">
+                    <span className="rounded-full bg-white/10 px-2.5 py-1 text-xs text-white">
+                      {vipLabel}
+                    </span>
+                    <span>{(profile?.points ?? 0).toLocaleString("zh-CN")} 积分</span>
+                  </div>
+                </div>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => router.push("/member")}
+                className="w-fit rounded-full border-white/15 bg-white/10 px-4 text-white hover:bg-white/15 hover:text-white"
+              >
+                去赚积分
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
+        <div className="grid grid-cols-3 gap-3 xl:grid-cols-1">
+          {[
+            { label: "累计邀请", value: profile?._count.referrals ?? 0 },
+            { label: "累计订单", value: profile?._count.orders ?? 0 },
+            { label: "我的券包", value: profile?._count.coupons ?? 0 },
+          ].map((item) => (
+            <Card key={item.label} className={surfaceClassName}>
+              <CardContent className="p-4">
+                <div className="text-xs text-slate-500">{item.label}</div>
+                <div className="mt-2 text-xl font-semibold text-slate-900 md:text-2xl">
+                  {item.value}
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </section>
+
+      <section className="grid gap-4 xl:grid-cols-[minmax(0,1.1fr)_minmax(360px,0.9fr)]">
+        <Card className={surfaceClassName}>
+          <CardContent className="p-5 md:p-6">
+            <SectionHeading
+              title="邀请好友"
+              subtitle="复制专属邀请码或注册链接，后续可以继续扩展拉新奖励。"
+              action={<Gift className="h-5 w-5 text-slate-400" />}
+            />
+
+            <div className="mt-5 grid gap-3 md:grid-cols-2">
+              <div className="rounded-[22px] border border-slate-200 bg-slate-50 p-4">
+                <div className="text-xs text-slate-500">邀请码</div>
+                <div className="mt-2 font-mono text-sm text-slate-900">{inviteCode}</div>
+              </div>
+              <div className="rounded-[22px] border border-slate-200 bg-slate-50 p-4">
+                <div className="text-xs text-slate-500">邀请链接</div>
+                <div className="mt-2 break-all font-mono text-xs leading-5 text-slate-700">
+                  {inviteLink || "当前环境暂不可生成链接"}
                 </div>
               </div>
             </div>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => router.push("/member")}
-              className="rounded-full border-white/15 bg-white/10 px-4 text-white hover:bg-white/15 hover:text-white"
-            >
-              去赚积分
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
 
-      <section className="grid grid-cols-3 gap-3">
-        <Card className={surfaceClassName}>
-          <CardContent className="p-4">
-            <div className="text-xs text-slate-500">累计邀请</div>
-            <div className="mt-2 text-xl font-semibold text-slate-900">
-              {profile?._count.referrals ?? 0}
+            <div className="mt-4 flex flex-wrap gap-2">
+              {inviteBenefits.map((benefit) => (
+                <Badge
+                  key={benefit}
+                  variant="outline"
+                  className="rounded-full border-slate-200 bg-white text-slate-600"
+                >
+                  {benefit}
+                </Badge>
+              ))}
+            </div>
+
+            <div className="mt-5 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+              <div className="text-xs leading-5 text-slate-500">
+                已邀请 {referrals.length} 位好友，注册链接可以直接复制使用。
+              </div>
+              <Button onClick={handleCopyInvite} className="w-full rounded-full px-4 md:w-auto">
+                立即邀请
+              </Button>
             </div>
           </CardContent>
         </Card>
+
         <Card className={surfaceClassName}>
-          <CardContent className="p-4">
-            <div className="text-xs text-slate-500">累计订单</div>
-            <div className="mt-2 text-xl font-semibold text-slate-900">
-              {profile?._count.orders ?? 0}
-            </div>
-          </CardContent>
-        </Card>
-        <Card className={surfaceClassName}>
-          <CardContent className="p-4">
-            <div className="text-xs text-slate-500">我的券包</div>
-            <div className="mt-2 text-xl font-semibold text-slate-900">
-              {profile?._count.coupons ?? 0}
+          <CardContent className="p-5 md:p-6">
+            <SectionHeading
+              title="邀请记录"
+              subtitle="当前展示注册成功的好友列表。"
+              action={<Users className="h-4 w-4 text-slate-400" />}
+            />
+
+            <div className="mt-5">
+              {referrals.length === 0 ? (
+                <div className="rounded-[22px] border border-dashed border-slate-200 bg-slate-50 p-8 text-center text-sm leading-6 text-slate-500">
+                  还没有邀请记录，复制邀请码后就可以开始拉新。
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {referrals.map((record) => (
+                    <div
+                      key={record.id}
+                      className="rounded-[22px] border border-slate-200 bg-slate-50 p-4"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <div className="text-sm font-semibold text-slate-900">
+                            {record.name ?? record.email}
+                          </div>
+                          <div className="mt-1 text-xs leading-5 text-slate-500">
+                            注册时间：{new Date(record.createdAt).toLocaleString("zh-CN")}
+                          </div>
+                        </div>
+                        <Badge
+                          variant="outline"
+                          className="rounded-full border-slate-200 bg-white text-slate-600"
+                        >
+                          已注册
+                        </Badge>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>
       </section>
 
-      <Card className={surfaceClassName}>
-        <CardContent className="p-5">
-          <SectionHeading
-            title="邀请好友"
-            subtitle="复制专属邀请码或注册链接，后续可以继续扩展拉新奖励。"
-            action={
-              <Gift className="h-5 w-5 text-slate-400" />
-            }
-          />
+      <section className="grid gap-4 xl:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]">
+        <Card className={surfaceClassName}>
+          <CardContent className="p-5 md:p-6">
+            <SectionHeading
+              title="资料编辑"
+              subtitle="完善昵称和手机号，方便商家或客服联系。"
+            />
 
-          <div className="mt-5 grid gap-3">
-            <div className="rounded-[22px] border border-slate-200 bg-slate-50 p-4">
-              <div className="text-xs text-slate-500">邀请码</div>
-              <div className="mt-2 font-mono text-sm text-slate-900">{inviteCode}</div>
-            </div>
-            <div className="rounded-[22px] border border-slate-200 bg-slate-50 p-4">
-              <div className="text-xs text-slate-500">邀请链接</div>
-              <div className="mt-2 break-all font-mono text-xs leading-5 text-slate-700">
-                {inviteLink || "当前环境暂不可生成链接"}
+            <div className="mt-5 grid gap-3">
+              <div className="space-y-2">
+                <div className="text-xs text-slate-500">昵称</div>
+                <Input
+                  value={draftName}
+                  onChange={(event) => {
+                    setHasDraft(true);
+                    setDraft((current) => ({ ...current, name: event.target.value }));
+                  }}
+                  placeholder="输入你的昵称"
+                  className="h-11 rounded-2xl border-slate-200 bg-slate-50 text-slate-900 placeholder:text-slate-400 shadow-none"
+                />
+              </div>
+              <div className="space-y-2">
+                <div className="text-xs text-slate-500">手机号</div>
+                <Input
+                  value={draftPhone}
+                  onChange={(event) => {
+                    setHasDraft(true);
+                    setDraft((current) => ({ ...current, phone: event.target.value }));
+                  }}
+                  placeholder="输入手机号"
+                  className="h-11 rounded-2xl border-slate-200 bg-slate-50 text-slate-900 placeholder:text-slate-400 shadow-none"
+                />
               </div>
             </div>
-          </div>
 
-          <div className="mt-4 flex flex-wrap gap-2">
-            {inviteBenefits.map((benefit) => (
-              <Badge
-                key={benefit}
-                variant="outline"
-                className="rounded-full border-slate-200 bg-white text-slate-600"
+            <div className="mt-5">
+              <Button
+                onClick={handleSaveProfile}
+                disabled={updateProfileMutation.isPending}
+                className="w-full rounded-2xl py-6"
               >
-                {benefit}
-              </Badge>
-            ))}
-          </div>
-
-          <div className="mt-5 flex items-center justify-between gap-3">
-            <div className="text-xs leading-5 text-slate-500">
-              已邀请 {referrals.length} 位好友，注册链接可以直接复制使用。
+                {updateProfileMutation.isPending ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Save className="h-4 w-4" />
+                )}
+                保存资料
+              </Button>
             </div>
-            <Button onClick={handleCopyInvite} className="rounded-full px-4">
-              立即邀请
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
 
-      <Card className={surfaceClassName}>
-        <CardContent className="p-5">
-          <SectionHeading
-            title="资料编辑"
-            subtitle="完善昵称和手机号，方便商家或客服联系。"
-          />
-
-          <div className="mt-5 grid gap-3">
-            <div className="space-y-2">
-              <div className="text-xs text-slate-500">昵称</div>
-              <Input
-                value={draftName}
-                onChange={(event) => {
-                  setHasDraft(true);
-                  setDraft((current) => ({ ...current, name: event.target.value }));
-                }}
-                placeholder="输入你的昵称"
-                className="h-11 rounded-2xl border-slate-200 bg-slate-50 text-slate-900 placeholder:text-slate-400 shadow-none"
-              />
-            </div>
-            <div className="space-y-2">
-              <div className="text-xs text-slate-500">手机号</div>
-              <Input
-                value={draftPhone}
-                onChange={(event) => {
-                  setHasDraft(true);
-                  setDraft((current) => ({ ...current, phone: event.target.value }));
-                }}
-                placeholder="输入手机号"
-                className="h-11 rounded-2xl border-slate-200 bg-slate-50 text-slate-900 placeholder:text-slate-400 shadow-none"
-              />
-            </div>
-          </div>
-
-          <div className="mt-5">
-            <Button
-              onClick={handleSaveProfile}
-              disabled={updateProfileMutation.isPending}
-              className="w-full rounded-2xl py-6"
-            >
-              {updateProfileMutation.isPending ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Save className="h-4 w-4" />
-              )}
-              保存资料
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card className={surfaceClassName}>
-        <CardContent className="p-5">
-          <SectionHeading
-            title="邀请记录"
-            subtitle="当前展示注册成功的好友列表。"
-            action={<Users className="h-4 w-4 text-slate-400" />}
-          />
-
-          <div className="mt-5">
-            {referrals.length === 0 ? (
-              <div className="rounded-[22px] border border-dashed border-slate-200 bg-slate-50 p-8 text-center text-sm leading-6 text-slate-500">
-                还没有邀请记录，复制邀请码后就可以开始拉新。
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {referrals.map((record) => (
-                  <div
-                    key={record.id}
-                    className="rounded-[22px] border border-slate-200 bg-slate-50 p-4"
-                  >
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <div className="text-sm font-semibold text-slate-900">
-                          {record.name ?? record.email}
-                        </div>
-                        <div className="mt-1 text-xs leading-5 text-slate-500">
-                          注册时间：{new Date(record.createdAt).toLocaleString("zh-CN")}
-                        </div>
-                      </div>
-                      <Badge
-                        variant="outline"
-                        className="rounded-full border-slate-200 bg-white text-slate-600"
-                      >
-                        已注册
-                      </Badge>
+        <div className="space-y-4">
+          <Card className={surfaceClassName}>
+            <CardContent className="p-5 md:p-6">
+              <SectionHeading title="账户信息" subtitle="当前登录账号绑定的信息。" />
+              <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-1">
+                <div className="flex items-start gap-3 rounded-[22px] border border-slate-200 bg-slate-50 p-4">
+                  <Mail className="mt-0.5 h-5 w-5 text-slate-400" />
+                  <div className="min-w-0">
+                    <div className="text-xs text-slate-500">邮箱</div>
+                    <div className="mt-1 text-sm text-slate-900">
+                      {profile?.email ?? "未设置"}
                     </div>
                   </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card className={surfaceClassName}>
-        <CardContent className="p-5">
-          <SectionHeading title="账户信息" subtitle="当前登录账号绑定的信息。" />
-          <div className="mt-5 grid gap-3">
-            <div className="flex items-start gap-3 rounded-[22px] border border-slate-200 bg-slate-50 p-4">
-              <Mail className="mt-0.5 h-5 w-5 text-slate-400" />
-              <div className="min-w-0">
-                <div className="text-xs text-slate-500">邮箱</div>
-                <div className="mt-1 text-sm text-slate-900">
-                  {profile?.email ?? "未设置"}
                 </div>
-              </div>
-            </div>
-            <div className="flex items-start gap-3 rounded-[22px] border border-slate-200 bg-slate-50 p-4">
-              <Phone className="mt-0.5 h-5 w-5 text-slate-400" />
-              <div className="min-w-0">
-                <div className="text-xs text-slate-500">手机号</div>
-                <div className="mt-1 text-sm text-slate-900">
-                  {profile?.phone || "未设置"}
-                </div>
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card className={surfaceClassName}>
-        {menuSections.map((section, sectionIndex) => (
-          <div key={sectionIndex}>
-            {sectionIndex > 0 ? (
-              <Separator className="bg-slate-200" />
-            ) : null}
-            {section.items.map((item) => {
-              const Icon = item.icon;
-              return (
-                <button
-                  key={item.label}
-                  type="button"
-                  className="flex w-full items-center gap-3 px-5 py-4 text-left transition hover:bg-slate-50"
-                >
-                  <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-slate-100">
-                    <Icon className="h-5 w-5 text-slate-600" />
+                <div className="flex items-start gap-3 rounded-[22px] border border-slate-200 bg-slate-50 p-4">
+                  <Phone className="mt-0.5 h-5 w-5 text-slate-400" />
+                  <div className="min-w-0">
+                    <div className="text-xs text-slate-500">手机号</div>
+                    <div className="mt-1 text-sm text-slate-900">
+                      {profile?.phone || "未设置"}
+                    </div>
                   </div>
-                  <span className="flex-1 text-sm font-medium text-slate-900">
-                    {item.label}
-                  </span>
-                  <ChevronRight className="h-4 w-4 text-slate-400" />
-                </button>
-              );
-            })}
-          </div>
-        ))}
-      </Card>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className={surfaceClassName}>
+            {menuSections.map((section, sectionIndex) => (
+              <div key={sectionIndex}>
+                {sectionIndex > 0 ? <Separator className="bg-slate-200" /> : null}
+                {section.items.map((item) => {
+                  const Icon = item.icon;
+                  return (
+                    <button
+                      key={item.label}
+                      type="button"
+                      className="flex w-full items-center gap-3 px-5 py-4 text-left transition hover:bg-slate-50"
+                    >
+                      <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-slate-100">
+                        <Icon className="h-5 w-5 text-slate-600" />
+                      </div>
+                      <span className="flex-1 text-sm font-medium text-slate-900">
+                        {item.label}
+                      </span>
+                      <ChevronRight className="h-4 w-4 text-slate-400" />
+                    </button>
+                  );
+                })}
+              </div>
+            ))}
+          </Card>
+        </div>
+      </section>
 
       <Button
         variant="outline"
         onClick={handleLogout}
-        className="w-full rounded-2xl border-red-200 bg-white py-6 text-red-500 hover:bg-red-50 hover:text-red-600"
+        className="w-full rounded-2xl border-[var(--app-danger-border)] bg-[var(--app-danger-bg)] py-6 text-[var(--app-danger-text)] hover:bg-[var(--app-danger-hover)] hover:text-[var(--app-danger-text)]"
       >
         <LogOut className="h-4 w-4" />
         退出登录
