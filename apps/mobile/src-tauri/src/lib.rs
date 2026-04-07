@@ -16,6 +16,9 @@ fn resolve_web_url() -> String {
     rewrite_dev_host(web_url)
 }
 
+/// When running on a physical device via `tauri dev`, localhost is unreachable.
+/// Tauri sets TAURI_DEV_HOST to the host machine's LAN IP so the device can
+/// reach the dev server.
 fn rewrite_dev_host(web_url: String) -> String {
     let Ok(dev_host) = std::env::var("TAURI_DEV_HOST") else {
         return web_url;
@@ -50,9 +53,18 @@ pub fn run() {
                     .expect("DISCOUNT_HUB_WEB_URL must be a valid absolute URL"),
             );
 
-            WebviewWindowBuilder::new(app, WINDOW_LABEL, window_url)
+            let mut builder = WebviewWindowBuilder::new(app, WINDOW_LABEL, window_url)
                 .title(WINDOW_TITLE)
-                .build()?;
+                .user_agent("DiscountHub/1.0");
+
+            #[cfg(not(mobile))]
+            {
+                builder = builder
+                    .inner_size(430.0, 900.0)
+                    .min_inner_size(375.0, 600.0);
+            }
+
+            builder.build()?;
 
             Ok(())
         })

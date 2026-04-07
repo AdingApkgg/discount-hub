@@ -117,7 +117,7 @@ export default function LoginPage() {
                     className="border-[var(--border)] bg-[var(--app-input-bg)] pl-11 text-[var(--text)] placeholder:text-[var(--text-muted)]"
                     placeholder="••••••••"
                     required
-                    minLength={6}
+                    minLength={8}
                   />
                 </div>
               </div>
