@@ -1,8 +1,19 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
-import { createTRPCRouter, protectedProcedure } from "../init";
+import { createTRPCRouter, protectedProcedure, sensitiveProcedure } from "../init";
 
 const CHECKIN_REWARDS = [200, 3000, 300, 500];
+
+/** Server-authoritative task reward map – clients may NOT specify reward values */
+const TASK_REWARDS: Record<string, number> = {
+  browse: 100,
+  purchase: 100,
+  share: 80,
+  c1: 30,
+  c2: 30,
+  c3: 40,
+  c4: 50,
+};
 
 function checkinReward(dayIndex: number) {
   return CHECKIN_REWARDS[
@@ -62,7 +73,7 @@ export const pointsRouter = createTRPCRouter({
     };
   }),
 
-  checkin: protectedProcedure.mutation(async ({ ctx }) => {
+  checkin: sensitiveProcedure.mutation(async ({ ctx }) => {
     return ctx.prisma.$transaction(async (tx) => {
       // Check inside transaction to prevent race conditions
       const existing = await tx.checkin.findFirst({
@@ -109,9 +120,17 @@ export const pointsRouter = createTRPCRouter({
     });
   }),
 
-  completeTask: protectedProcedure
-    .input(z.object({ taskId: z.string(), reward: z.number().int().min(0) }))
+  completeTask: sensitiveProcedure
+    .input(z.object({ taskId: z.string() }))
     .mutation(async ({ ctx, input }) => {
+      const reward = TASK_REWARDS[input.taskId];
+      if (reward === undefined) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: `未知任务: ${input.taskId}`,
+        });
+      }
+
       return ctx.prisma.$transaction(async (tx) => {
         const existing = await tx.taskCompletion.findFirst({
           where: {
@@ -132,16 +151,16 @@ export const pointsRouter = createTRPCRouter({
           data: {
             userId: ctx.user.id,
             taskId: input.taskId,
-            reward: input.reward,
+            reward,
           },
         });
 
         await tx.user.update({
           where: { id: ctx.user.id },
-          data: { points: { increment: input.reward } },
+          data: { points: { increment: reward } },
         });
 
-        return { taskId: input.taskId, reward: input.reward };
+        return { taskId: input.taskId, reward };
       });
     }),
 });

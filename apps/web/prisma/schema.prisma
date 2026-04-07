@@ -49,6 +49,7 @@ model Session {
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  @@index([userId])
   @@map("sessions")
 }
 
@@ -68,6 +69,7 @@ model Account {
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  @@index([userId])
   @@map("accounts")
 }
 
@@ -109,6 +111,8 @@ model Product {
   orders  Order[]
   coupons Coupon[]
 
+  @@index([status])
+  @@index([createdAt])
   @@map("products")
 }
 
@@ -138,6 +142,9 @@ model Order {
   product Product @relation(fields: [productId], references: [id])
   coupon  Coupon?
 
+  @@index([userId, status])
+  @@index([productId])
+  @@index([createdAt])
   @@map("orders")
 }
 
@@ -166,6 +173,8 @@ model Coupon {
   order   Order   @relation(fields: [orderId], references: [id])
   verificationRecords VerificationRecord[]
 
+  @@index([userId, status])
+  @@index([productId])
   @@map("coupons")
 }
 
@@ -187,6 +196,9 @@ model VerificationRecord {
   coupon   Coupon @relation(fields: [couponId], references: [id])
   verifier User   @relation("VerifiedBy", fields: [verifiedBy], references: [id])
 
+  @@index([couponId])
+  @@index([verifiedBy])
+  @@index([verifiedAt])
   @@map("verification_records")
 }
 
@@ -202,6 +214,7 @@ model Checkin {
   user User @relation(fields: [userId], references: [id])
 
   @@unique([userId, checkedAt])
+  @@index([userId, checkedAt])
   @@map("checkins")
 }
 
@@ -217,5 +230,6 @@ model TaskCompletion {
   user User @relation(fields: [userId], references: [id])
 
   @@unique([userId, taskId, doneAt])
+  @@index([userId, doneAt])
   @@map("task_completions")
 }

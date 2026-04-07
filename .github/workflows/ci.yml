@@ -11,8 +11,8 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  lint-typecheck-build:
-    name: Lint, Typecheck & Build
+  ci:
+    name: Lint, Typecheck, Test & Build
     runs-on: ubuntu-latest
 
     steps:
@@ -40,9 +40,34 @@ jobs:
       - name: Typecheck
         run: pnpm typecheck
 
+      - name: Run tests
+        run: pnpm --filter web test
+        env:
+          DATABASE_URL: "postgresql://placeholder:placeholder@localhost:5432/placeholder"
+          BETTER_AUTH_SECRET: "ci-test-secret"
+
       - name: Build
         run: pnpm build
         env:
           DATABASE_URL: "postgresql://placeholder:placeholder@localhost:5432/placeholder"
           BETTER_AUTH_SECRET: "ci-build-secret"
           NEXT_PUBLIC_APP_URL: "http://localhost:3000"
+
+  # ─── Server deploy via SSH (optional) ──────────────
+  # To enable: set DEPLOY_HOST, DEPLOY_USER, DEPLOY_KEY in GitHub repo secrets
+  deploy-server:
+    name: Deploy to Server
+    runs-on: ubuntu-latest
+    needs: ci
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+
+    steps:
+      - name: Deploy via SSH
+        if: ${{ vars.DEPLOY_ENABLED == 'true' }}
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_KEY }}
+          script: |
+            cd /opt/discount-hub && sudo ./deploy/deploy.sh main

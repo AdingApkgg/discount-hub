@@ -3,13 +3,20 @@ import { prismaAdapter } from "better-auth/adapters/prisma";
 import { username } from "better-auth/plugins";
 import { prisma } from "./prisma";
 
+const isProd = process.env.NODE_ENV === "production";
+
 export const auth = betterAuth({
   baseURL:
     process.env.BETTER_AUTH_URL ??
     process.env.NEXT_PUBLIC_APP_URL ??
     "http://localhost:3000",
+  secret: process.env.BETTER_AUTH_SECRET,
   database: prismaAdapter(prisma, { provider: "postgresql" }),
-  emailAndPassword: { enabled: true },
+  emailAndPassword: {
+    enabled: true,
+    minPasswordLength: 8,
+    maxPasswordLength: 128,
+  },
   plugins: [username()],
   user: {
     additionalFields: {
@@ -21,8 +28,28 @@ export const auth = betterAuth({
     },
   },
   session: {
-    expiresIn: 60 * 60 * 24 * 7,
-    updateAge: 60 * 60 * 24,
+    expiresIn: 60 * 60 * 24 * 7, // 7 days
+    updateAge: 60 * 60 * 24, // refresh after 1 day
+    cookieCache: {
+      enabled: true,
+      maxAge: 60 * 5, // 5 min client-side cookie cache
+    },
   },
-  trustedOrigins: [process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"],
+  advanced: {
+    cookiePrefix: "dh",
+    ...(isProd && {
+      defaultCookieAttributes: {
+        secure: true,
+        httpOnly: true,
+        sameSite: "lax" as const,
+      },
+    }),
+  },
+  trustedOrigins: [
+    process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000",
+  ],
+  rateLimit: {
+    window: 60,
+    max: 20,
+  },
 });

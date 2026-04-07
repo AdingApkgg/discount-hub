@@ -1,0 +1,27 @@
+[Unit]
+Description=Discount Hub - Run Prisma migrate on deploy
+After=postgresql.service
+Requires=postgresql.service
+Before=discount-hub-web.service
+
+[Service]
+Type=oneshot
+User=discount-hub
+Group=discount-hub
+WorkingDirectory=/opt/discount-hub
+
+EnvironmentFile=/opt/discount-hub/.env
+
+ExecStart=/usr/bin/npx prisma migrate deploy --schema apps/web/prisma/schema.prisma
+
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=discount-hub-migrate
+
+[Install]
+WantedBy=multi-user.target

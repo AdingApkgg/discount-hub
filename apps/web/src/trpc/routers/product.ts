@@ -1,11 +1,11 @@
 import { z } from "zod";
-import { createTRPCRouter, baseProcedure, merchantProcedure } from "../init";
+import { createTRPCRouter, publicProcedure, merchantProcedure } from "../init";
 
 const PRODUCT_LIST_TTL = 60; // Cache product list for 60 seconds
 const PRODUCT_DETAIL_TTL = 120; // Cache individual products for 2 minutes
 
 export const productRouter = createTRPCRouter({
-  list: baseProcedure
+  list: publicProcedure
     .input(
       z
         .object({
@@ -48,7 +48,7 @@ export const productRouter = createTRPCRouter({
       return products;
     }),
 
-  byId: baseProcedure
+  byId: publicProcedure
     .input(z.object({ id: z.string() }))
     .query(async ({ ctx, input }) => {
       const cacheKey = `products:detail:${input.id}`;

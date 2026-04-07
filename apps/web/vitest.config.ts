@@ -7,6 +7,11 @@ export default defineConfig({
     environment: "node",
     include: ["src/**/*.test.ts"],
     setupFiles: [],
+    env: {
+      SKIP_ENV_VALIDATION: "1",
+      DATABASE_URL: "postgresql://test:test@localhost:5432/test",
+      BETTER_AUTH_SECRET: "test-secret-for-vitest",
+    },
   },
   resolve: {
     alias: {

@@ -185,12 +185,12 @@ export default function MemberPage() {
     await queryClient.invalidateQueries();
   }
 
-  async function runTask(taskId: string, reward: number) {
+  async function runTask(taskId: string, displayReward: number) {
     setBusyTaskId(taskId);
     try {
-      await completeTaskMutation.mutateAsync({ taskId, reward });
+      const result = await completeTaskMutation.mutateAsync({ taskId });
       await refreshAll();
-      toast.success(`任务完成！+${reward} 积分`);
+      toast.success(`任务完成！+${result.reward} 积分`);
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "任务提交失败");
     } finally {

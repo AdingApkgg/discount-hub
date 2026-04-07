@@ -1,0 +1,45 @@
+[Unit]
+Description=Discount Hub Web (Next.js standalone)
+Documentation=https://github.com/AdingApkgg/discount-hub
+After=network.target postgresql.service redis.service
+Requires=postgresql.service
+Wants=redis.service
+
+[Service]
+Type=simple
+User=discount-hub
+Group=discount-hub
+WorkingDirectory=/opt/discount-hub/apps/web
+
+EnvironmentFile=/opt/discount-hub/.env
+
+ExecStart=/usr/bin/node .next/standalone/apps/web/server.js
+
+Restart=always
+RestartSec=5
+StartLimitBurst=5
+StartLimitIntervalSec=60
+
+# Security hardening
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ReadWritePaths=/opt/discount-hub/apps/web/.next/cache
+
+# Resource limits
+MemoryMax=512M
+CPUQuota=100%
+
+# Environment
+Environment=NODE_ENV=production
+Environment=PORT=3000
+Environment=HOSTNAME=0.0.0.0
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=discount-hub-web
+
+[Install]
+WantedBy=multi-user.target

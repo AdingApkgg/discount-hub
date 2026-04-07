@@ -93,12 +93,18 @@ const mockMerchant = {
   vipLevel: 0,
 };
 
+const mockHeaders = new Headers({
+  "x-forwarded-for": "127.0.0.1",
+  "user-agent": "vitest",
+});
+
 function makeCaller(user: typeof mockConsumer | typeof mockMerchant | null = null) {
   const ctx = {
     prisma: mockPrismaInstance as unknown as CallerContext["prisma"],
     redis: mockRedis as unknown as CallerContext["redis"],
     session: (user ? { user } : null) as CallerContext["session"],
     user,
+    headers: mockHeaders,
   } as CallerContext;
 
   return createCaller(ctx);
@@ -415,7 +421,7 @@ describe("points router", () => {
     const caller = makeCaller(mockConsumer);
 
     await expect(
-      caller.points.completeTask({ taskId: "daily-login", reward: 100 }),
+      caller.points.completeTask({ taskId: "browse" }),
     ).rejects.toThrow("今日已完成该任务");
   });
 });

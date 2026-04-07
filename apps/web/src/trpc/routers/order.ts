@@ -4,6 +4,7 @@ import {
   createTRPCRouter,
   protectedProcedure,
   merchantProcedure,
+  sensitiveProcedure,
   type createTRPCContext,
 } from "../init";
 import { PAY_METHOD_IDS, createCouponCode, type PayMethod } from "@discount-hub/shared";
@@ -183,7 +184,7 @@ async function finalizeOrderPayment(params: {
 }
 
 export const orderRouter = createTRPCRouter({
-  purchase: protectedProcedure
+  purchase: sensitiveProcedure
     .input(
       z.object({
         productId: z.string(),
