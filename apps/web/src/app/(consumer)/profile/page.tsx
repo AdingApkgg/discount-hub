@@ -12,9 +12,11 @@ import {
   Loader2,
   LogOut,
   Mail,
+  Package,
   Phone,
   Save,
   Settings,
+  ShoppingBag,
   Users,
 } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -67,12 +69,14 @@ export default function ProfilePage() {
 
   const { data: profileData, isLoading } = useQuery(trpc.user.me.queryOptions());
   const { data: referralsData } = useQuery(trpc.user.referrals.queryOptions());
+  const { data: ordersData } = useQuery(trpc.order.myOrders.queryOptions());
   const updateProfileMutation = useMutation(
     trpc.user.updateProfile.mutationOptions(),
   );
 
   const profile = profileData as UserProfile | undefined;
   const referrals = (referralsData ?? []) as ReferralRecord[];
+  const orders = ordersData ?? [];
   const draftName = hasDraft ? draft.name : (profile?.name ?? "");
   const draftPhone = hasDraft ? draft.phone : (profile?.phone ?? "");
 
@@ -299,6 +303,82 @@ export default function ProfilePage() {
                       </div>
                     </div>
                   ))}
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      </section>
+
+      <section>
+        <Card className={surfaceClassName}>
+          <CardContent className="p-5 md:p-6">
+            <SectionHeading
+              title="订单记录"
+              subtitle="最近的购买订单和兑换记录。"
+              action={<ShoppingBag className="h-5 w-5 text-slate-400" />}
+            />
+
+            <div className="mt-5">
+              {orders.length === 0 ? (
+                <div className="rounded-[22px] border border-dashed border-slate-200 bg-slate-50 p-8 text-center text-sm leading-6 text-slate-500">
+                  还没有订单记录，快去首页兑换权益吧。
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {orders.slice(0, 5).map((order) => {
+                    const statusMap: Record<string, { label: string; cls: string }> = {
+                      PENDING: { label: "待付款", cls: "bg-amber-50 text-amber-700 border-amber-200" },
+                      PAID: { label: "已付款", cls: "bg-blue-50 text-blue-700 border-blue-200" },
+                      COMPLETED: { label: "已完成", cls: "bg-green-50 text-green-700 border-green-200" },
+                      CANCELLED: { label: "已取消", cls: "bg-slate-50 text-slate-500 border-slate-200" },
+                    };
+                    const s = statusMap[order.status] ?? { label: order.status, cls: "bg-slate-50 text-slate-500 border-slate-200" };
+                    const createdAt =
+                      order.createdAt instanceof Date
+                        ? order.createdAt
+                        : new Date(order.createdAt);
+
+                    return (
+                      <div
+                        key={order.id}
+                        className="rounded-[22px] border border-slate-200 bg-slate-50 p-4"
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex items-start gap-3 min-w-0">
+                            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-white shadow-sm">
+                              <Package className="h-5 w-5 text-slate-600" />
+                            </div>
+                            <div className="min-w-0">
+                              <div className="text-sm font-semibold text-slate-900 truncate">
+                                {order.product.title}
+                              </div>
+                              <div className="mt-1 text-xs text-slate-500">
+                                {order.product.app} · {createdAt.toLocaleString("zh-CN")}
+                              </div>
+                            </div>
+                          </div>
+                          <Badge
+                            variant="outline"
+                            className={`shrink-0 rounded-full ${s.cls}`}
+                          >
+                            {s.label}
+                          </Badge>
+                        </div>
+                        <div className="mt-3 flex items-center justify-between text-xs text-slate-500">
+                          <span>{order.pointsPaid} 积分 + ¥{Number(order.cashPaid).toFixed(2)}</span>
+                          {order.coupon && (
+                            <span className="font-mono text-slate-700">券码: {order.coupon.code}</span>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                  {orders.length > 5 && (
+                    <div className="text-center text-xs text-slate-400 py-2">
+                      仅展示最近 5 条，共 {orders.length} 条订单
+                    </div>
+                  )}
                 </div>
               )}
             </div>

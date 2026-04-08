@@ -4,6 +4,7 @@ import { useState } from "react";
 import {
   CheckCircle2,
   Clock,
+  Copy,
   Flame,
   Loader2,
   Sparkles,
@@ -13,16 +14,32 @@ import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { openApp } from "@discount-hub/shared";
 import { useTRPC } from "@/trpc/client";
+import FakeQr from "@/components/FakeQr";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 const surfaceClassName =
   "gap-0 rounded-[28px] border border-[var(--app-card-border)] bg-[var(--app-card)] py-0 shadow-[var(--app-card-shadow)]";
 
+type CouponWithProduct = {
+  id: string;
+  code: string;
+  status: string;
+  expiresAt: Date | string;
+  product: { title: string; app: string; subtitle: string };
+};
+
 export default function CouponsPage() {
   const [tab, setTab] = useState("all");
+  const [detailCoupon, setDetailCoupon] = useState<CouponWithProduct | null>(null);
   const trpc = useTRPC();
 
   const { data: coupons, isLoading } = useQuery(
@@ -44,6 +61,15 @@ export default function CouponsPage() {
       toast.error("复制失败");
     }
     openApp(coupon.product.app);
+  };
+
+  const handleCopyCode = async (code: string) => {
+    try {
+      await navigator.clipboard.writeText(code);
+      toast.success("券码已复制");
+    } catch {
+      toast.error("复制失败");
+    }
   };
 
   const statusLabel = (status: string) => {
@@ -121,9 +147,11 @@ export default function CouponsPage() {
                       : String(coupon.expiresAt).slice(0, 10);
 
                   return (
-                    <div
+                    <button
+                      type="button"
                       key={coupon.id}
-                      className={`overflow-hidden rounded-[24px] border px-4 py-4 ${
+                      onClick={() => setDetailCoupon(coupon as unknown as CouponWithProduct)}
+                      className={`w-full overflow-hidden rounded-[24px] border px-4 py-4 text-left transition hover:-translate-y-0.5 hover:shadow-md ${
                         coupon.status === "ACTIVE"
                           ? "border-slate-200 bg-white"
                           : "border-slate-200 bg-slate-50"
@@ -181,7 +209,7 @@ export default function CouponsPage() {
                           </div>
                         </div>
                       </div>
-                    </div>
+                    </button>
                   );
                 })}
               </div>
@@ -189,6 +217,67 @@ export default function CouponsPage() {
           </div>
         </CardContent>
       </Card>
+
+      <Dialog open={!!detailCoupon} onOpenChange={() => setDetailCoupon(null)}>
+        <DialogContent className="max-w-sm rounded-[28px] border border-[var(--app-card-border)] bg-[var(--app-card)] p-0 text-[var(--app-heading)] shadow-[var(--app-card-shadow)]">
+          <DialogHeader className="border-b border-slate-200 px-6 py-5">
+            <DialogTitle>券码详情</DialogTitle>
+          </DialogHeader>
+          {detailCoupon && (
+            <div className="px-6 py-5">
+              <div className="text-center">
+                <div className="text-base font-semibold text-slate-900">
+                  {detailCoupon.product.title}
+                </div>
+                <div className="mt-1 text-sm text-slate-500">
+                  {detailCoupon.product.app}
+                </div>
+              </div>
+
+              <div className="mt-5 flex justify-center">
+                <div className="rounded-2xl border border-slate-200 bg-white p-4">
+                  <FakeQr value={detailCoupon.code} />
+                </div>
+              </div>
+
+              <div className="mt-4 text-center">
+                <code className="rounded-full bg-slate-100 px-4 py-2 font-mono text-sm text-slate-800">
+                  {detailCoupon.code}
+                </code>
+              </div>
+
+              <div className="mt-2 text-center text-xs text-slate-400">
+                有效期至{" "}
+                {detailCoupon.expiresAt instanceof Date
+                  ? detailCoupon.expiresAt.toLocaleDateString("zh-CN")
+                  : String(detailCoupon.expiresAt).slice(0, 10)}
+              </div>
+
+              <div className="mt-5 flex gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => handleCopyCode(detailCoupon.code)}
+                  className="flex-1 rounded-full"
+                >
+                  <Copy className="h-4 w-4" />
+                  复制券码
+                </Button>
+                {detailCoupon.status === "ACTIVE" && (
+                  <Button
+                    onClick={() => {
+                      handleUseCoupon(detailCoupon);
+                      setDetailCoupon(null);
+                    }}
+                    className="flex-1 rounded-full"
+                  >
+                    立即使用
+                  </Button>
+                )}
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
