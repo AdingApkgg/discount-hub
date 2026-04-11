@@ -30,32 +30,49 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
+import { Skeleton } from "@/components/ui/skeleton";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import {
+  appCardClassName,
+  SectionHeading,
+  PageHeading,
+  EmptyStateDashed,
+  StatCard,
+} from "@/components/shared";
 
 type UserProfile = RouterOutputs["user"]["me"];
 type ReferralRecord = RouterOutputs["user"]["referrals"][number];
 
-const surfaceClassName =
-  "gap-0 rounded-[28px] border border-[var(--app-card-border)] bg-[var(--app-card)] py-0 shadow-[var(--app-card-shadow)]";
-
-function SectionHeading({
-  title,
-  subtitle,
-  action,
-}: {
-  title: string;
-  subtitle?: string;
-  action?: React.ReactNode;
-}) {
+function ProfileSkeleton() {
   return (
-    <div className="flex items-start justify-between gap-3 md:items-center">
-      <div className="min-w-0">
-        <h2 className="text-lg font-semibold text-slate-900">{title}</h2>
-        {subtitle ? (
-          <p className="mt-1 text-xs leading-5 text-slate-500">{subtitle}</p>
-        ) : null}
+    <div className="space-y-4 px-4 py-4 md:space-y-6 md:px-8 md:py-8">
+      <div className="flex justify-between">
+        <div className="space-y-2">
+          <Skeleton className="h-3 w-16" />
+          <Skeleton className="h-9 w-20" />
+        </div>
+        <Skeleton className="h-9 w-24 rounded-full" />
       </div>
-      {action}
+      <div className="grid gap-4 xl:grid-cols-[1.2fr_320px]">
+        <Skeleton className="h-48 rounded-[30px]" />
+        <div className="grid grid-cols-3 gap-3 xl:grid-cols-1">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <Skeleton key={i} className="h-20 rounded-[28px]" />
+          ))}
+        </div>
+      </div>
     </div>
   );
 }
@@ -70,9 +87,7 @@ export default function ProfilePage() {
   const { data: profileData, isLoading } = useQuery(trpc.user.me.queryOptions());
   const { data: referralsData } = useQuery(trpc.user.referrals.queryOptions());
   const { data: ordersData } = useQuery(trpc.order.myOrders.queryOptions());
-  const updateProfileMutation = useMutation(
-    trpc.user.updateProfile.mutationOptions(),
-  );
+  const updateProfileMutation = useMutation(trpc.user.updateProfile.mutationOptions());
 
   const profile = profileData as UserProfile | undefined;
   const referrals = (referralsData ?? []) as ReferralRecord[];
@@ -119,53 +134,35 @@ export default function ProfilePage() {
     toast.success("已退出登录");
   }
 
-  if (isLoading) {
-    return (
-      <div className="flex min-h-[50vh] items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-slate-400" />
-      </div>
-    );
-  }
+  if (isLoading) return <ProfileSkeleton />;
 
   const userName = profile?.name ?? "演示用户";
   const vipLabel = (profile?.vipLevel ?? 0) <= 0 ? "普通会员" : `VIP${profile?.vipLevel}`;
 
-  const menuSections = [
-    {
-      items: [
-        { icon: Settings, label: "账户设置" },
-        { icon: Bell, label: "消息通知" },
-      ],
-    },
-    {
-      items: [
-        { icon: HelpCircle, label: "帮助中心" },
-        { icon: FileText, label: "服务条款" },
-      ],
-    },
+  const menuItems = [
+    { icon: Settings, label: "账户设置" },
+    { icon: Bell, label: "消息通知" },
+    { icon: HelpCircle, label: "帮助中心" },
+    { icon: FileText, label: "服务条款" },
   ];
 
   return (
     <div className="space-y-4 px-4 py-4 md:space-y-6 md:px-8 md:py-8">
-      <section className="flex items-center justify-between gap-4">
-        <div>
-          <div className="text-[11px] font-medium uppercase tracking-[0.28em] text-slate-400">
-            Profile
-          </div>
-          <h1 className="mt-2 text-[28px] font-semibold tracking-tight text-slate-900 md:text-[34px]">
-            我的
-          </h1>
-        </div>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={handleCopyInvite}
-          className="rounded-full border-[var(--app-card-border)] bg-[var(--app-card)] px-4 text-[var(--app-strong)] shadow-sm hover:bg-[var(--app-soft)]"
-        >
-          <Copy className="h-4 w-4" />
-          复制邀请
-        </Button>
-      </section>
+      <PageHeading
+        label="Profile"
+        title="我的"
+        action={
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleCopyInvite}
+            className="rounded-full border-[var(--app-card-border)] bg-[var(--app-card)] px-4 text-foreground shadow-sm hover:bg-secondary"
+          >
+            <Copy className="h-4 w-4" />
+            复制邀请
+          </Button>
+        }
+      />
 
       <section className="grid gap-4 xl:grid-cols-[minmax(0,1.2fr)_320px]">
         <Card className="overflow-hidden rounded-[30px] border border-[var(--app-hero-border)] bg-[var(--app-hero-bg)] py-0 text-white shadow-[var(--app-hero-shadow)]">
@@ -183,9 +180,9 @@ export default function ProfilePage() {
                     {userName}
                   </div>
                   <div className="mt-2 flex flex-wrap items-center gap-2 text-sm text-white/70">
-                    <span className="rounded-full bg-white/10 px-2.5 py-1 text-xs text-white">
+                    <Badge className="bg-white/10 text-xs text-white hover:bg-white/10">
                       {vipLabel}
-                    </span>
+                    </Badge>
                     <span>{(profile?.points ?? 0).toLocaleString("zh-CN")} 积分</span>
                   </div>
                 </div>
@@ -203,59 +200,45 @@ export default function ProfilePage() {
         </Card>
 
         <div className="grid grid-cols-3 gap-3 xl:grid-cols-1">
-          {[
-            { label: "累计邀请", value: profile?._count.referrals ?? 0 },
-            { label: "累计订单", value: profile?._count.orders ?? 0 },
-            { label: "我的券包", value: profile?._count.coupons ?? 0 },
-          ].map((item) => (
-            <Card key={item.label} className={surfaceClassName}>
-              <CardContent className="p-4">
-                <div className="text-xs text-slate-500">{item.label}</div>
-                <div className="mt-2 text-xl font-semibold text-slate-900 md:text-2xl">
-                  {item.value}
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+          <StatCard label="累计邀请" value={profile?._count.referrals ?? 0} />
+          <StatCard label="累计订单" value={profile?._count.orders ?? 0} />
+          <StatCard label="我的券包" value={profile?._count.coupons ?? 0} />
         </div>
       </section>
 
       <section className="grid gap-4 xl:grid-cols-[minmax(0,1.1fr)_minmax(360px,0.9fr)]">
-        <Card className={surfaceClassName}>
+        <Card className={appCardClassName}>
           <CardContent className="p-5 md:p-6">
             <SectionHeading
               title="邀请好友"
               subtitle="复制专属邀请码或注册链接，后续可以继续扩展拉新奖励。"
-              action={<Gift className="h-5 w-5 text-slate-400" />}
+              action={<Gift className="h-5 w-5 text-muted-foreground" />}
             />
-
             <div className="mt-5 grid gap-3 md:grid-cols-2">
-              <div className="rounded-[22px] border border-slate-200 bg-slate-50 p-4">
-                <div className="text-xs text-slate-500">邀请码</div>
-                <div className="mt-2 font-mono text-sm text-slate-900">{inviteCode}</div>
-              </div>
-              <div className="rounded-[22px] border border-slate-200 bg-slate-50 p-4">
-                <div className="text-xs text-slate-500">邀请链接</div>
-                <div className="mt-2 break-all font-mono text-xs leading-5 text-slate-700">
-                  {inviteLink || "当前环境暂不可生成链接"}
-                </div>
-              </div>
+              <Card className="gap-0 rounded-[22px] border-border bg-secondary/50 py-0">
+                <CardContent className="p-4">
+                  <div className="text-xs text-muted-foreground">邀请码</div>
+                  <div className="mt-2 font-mono text-sm text-foreground">{inviteCode}</div>
+                </CardContent>
+              </Card>
+              <Card className="gap-0 rounded-[22px] border-border bg-secondary/50 py-0">
+                <CardContent className="p-4">
+                  <div className="text-xs text-muted-foreground">邀请链接</div>
+                  <div className="mt-2 break-all font-mono text-xs leading-5 text-foreground">
+                    {inviteLink || "当前环境暂不可生成链接"}
+                  </div>
+                </CardContent>
+              </Card>
             </div>
-
             <div className="mt-4 flex flex-wrap gap-2">
               {inviteBenefits.map((benefit) => (
-                <Badge
-                  key={benefit}
-                  variant="outline"
-                  className="rounded-full border-slate-200 bg-white text-slate-600"
-                >
+                <Badge key={benefit} variant="outline" className="rounded-full border-border bg-background text-muted-foreground">
                   {benefit}
                 </Badge>
               ))}
             </div>
-
             <div className="mt-5 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-              <div className="text-xs leading-5 text-slate-500">
+              <div className="text-xs leading-5 text-muted-foreground">
                 已邀请 {referrals.length} 位好友，注册链接可以直接复制使用。
               </div>
               <Button onClick={handleCopyInvite} className="w-full rounded-full px-4 md:w-auto">
@@ -265,43 +248,36 @@ export default function ProfilePage() {
           </CardContent>
         </Card>
 
-        <Card className={surfaceClassName}>
+        <Card className={appCardClassName}>
           <CardContent className="p-5 md:p-6">
             <SectionHeading
               title="邀请记录"
               subtitle="当前展示注册成功的好友列表。"
-              action={<Users className="h-4 w-4 text-slate-400" />}
+              action={<Users className="h-4 w-4 text-muted-foreground" />}
             />
-
             <div className="mt-5">
               {referrals.length === 0 ? (
-                <div className="rounded-[22px] border border-dashed border-slate-200 bg-slate-50 p-8 text-center text-sm leading-6 text-slate-500">
-                  还没有邀请记录，复制邀请码后就可以开始拉新。
-                </div>
+                <EmptyStateDashed text="还没有邀请记录，复制邀请码后就可以开始拉新。" />
               ) : (
                 <div className="space-y-3">
                   {referrals.map((record) => (
-                    <div
-                      key={record.id}
-                      className="rounded-[22px] border border-slate-200 bg-slate-50 p-4"
-                    >
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0">
-                          <div className="text-sm font-semibold text-slate-900">
-                            {record.name ?? record.email}
+                    <Card key={record.id} className="gap-0 rounded-[22px] border-border bg-secondary/50 py-0">
+                      <CardContent className="p-4">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <div className="text-sm font-semibold text-foreground">
+                              {record.name ?? record.email}
+                            </div>
+                            <div className="mt-1 text-xs leading-5 text-muted-foreground">
+                              注册时间：{new Date(record.createdAt).toLocaleString("zh-CN")}
+                            </div>
                           </div>
-                          <div className="mt-1 text-xs leading-5 text-slate-500">
-                            注册时间：{new Date(record.createdAt).toLocaleString("zh-CN")}
-                          </div>
+                          <Badge variant="outline" className="rounded-full border-border bg-background text-muted-foreground">
+                            已注册
+                          </Badge>
                         </div>
-                        <Badge
-                          variant="outline"
-                          className="rounded-full border-slate-200 bg-white text-slate-600"
-                        >
-                          已注册
-                        </Badge>
-                      </div>
-                    </div>
+                      </CardContent>
+                    </Card>
                   ))}
                 </div>
               )}
@@ -311,19 +287,16 @@ export default function ProfilePage() {
       </section>
 
       <section>
-        <Card className={surfaceClassName}>
+        <Card className={appCardClassName}>
           <CardContent className="p-5 md:p-6">
             <SectionHeading
               title="订单记录"
               subtitle="最近的购买订单和兑换记录。"
-              action={<ShoppingBag className="h-5 w-5 text-slate-400" />}
+              action={<ShoppingBag className="h-5 w-5 text-muted-foreground" />}
             />
-
             <div className="mt-5">
               {orders.length === 0 ? (
-                <div className="rounded-[22px] border border-dashed border-slate-200 bg-slate-50 p-8 text-center text-sm leading-6 text-slate-500">
-                  还没有订单记录，快去首页兑换权益吧。
-                </div>
+                <EmptyStateDashed text="还没有订单记录，快去首页兑换权益吧。" />
               ) : (
                 <div className="space-y-3">
                   {orders.slice(0, 5).map((order) => {
@@ -331,57 +304,50 @@ export default function ProfilePage() {
                       PENDING: { label: "待付款", cls: "bg-amber-50 text-amber-700 border-amber-200" },
                       PAID: { label: "已付款", cls: "bg-blue-50 text-blue-700 border-blue-200" },
                       COMPLETED: { label: "已完成", cls: "bg-green-50 text-green-700 border-green-200" },
-                      CANCELLED: { label: "已取消", cls: "bg-slate-50 text-slate-500 border-slate-200" },
+                      CANCELLED: { label: "已取消", cls: "bg-secondary text-muted-foreground border-border" },
                     };
-                    const s = statusMap[order.status] ?? { label: order.status, cls: "bg-slate-50 text-slate-500 border-slate-200" };
-                    const createdAt =
-                      order.createdAt instanceof Date
-                        ? order.createdAt
-                        : new Date(order.createdAt);
+                    const s = statusMap[order.status] ?? { label: order.status, cls: "bg-secondary text-muted-foreground border-border" };
+                    const createdAt = order.createdAt instanceof Date ? order.createdAt : new Date(order.createdAt);
 
                     return (
-                      <div
-                        key={order.id}
-                        className="rounded-[22px] border border-slate-200 bg-slate-50 p-4"
-                      >
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="flex items-start gap-3 min-w-0">
-                            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-white shadow-sm">
-                              <Package className="h-5 w-5 text-slate-600" />
-                            </div>
-                            <div className="min-w-0">
-                              <div className="text-sm font-semibold text-slate-900 truncate">
-                                {order.product.title}
+                      <Card key={order.id} className="gap-0 rounded-[22px] border-border bg-secondary/50 py-0">
+                        <CardContent className="p-4">
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="flex min-w-0 items-start gap-3">
+                              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-background shadow-sm">
+                                <Package className="h-5 w-5 text-muted-foreground" />
                               </div>
-                              <div className="mt-1 text-xs text-slate-500">
-                                {order.product.app} · {createdAt.toLocaleString("zh-CN")}
+                              <div className="min-w-0">
+                                <div className="truncate text-sm font-semibold text-foreground">
+                                  {order.product.title}
+                                </div>
+                                <div className="mt-1 text-xs text-muted-foreground">
+                                  {order.product.app} · {createdAt.toLocaleString("zh-CN")}
+                                </div>
                               </div>
                             </div>
+                            <Badge variant="outline" className={`shrink-0 rounded-full ${s.cls}`}>
+                              {s.label}
+                            </Badge>
                           </div>
-                          <Badge
-                            variant="outline"
-                            className={`shrink-0 rounded-full ${s.cls}`}
-                          >
-                            {s.label}
-                          </Badge>
-                        </div>
-                        <div className="mt-3 flex items-center justify-between text-xs text-slate-500">
-                          <span>{order.pointsPaid} 积分 + ¥{Number(order.cashPaid).toFixed(2)}</span>
-                          {order.coupon && (
-                            <span className="font-mono text-slate-700">券码: {order.coupon.code}</span>
-                          )}
-                        </div>
-                      </div>
+                          <div className="mt-3 flex items-center justify-between text-xs text-muted-foreground">
+                            <span>{order.pointsPaid} 积分 + ¥{Number(order.cashPaid).toFixed(2)}</span>
+                            {order.coupon && (
+                              <span className="font-mono text-foreground">券码: {order.coupon.code}</span>
+                            )}
+                          </div>
+                        </CardContent>
+                      </Card>
                     );
                   })}
                   {orders.length > 5 && (
-                    <button
-                      type="button"
+                    <Button
+                      variant="link"
                       onClick={() => router.push("/my-orders")}
-                      className="w-full py-2 text-center text-xs text-slate-500 hover:text-slate-700 transition-colors"
+                      className="w-full text-xs text-muted-foreground"
                     >
                       查看全部 {orders.length} 条订单 →
-                    </button>
+                    </Button>
                   )}
                 </div>
               )}
@@ -391,16 +357,12 @@ export default function ProfilePage() {
       </section>
 
       <section className="grid gap-4 xl:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]">
-        <Card className={surfaceClassName}>
+        <Card className={appCardClassName}>
           <CardContent className="p-5 md:p-6">
-            <SectionHeading
-              title="资料编辑"
-              subtitle="完善昵称和手机号，方便商家或客服联系。"
-            />
-
-            <div className="mt-5 grid gap-3">
+            <SectionHeading title="资料编辑" subtitle="完善昵称和手机号，方便商家或客服联系。" />
+            <div className="mt-5 grid gap-4">
               <div className="space-y-2">
-                <div className="text-xs text-slate-500">昵称</div>
+                <Label className="text-xs text-muted-foreground">昵称</Label>
                 <Input
                   value={draftName}
                   onChange={(event) => {
@@ -408,11 +370,11 @@ export default function ProfilePage() {
                     setDraft((current) => ({ ...current, name: event.target.value }));
                   }}
                   placeholder="输入你的昵称"
-                  className="h-11 rounded-2xl border-slate-200 bg-slate-50 text-slate-900 placeholder:text-slate-400 shadow-none"
+                  className="h-11 rounded-2xl border-border bg-secondary/50 shadow-none"
                 />
               </div>
               <div className="space-y-2">
-                <div className="text-xs text-slate-500">手机号</div>
+                <Label className="text-xs text-muted-foreground">手机号</Label>
                 <Input
                   value={draftPhone}
                   onChange={(event) => {
@@ -420,11 +382,10 @@ export default function ProfilePage() {
                     setDraft((current) => ({ ...current, phone: event.target.value }));
                   }}
                   placeholder="输入手机号"
-                  className="h-11 rounded-2xl border-slate-200 bg-slate-50 text-slate-900 placeholder:text-slate-400 shadow-none"
+                  className="h-11 rounded-2xl border-border bg-secondary/50 shadow-none"
                 />
               </div>
             </div>
-
             <div className="mt-5">
               <Button
                 onClick={handleSaveProfile}
@@ -443,70 +404,84 @@ export default function ProfilePage() {
         </Card>
 
         <div className="space-y-4">
-          <Card className={surfaceClassName}>
+          <Card className={appCardClassName}>
             <CardContent className="p-5 md:p-6">
               <SectionHeading title="账户信息" subtitle="当前登录账号绑定的信息。" />
               <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-1">
-                <div className="flex items-start gap-3 rounded-[22px] border border-slate-200 bg-slate-50 p-4">
-                  <Mail className="mt-0.5 h-5 w-5 text-slate-400" />
-                  <div className="min-w-0">
-                    <div className="text-xs text-slate-500">邮箱</div>
-                    <div className="mt-1 text-sm text-slate-900">
-                      {profile?.email ?? "未设置"}
+                <Card className="gap-0 rounded-[22px] border-border bg-secondary/50 py-0">
+                  <CardContent className="flex items-start gap-3 p-4">
+                    <Mail className="mt-0.5 h-5 w-5 text-muted-foreground" />
+                    <div className="min-w-0">
+                      <div className="text-xs text-muted-foreground">邮箱</div>
+                      <div className="mt-1 text-sm text-foreground">{profile?.email ?? "未设置"}</div>
                     </div>
-                  </div>
-                </div>
-                <div className="flex items-start gap-3 rounded-[22px] border border-slate-200 bg-slate-50 p-4">
-                  <Phone className="mt-0.5 h-5 w-5 text-slate-400" />
-                  <div className="min-w-0">
-                    <div className="text-xs text-slate-500">手机号</div>
-                    <div className="mt-1 text-sm text-slate-900">
-                      {profile?.phone || "未设置"}
+                  </CardContent>
+                </Card>
+                <Card className="gap-0 rounded-[22px] border-border bg-secondary/50 py-0">
+                  <CardContent className="flex items-start gap-3 p-4">
+                    <Phone className="mt-0.5 h-5 w-5 text-muted-foreground" />
+                    <div className="min-w-0">
+                      <div className="text-xs text-muted-foreground">手机号</div>
+                      <div className="mt-1 text-sm text-foreground">{profile?.phone || "未设置"}</div>
                     </div>
-                  </div>
-                </div>
+                  </CardContent>
+                </Card>
               </div>
             </CardContent>
           </Card>
 
-          <Card className={surfaceClassName}>
-            {menuSections.map((section, sectionIndex) => (
-              <div key={sectionIndex}>
-                {sectionIndex > 0 ? <Separator className="bg-slate-200" /> : null}
-                {section.items.map((item) => {
-                  const Icon = item.icon;
-                  return (
-                    <button
-                      key={item.label}
-                      type="button"
-                      className="flex w-full items-center gap-3 px-5 py-4 text-left transition hover:bg-slate-50"
-                    >
-                      <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-slate-100">
-                        <Icon className="h-5 w-5 text-slate-600" />
-                      </div>
-                      <span className="flex-1 text-sm font-medium text-slate-900">
-                        {item.label}
-                      </span>
-                      <ChevronRight className="h-4 w-4 text-slate-400" />
-                    </button>
-                  );
-                })}
-              </div>
-            ))}
+          <Card className={appCardClassName}>
+            {menuItems.map((item, index) => {
+              const Icon = item.icon;
+              return (
+                <div key={item.label}>
+                  {index === 2 && <Separator />}
+                  <Button
+                    variant="ghost"
+                    className="h-auto w-full justify-start gap-3 rounded-none px-5 py-4"
+                  >
+                    <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-secondary">
+                      <Icon className="h-5 w-5 text-muted-foreground" />
+                    </div>
+                    <span className="flex-1 text-left text-sm font-medium text-foreground">
+                      {item.label}
+                    </span>
+                    <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                  </Button>
+                </div>
+              );
+            })}
           </Card>
         </div>
       </section>
 
-      <Button
-        variant="outline"
-        onClick={handleLogout}
-        className="w-full rounded-2xl border-[var(--app-danger-border)] bg-[var(--app-danger-bg)] py-6 text-[var(--app-danger-text)] hover:bg-[var(--app-danger-hover)] hover:text-[var(--app-danger-text)]"
-      >
-        <LogOut className="h-4 w-4" />
-        退出登录
-      </Button>
+      <AlertDialog>
+        <AlertDialogTrigger asChild>
+          <Button
+            variant="outline"
+            className="w-full rounded-2xl border-destructive/35 bg-background py-6 text-destructive hover:bg-destructive/10 hover:text-destructive"
+          >
+            <LogOut className="h-4 w-4" />
+            退出登录
+          </Button>
+        </AlertDialogTrigger>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>确认退出</AlertDialogTitle>
+            <AlertDialogDescription>
+              退出后需要重新登录才能使用会员功能。
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>取消</AlertDialogCancel>
+            <AlertDialogAction variant="destructive" onClick={handleLogout}>
+              确认退出
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
-      <div className="pb-1 text-center text-xs text-slate-400">版本 1.0.0</div>
+      <div className="pb-1 text-center text-xs text-muted-foreground">版本 1.0.0</div>
     </div>
   );
 }

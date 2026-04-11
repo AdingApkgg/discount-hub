@@ -1,8 +1,10 @@
 "use client";
 
 import { usePathname, useRouter } from "next/navigation";
+import Image from "next/image";
 import { Home, Ticket, CreditCard, User, LogIn } from "lucide-react";
 import { useSession } from "@/lib/auth-client";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 const tabs = [
@@ -31,21 +33,27 @@ export default function ConsumerNav() {
     <>
       <header className="sticky top-0 z-20 hidden border-b border-[var(--app-card-border)] bg-[var(--app-nav-bg)]/95 backdrop-blur md:block">
         <div className="flex items-center justify-between gap-6 px-8 py-5">
-          <button
-            type="button"
+          <Button
+            variant="ghost"
             onClick={() => router.push("/")}
-            className="flex min-w-0 items-center gap-3 text-left"
+            className="h-auto gap-3 px-2 py-1.5 text-left"
           >
-            <div className="h-11 w-11 rounded-2xl bg-[var(--gradient-primary)] shadow-[var(--shadow-glow)]" />
+            <Image
+              src="/logo.png"
+              alt="Discount Hub"
+              width={44}
+              height={44}
+              className="h-11 w-11 rounded-2xl object-cover shadow-[var(--shadow-glow)]"
+            />
             <div className="min-w-0">
-              <div className="truncate text-base font-semibold text-[var(--app-heading)]">
+              <div className="truncate text-base font-semibold text-foreground">
                 Discount Hub
               </div>
-              <div className="truncate text-xs text-[var(--app-text-muted)]">
+              <div className="truncate text-xs text-muted-foreground">
                 Web 端按宽屏自适应展示
               </div>
             </div>
-          </button>
+          </Button>
 
           <nav className="flex items-center gap-2">
             {navTabs.map((tab) => {
@@ -53,27 +61,20 @@ export default function ConsumerNav() {
               const Icon = tab.icon;
 
               return (
-                <button
+                <Button
                   key={tab.id}
-                  type="button"
+                  variant={active ? "default" : "ghost"}
                   onClick={() => router.push(tab.id)}
                   className={cn(
-                    "flex items-center gap-2 rounded-full px-4 py-2.5 text-sm font-medium transition",
+                    "gap-2 rounded-full px-4",
                     active
-                      ? "bg-[var(--app-nav-active-bg)] text-[var(--app-nav-active-text)] shadow-[0_10px_24px_rgba(15,23,42,0.14)]"
-                      : "text-[var(--app-nav-text)] hover:bg-[var(--app-nav-hover)]",
+                      ? "bg-[var(--app-nav-active-bg)] text-[var(--app-nav-active-text)] shadow-[0_10px_24px_rgba(15,23,42,0.14)] hover:bg-[var(--app-nav-active-bg)]"
+                      : "text-muted-foreground hover:bg-[var(--app-nav-hover)] hover:text-foreground",
                   )}
                 >
-                  <Icon
-                    className={cn(
-                      "h-4 w-4",
-                      active
-                        ? "text-[var(--app-nav-active-text)]"
-                        : "text-[var(--app-nav-text)]",
-                    )}
-                  />
+                  <Icon className="h-4 w-4" />
                   <span>{tab.label}</span>
-                </button>
+                </Button>
               );
             })}
           </nav>
@@ -88,28 +89,26 @@ export default function ConsumerNav() {
               const Icon = tab.icon;
 
               return (
-                <button
+                <Button
                   key={tab.id}
-                  type="button"
+                  variant="ghost"
                   onClick={() => router.push(tab.id)}
                   className={cn(
-                    "flex min-w-0 flex-1 flex-col items-center gap-1 rounded-[20px] px-2 py-3 text-[11px] font-medium transition",
+                    "h-auto min-w-0 flex-1 flex-col gap-1 rounded-[20px] px-2 py-3 text-[11px] font-medium",
                     active
-                      ? "bg-[var(--app-nav-active-bg)] text-[var(--app-nav-active-text)] shadow-[0_10px_24px_rgba(15,23,42,0.18)]"
-                      : "text-[var(--app-nav-text)] hover:bg-[var(--app-nav-hover)]",
+                      ? "bg-[var(--app-nav-active-bg)] text-[var(--app-nav-active-text)] shadow-[0_10px_24px_rgba(15,23,42,0.18)] hover:bg-[var(--app-nav-active-bg)]"
+                      : "text-muted-foreground hover:bg-[var(--app-nav-hover)] hover:text-foreground",
                   )}
                   aria-label={tab.label}
                 >
                   <Icon
                     className={cn(
                       "h-[18px] w-[18px]",
-                      active
-                        ? "text-[var(--app-nav-active-text)]"
-                        : "text-[var(--app-nav-text)]",
+                      active ? "text-[var(--app-nav-active-text)]" : "",
                     )}
                   />
                   <span>{tab.label}</span>
-                </button>
+                </Button>
               );
             })}
           </div>

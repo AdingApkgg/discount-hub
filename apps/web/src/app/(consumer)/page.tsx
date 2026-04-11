@@ -6,7 +6,6 @@ import {
   ArrowRight,
   ChevronRight,
   Gift,
-  Loader2,
   Search,
   Sparkles,
   Ticket,
@@ -21,39 +20,22 @@ import Countdown from "@/components/Countdown";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
+import { Skeleton } from "@/components/ui/skeleton";
 import { banners, hotPosts, hotRanking } from "@/data/mock";
+import {
+  appCardClassName,
+  SectionHeading,
+  PageHeading,
+  EmptyState,
+} from "@/components/shared";
 
 type ProductItem = RouterOutputs["product"]["list"][number];
 type UserProfile = RouterOutputs["user"]["me"];
 
-const surfaceClassName =
-  "gap-0 rounded-[28px] border border-[var(--app-card-border)] bg-[var(--app-card)] py-0 shadow-[var(--app-card-shadow)]";
-
 function getVipLabel(profile: UserProfile | undefined | null) {
   if (!profile) return "普通会员";
   return profile.vipLevel <= 0 ? "普通会员" : `VIP${profile.vipLevel}`;
-}
-
-function SectionHeading({
-  title,
-  subtitle,
-  action,
-}: {
-  title: string;
-  subtitle?: string;
-  action?: React.ReactNode;
-}) {
-  return (
-    <div className="flex items-start justify-between gap-3 md:items-end">
-      <div className="min-w-0">
-        <h2 className="text-lg font-semibold text-slate-900">{title}</h2>
-        {subtitle ? (
-          <p className="mt-1 text-xs leading-5 text-slate-500">{subtitle}</p>
-        ) : null}
-      </div>
-      {action}
-    </div>
-  );
 }
 
 function QuickAction({
@@ -68,17 +50,19 @@ function QuickAction({
   onClick: () => void;
 }) {
   return (
-    <button
-      type="button"
+    <Button
+      variant="outline"
       onClick={onClick}
-      className="rounded-[24px] border border-[var(--app-card-border)] bg-[var(--app-card)] p-4 text-left shadow-[0_10px_30px_rgba(15,23,42,0.05)] transition hover:-translate-y-0.5 hover:bg-[var(--app-soft)] hover:shadow-[0_16px_36px_rgba(15,23,42,0.08)]"
+      className="h-auto flex-col items-start gap-0 rounded-[24px] border-[var(--app-card-border)] bg-[var(--app-card)] p-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:bg-secondary/80 hover:shadow-md"
     >
-      <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-slate-100">
-        <Icon className="h-5 w-5 text-slate-700" />
+      <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-secondary">
+        <Icon className="h-5 w-5 text-foreground" />
       </div>
-      <div className="mt-4 text-sm font-semibold text-slate-900">{title}</div>
-      <div className="mt-1 text-xs leading-5 text-slate-500">{subtitle}</div>
-    </button>
+      <div className="mt-4 text-sm font-semibold text-foreground">{title}</div>
+      <div className="mt-1 text-xs leading-5 text-muted-foreground">
+        {subtitle}
+      </div>
+    </Button>
   );
 }
 
@@ -93,7 +77,7 @@ function ProductCard({
 
   return (
     <Card
-      className={`${surfaceClassName} w-[250px] shrink-0 overflow-hidden md:w-auto md:shrink`}
+      className={`${appCardClassName} w-[250px] shrink-0 cursor-pointer overflow-hidden transition hover:-translate-y-0.5 hover:shadow-lg md:w-auto md:shrink`}
       onClick={onClick}
     >
       <div className="relative h-28 overflow-hidden bg-[linear-gradient(135deg,#111827_0%,#1f2937_55%,#374151_100%)]">
@@ -107,31 +91,64 @@ function ProductCard({
               {item.title}
             </div>
           </div>
-          <div className="rounded-full bg-white/12 px-3 py-1 text-xs font-medium text-white">
+          <Badge
+            variant="outline"
+            className="border-white/20 bg-white/12 text-xs text-white"
+          >
             {item.tags[0] ?? "推荐"}
-          </div>
+          </Badge>
         </div>
       </div>
       <CardContent className="p-4">
-        <p className="text-sm leading-6 text-slate-600">{item.subtitle}</p>
+        <p className="text-sm leading-6 text-muted-foreground">
+          {item.subtitle}
+        </p>
         <div className="mt-4 flex items-end justify-between gap-3">
           <div>
-            <div className="text-xs text-slate-400">兑换价</div>
+            <div className="text-xs text-muted-foreground">兑换价</div>
             <div className="mt-1 flex items-baseline gap-1.5">
-              <span className="text-xl font-semibold text-slate-900">
+              <span className="text-xl font-semibold text-foreground">
                 {item.pointsPrice}
               </span>
-              <span className="text-xs text-slate-500">积分</span>
-              <span className="text-sm text-slate-400">+ ¥{price.toFixed(2)}</span>
+              <span className="text-xs text-muted-foreground">积分</span>
+              <span className="text-sm text-muted-foreground">
+                + ¥{price.toFixed(2)}
+              </span>
             </div>
           </div>
-          <div className="text-right text-xs leading-5 text-slate-500">
+          <div className="text-right text-xs leading-5 text-muted-foreground">
             <div>库存 {item.stock}</div>
-            <div className="font-medium text-slate-700">去兑换</div>
+            <Button
+              variant="link"
+              size="sm"
+              className="h-auto p-0 text-xs font-medium"
+            >
+              去兑换
+            </Button>
           </div>
         </div>
       </CardContent>
     </Card>
+  );
+}
+
+function ProductSectionSkeleton() {
+  return (
+    <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
+      {Array.from({ length: 4 }).map((_, i) => (
+        <Card key={i} className={appCardClassName}>
+          <Skeleton className="h-28 w-full rounded-t-[28px]" />
+          <CardContent className="space-y-3 p-4">
+            <Skeleton className="h-4 w-2/3" />
+            <Skeleton className="h-4 w-1/2" />
+            <div className="flex justify-between">
+              <Skeleton className="h-6 w-24" />
+              <Skeleton className="h-6 w-12" />
+            </div>
+          </CardContent>
+        </Card>
+      ))}
+    </div>
   );
 }
 
@@ -156,21 +173,22 @@ function ProductSection({
     <section className="space-y-3">
       <SectionHeading title={title} subtitle={subtitle} action={action} />
       {isLoading ? (
-        <div className="flex justify-center py-10">
-          <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
-        </div>
+        <ProductSectionSkeleton />
       ) : items.length === 0 ? (
-        <Card className={surfaceClassName}>
-          <CardContent className="p-6 text-center text-sm text-slate-500">
-            {emptyText}
-          </CardContent>
-        </Card>
+        <EmptyState text={emptyText} />
       ) : (
-        <div className="-mx-1 flex gap-3 overflow-x-auto px-1 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden md:mx-0 md:grid md:grid-cols-2 md:overflow-visible md:px-0 lg:grid-cols-3 2xl:grid-cols-4">
-          {items.map((item) => (
-            <ProductCard key={item.id} item={item} onClick={() => onOpen(item.id)} />
-          ))}
-        </div>
+        <ScrollArea className="md:overflow-visible">
+          <div className="flex gap-3 pb-1 md:grid md:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
+            {items.map((item) => (
+              <ProductCard
+                key={item.id}
+                item={item}
+                onClick={() => onOpen(item.id)}
+              />
+            ))}
+          </div>
+          <ScrollBar orientation="horizontal" className="md:hidden" />
+        </ScrollArea>
       )}
     </section>
   );
@@ -222,24 +240,20 @@ export default function HomePage() {
 
   return (
     <div className="space-y-4 px-4 py-4 md:space-y-6 md:px-8 md:py-8">
-      <section className="flex items-center justify-between gap-4">
-        <div>
-          <div className="text-[11px] font-medium uppercase tracking-[0.28em] text-slate-400">
-            Discount Hub
-          </div>
-          <h1 className="mt-2 text-[28px] font-semibold tracking-tight text-slate-900 md:text-[34px]">
-            今日精选
-          </h1>
-        </div>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => router.push("/member")}
-          className="rounded-full border-[var(--app-card-border)] bg-[var(--app-card)] px-4 text-[var(--app-strong)] shadow-sm hover:bg-[var(--app-soft)]"
-        >
-          {getVipLabel(profile)}
-        </Button>
-      </section>
+      <PageHeading
+        label="Discount Hub"
+        title="今日精选"
+        action={
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => router.push("/member")}
+            className="rounded-full border-[var(--app-card-border)] bg-[var(--app-card)] px-4 text-foreground shadow-sm hover:bg-secondary"
+          >
+            {getVipLabel(profile as UserProfile | undefined)}
+          </Button>
+        }
+      />
 
       <section className="grid gap-4 xl:grid-cols-[minmax(0,1.45fr)_minmax(340px,0.95fr)]">
         <Card className="overflow-hidden rounded-[30px] border border-[var(--app-hero-border)] bg-[var(--app-hero-bg)] py-0 text-white shadow-[var(--app-hero-shadow)]">
@@ -279,50 +293,58 @@ export default function HomePage() {
               </div>
 
               <div className="mt-6 grid grid-cols-3 gap-3 md:max-w-[34rem]">
-                <div className="rounded-2xl bg-white/10 p-3 backdrop-blur">
-                  <div className="text-[11px] text-white/60">会员等级</div>
-                  <div className="mt-2 text-base font-semibold">
-                    {getVipLabel(profile)}
+                {[
+                  {
+                    label: "会员等级",
+                    value: getVipLabel(profile as UserProfile | undefined),
+                  },
+                  {
+                    label: "可用积分",
+                    value: (
+                      (profile as UserProfile | undefined)?.points ?? 0
+                    ).toLocaleString("zh-CN"),
+                  },
+                  {
+                    label: "我的券包",
+                    value: `${(profile as UserProfile | undefined)?._count.coupons ?? 0} 张`,
+                  },
+                ].map((stat) => (
+                  <div
+                    key={stat.label}
+                    className="rounded-2xl bg-white/10 p-3 backdrop-blur"
+                  >
+                    <div className="text-[11px] text-white/60">
+                      {stat.label}
+                    </div>
+                    <div className="mt-2 text-base font-semibold">
+                      {stat.value}
+                    </div>
                   </div>
-                </div>
-                <div className="rounded-2xl bg-white/10 p-3 backdrop-blur">
-                  <div className="text-[11px] text-white/60">可用积分</div>
-                  <div className="mt-2 text-base font-semibold">
-                    {(profile?.points ?? 0).toLocaleString("zh-CN")}
-                  </div>
-                </div>
-                <div className="rounded-2xl bg-white/10 p-3 backdrop-blur">
-                  <div className="text-[11px] text-white/60">我的券包</div>
-                  <div className="mt-2 text-base font-semibold">
-                    {profile?._count.coupons ?? 0} 张
-                  </div>
-                </div>
+                ))}
               </div>
             </div>
           </CardContent>
         </Card>
 
         <div className="space-y-4">
-          <div className="rounded-[24px] border border-[var(--app-card-border)] bg-[var(--app-card)] px-4 py-3 shadow-[0_10px_30px_rgba(15,23,42,0.05)]">
-            <button
-              type="button"
-              onClick={() => router.push("/coupons")}
-              className="flex w-full items-center gap-3 text-left"
-            >
-              <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-slate-100">
-                <Search className="h-4 w-4 text-slate-600" />
+          <Button
+            variant="outline"
+            onClick={() => router.push("/coupons")}
+            className="h-auto w-full justify-start gap-3 rounded-[24px] border-[var(--app-card-border)] bg-[var(--app-card)] px-4 py-3 text-left shadow-sm hover:bg-secondary"
+          >
+            <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-secondary">
+              <Search className="h-4 w-4 text-muted-foreground" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="text-sm font-medium text-foreground">
+                搜索会员、券包、积分兑换权益
               </div>
-              <div className="min-w-0 flex-1">
-                <div className="text-sm font-medium text-slate-700">
-                  搜索会员、券包、积分兑换权益
-                </div>
-                <div className="mt-1 text-xs text-slate-400">
-                  推荐先查看限时神券和 0 元兑专区
-                </div>
+              <div className="mt-1 text-xs text-muted-foreground">
+                推荐先查看限时神券和 0 元兑专区
               </div>
-              <ChevronRight className="h-4 w-4 text-slate-400" />
-            </button>
-          </div>
+            </div>
+            <ChevronRight className="h-4 w-4 text-muted-foreground" />
+          </Button>
 
           <div className="grid grid-cols-2 gap-3">
             <QuickAction
@@ -382,7 +404,7 @@ export default function HomePage() {
       />
 
       <section className="grid gap-4 xl:grid-cols-[minmax(0,1.2fr)_360px]">
-        <Card className={surfaceClassName}>
+        <Card className={appCardClassName}>
           <CardContent className="p-5 md:p-6">
             <SectionHeading
               title="福利攻略"
@@ -390,30 +412,33 @@ export default function HomePage() {
             />
             <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-1">
               {hotPosts.map((post) => (
-                <button
+                <Button
                   key={post.id}
-                  type="button"
-                  className="flex w-full items-start justify-between gap-3 rounded-2xl border border-[var(--app-card-border)] bg-[var(--app-card)] px-4 py-4 text-left transition hover:bg-[var(--app-soft)]"
+                  variant="outline"
+                  className="h-auto w-full items-start justify-between gap-3 rounded-2xl border-[var(--app-card-border)] bg-[var(--app-card)] px-4 py-4 text-left hover:bg-secondary"
                 >
                   <div className="min-w-0">
-                    <div className="text-sm font-semibold text-slate-900">
+                    <div className="text-sm font-semibold text-foreground">
                       {post.title}
                     </div>
-                    <div className="mt-1 text-xs leading-5 text-slate-500">
+                    <div className="mt-1 text-xs leading-5 text-muted-foreground">
                       {post.excerpt}
                     </div>
-                    <div className="mt-3 inline-flex rounded-full bg-slate-100 px-2.5 py-1 text-[11px] text-slate-600">
+                    <Badge
+                      variant="secondary"
+                      className="mt-3 rounded-full text-[11px]"
+                    >
                       {post.app}
-                    </div>
+                    </Badge>
                   </div>
-                  <ArrowRight className="mt-1 h-4 w-4 shrink-0 text-slate-400" />
-                </button>
+                  <ArrowRight className="mt-1 h-4 w-4 shrink-0 text-muted-foreground" />
+                </Button>
               ))}
             </div>
           </CardContent>
         </Card>
 
-        <Card className={surfaceClassName}>
+        <Card className={appCardClassName}>
           <CardContent className="p-5 md:p-6">
             <SectionHeading
               title="热门兑换榜"
@@ -421,7 +446,7 @@ export default function HomePage() {
               action={
                 <Badge
                   variant="outline"
-                  className="border-[var(--app-card-border)] bg-[var(--app-soft)] text-[var(--app-text-muted)]"
+                  className="border-border bg-secondary text-muted-foreground"
                 >
                   <TrendingUp className="mr-1 h-3.5 w-3.5" />
                   TOP 5
@@ -432,20 +457,22 @@ export default function HomePage() {
               {hotRanking.map((item) => (
                 <div
                   key={item.rank}
-                  className="flex items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3"
+                  className="flex items-center justify-between gap-3 rounded-2xl border border-border bg-secondary/50 px-4 py-3"
                 >
                   <div className="flex items-center gap-3">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white text-sm font-semibold text-slate-900 shadow-sm">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-background text-sm font-semibold text-foreground shadow-sm">
                       {item.rank}
                     </div>
                     <div>
-                      <div className="text-sm font-semibold text-slate-900">
+                      <div className="text-sm font-semibold text-foreground">
                         {item.name}
                       </div>
-                      <div className="mt-1 text-xs text-slate-500">{item.hot}</div>
+                      <div className="mt-1 text-xs text-muted-foreground">
+                        {item.hot}
+                      </div>
                     </div>
                   </div>
-                  <ArrowRight className="h-4 w-4 text-slate-400" />
+                  <ArrowRight className="h-4 w-4 text-muted-foreground" />
                 </div>
               ))}
             </div>

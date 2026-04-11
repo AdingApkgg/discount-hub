@@ -13,13 +13,15 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import {
   Table,
   TableBody,
@@ -328,14 +330,14 @@ export default function OrdersPage() {
         </CardContent>
       </Card>
 
-      <Dialog open={!!refundTarget} onOpenChange={(open) => !open && setRefundTarget(null)}>
-        <DialogContent className="max-w-md bg-card border-border">
-          <DialogHeader>
-            <DialogTitle>确认退款</DialogTitle>
-            <DialogDescription>
+      <AlertDialog open={!!refundTarget} onOpenChange={(open) => !open && setRefundTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>确认退款</AlertDialogTitle>
+            <AlertDialogDescription>
               退款后将恢复商品库存和用户积分，券码将失效。此操作不可撤销。
-            </DialogDescription>
-          </DialogHeader>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
           {refundTarget && (
             <div className="space-y-2 text-sm">
               <div className="flex justify-between">
@@ -352,7 +354,7 @@ export default function OrdersPage() {
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">退款金额</span>
-                <span className="text-foreground font-semibold">¥{Number(refundTarget.cashPaid).toFixed(2)}</span>
+                <span className="font-semibold text-foreground">¥{Number(refundTarget.cashPaid).toFixed(2)}</span>
               </div>
               {refundTarget.pointsPaid > 0 && (
                 <div className="flex justify-between">
@@ -362,11 +364,9 @@ export default function OrdersPage() {
               )}
             </div>
           )}
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setRefundTarget(null)}>
-              取消
-            </Button>
-            <Button
+          <AlertDialogFooter>
+            <AlertDialogCancel>取消</AlertDialogCancel>
+            <AlertDialogAction
               variant="destructive"
               onClick={handleRefund}
               disabled={refundMutation.isPending}
@@ -379,10 +379,10 @@ export default function OrdersPage() {
               ) : (
                 "确认退款"
               )}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

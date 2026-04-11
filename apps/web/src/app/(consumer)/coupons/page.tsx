@@ -6,7 +6,6 @@ import {
   Clock,
   Copy,
   Flame,
-  Loader2,
   Sparkles,
   Ticket,
 } from "lucide-react";
@@ -25,9 +24,12 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-
-const surfaceClassName =
-  "gap-0 rounded-[28px] border border-[var(--app-card-border)] bg-[var(--app-card)] py-0 shadow-[var(--app-card-shadow)]";
+import { Skeleton } from "@/components/ui/skeleton";
+import {
+  appCardClassName,
+  PageHeading,
+  EmptyStateDashed,
+} from "@/components/shared";
 
 type CouponWithProduct = {
   id: string;
@@ -36,6 +38,23 @@ type CouponWithProduct = {
   expiresAt: Date | string;
   product: { title: string; app: string; subtitle: string };
 };
+
+function CouponsSkeleton() {
+  return (
+    <div className="space-y-3">
+      {Array.from({ length: 3 }).map((_, i) => (
+        <div key={i} className="flex gap-4 rounded-[24px] border border-border p-4">
+          <Skeleton className="h-14 w-14 rounded-[20px]" />
+          <div className="flex-1 space-y-2">
+            <Skeleton className="h-5 w-2/3" />
+            <Skeleton className="h-4 w-1/3" />
+            <Skeleton className="h-4 w-1/2" />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
 
 export default function CouponsPage() {
   const [tab, setTab] = useState("all");
@@ -79,65 +98,47 @@ export default function CouponsPage() {
   };
 
   return (
-    <div className="space-y-4 px-4 py-4">
-      <section className="flex items-center justify-between gap-3">
-        <div>
-          <div className="text-[11px] font-medium uppercase tracking-[0.28em] text-slate-400">
-            Coupons
-          </div>
-          <h1 className="mt-2 text-[28px] font-semibold tracking-tight text-slate-900">
-            券包
-          </h1>
-        </div>
-        <Badge
-          variant="outline"
-          className="rounded-full border-[var(--app-card-border)] bg-[var(--app-card)] px-3 py-1 text-[var(--app-text-muted)]"
-        >
-          <Flame className="mr-1 h-3.5 w-3.5" />
-          购买后自动入包
-        </Badge>
-      </section>
+    <div className="space-y-4 px-4 py-4 md:px-8 md:py-8">
+      <PageHeading
+        label="Coupons"
+        title="券包"
+        action={
+          <Badge
+            variant="outline"
+            className="rounded-full border-border bg-secondary px-3 py-1 text-muted-foreground"
+          >
+            <Flame className="mr-1 h-3.5 w-3.5" />
+            购买后自动入包
+          </Badge>
+        }
+      />
 
-      <Card className={surfaceClassName}>
+      <Card className={appCardClassName}>
         <CardContent className="p-5">
           <Tabs value={tab} onValueChange={setTab}>
-            <TabsList className="h-auto w-full rounded-[22px] bg-slate-100 p-1">
-              <TabsTrigger
-                value="all"
-                className="rounded-[18px] data-[state=active]:bg-[var(--app-card)] data-[state=active]:text-[var(--app-heading)]"
-              >
-                全部
-              </TabsTrigger>
-              <TabsTrigger
-                value="active"
-                className="rounded-[18px] data-[state=active]:bg-[var(--app-card)] data-[state=active]:text-[var(--app-heading)]"
-              >
-                未使用
-              </TabsTrigger>
-              <TabsTrigger
-                value="used"
-                className="rounded-[18px] data-[state=active]:bg-[var(--app-card)] data-[state=active]:text-[var(--app-heading)]"
-              >
-                已使用
-              </TabsTrigger>
-              <TabsTrigger
-                value="expired"
-                className="rounded-[18px] data-[state=active]:bg-[var(--app-card)] data-[state=active]:text-[var(--app-heading)]"
-              >
-                已过期
-              </TabsTrigger>
+            <TabsList className="h-auto w-full rounded-[22px] bg-secondary p-1">
+              {[
+                { value: "all", label: "全部" },
+                { value: "active", label: "未使用" },
+                { value: "used", label: "已使用" },
+                { value: "expired", label: "已过期" },
+              ].map((t) => (
+                <TabsTrigger
+                  key={t.value}
+                  value={t.value}
+                  className="rounded-[18px] data-[state=active]:bg-background data-[state=active]:text-foreground"
+                >
+                  {t.label}
+                </TabsTrigger>
+              ))}
             </TabsList>
           </Tabs>
 
           <div className="mt-5">
             {isLoading ? (
-              <div className="flex justify-center py-10">
-                <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
-              </div>
+              <CouponsSkeleton />
             ) : filtered.length === 0 ? (
-              <div className="rounded-[24px] border border-dashed border-slate-200 bg-slate-50 p-10 text-center text-sm text-slate-500">
-                暂无券码
-              </div>
+              <EmptyStateDashed text="暂无券码" />
             ) : (
               <div className="space-y-3">
                 {filtered.map((coupon) => {
@@ -147,69 +148,67 @@ export default function CouponsPage() {
                       : String(coupon.expiresAt).slice(0, 10);
 
                   return (
-                    <button
-                      type="button"
+                    <Card
                       key={coupon.id}
-                      onClick={() => setDetailCoupon(coupon as unknown as CouponWithProduct)}
-                      className={`w-full overflow-hidden rounded-[24px] border px-4 py-4 text-left transition hover:-translate-y-0.5 hover:shadow-md ${
+                      className={`cursor-pointer gap-0 overflow-hidden rounded-[24px] border py-0 transition hover:-translate-y-0.5 hover:shadow-md ${
                         coupon.status === "ACTIVE"
-                          ? "border-slate-200 bg-white"
-                          : "border-slate-200 bg-slate-50"
+                          ? "border-border bg-background"
+                          : "border-border bg-secondary/50"
                       }`}
+                      onClick={() => setDetailCoupon(coupon as unknown as CouponWithProduct)}
                     >
-                      <div className="flex items-start gap-4">
-                        <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-[20px] bg-slate-100">
-                          <Ticket className="h-7 w-7 text-slate-700" />
-                        </div>
-
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-start justify-between gap-3">
-                            <div>
-                              <h3 className="text-base font-semibold text-slate-900">
-                                {coupon.product.title}
-                              </h3>
-                              <p className="mt-1 text-sm text-slate-500">
-                                {coupon.product.app}
-                              </p>
-                            </div>
-                            {coupon.status === "ACTIVE" ? (
-                              <CheckCircle2 className="h-5 w-5 shrink-0 text-slate-900" />
-                            ) : (
-                              <Sparkles className="h-5 w-5 shrink-0 text-slate-400" />
-                            )}
+                      <CardContent className="p-4">
+                        <div className="flex items-start gap-4">
+                          <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-[20px] bg-secondary">
+                            <Ticket className="h-7 w-7 text-foreground" />
                           </div>
-
-                          <div className="mt-3 flex items-center gap-4 text-xs text-slate-500">
-                            <div className="flex items-center gap-1">
-                              <Clock className="h-3.5 w-3.5" />
-                              <span>有效期至 {expiresAt}</span>
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-start justify-between gap-3">
+                              <div>
+                                <h3 className="text-base font-semibold text-foreground">
+                                  {coupon.product.title}
+                                </h3>
+                                <p className="mt-1 text-sm text-muted-foreground">
+                                  {coupon.product.app}
+                                </p>
+                              </div>
+                              {coupon.status === "ACTIVE" ? (
+                                <CheckCircle2 className="h-5 w-5 shrink-0 text-foreground" />
+                              ) : (
+                                <Sparkles className="h-5 w-5 shrink-0 text-muted-foreground" />
+                              )}
                             </div>
-                          </div>
-
-                          <div className="mt-4 flex items-center justify-between gap-3">
-                            <code className="rounded-full bg-slate-100 px-3 py-1.5 font-mono text-xs text-slate-800">
-                              {coupon.code}
-                            </code>
-                            {coupon.status === "ACTIVE" ? (
-                              <Button
-                                size="sm"
-                                onClick={() => handleUseCoupon(coupon)}
-                                className="rounded-full px-4"
-                              >
-                                立即使用
-                              </Button>
-                            ) : (
-                              <Badge
-                                variant="outline"
-                                className="rounded-full border-slate-200 bg-white text-slate-600"
-                              >
-                                {statusLabel(coupon.status)}
+                            <div className="mt-3 flex items-center gap-4 text-xs text-muted-foreground">
+                              <div className="flex items-center gap-1">
+                                <Clock className="h-3.5 w-3.5" />
+                                <span>有效期至 {expiresAt}</span>
+                              </div>
+                            </div>
+                            <div className="mt-4 flex items-center justify-between gap-3">
+                              <Badge variant="secondary" className="rounded-full font-mono text-xs">
+                                {coupon.code}
                               </Badge>
-                            )}
+                              {coupon.status === "ACTIVE" ? (
+                                <Button
+                                  size="sm"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleUseCoupon(coupon);
+                                  }}
+                                  className="rounded-full px-4"
+                                >
+                                  立即使用
+                                </Button>
+                              ) : (
+                                <Badge variant="outline" className="rounded-full border-border text-muted-foreground">
+                                  {statusLabel(coupon.status)}
+                                </Badge>
+                              )}
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    </button>
+                      </CardContent>
+                    </Card>
                   );
                 })}
               </div>
@@ -219,34 +218,34 @@ export default function CouponsPage() {
       </Card>
 
       <Dialog open={!!detailCoupon} onOpenChange={() => setDetailCoupon(null)}>
-        <DialogContent className="max-w-sm rounded-[28px] border border-[var(--app-card-border)] bg-[var(--app-card)] p-0 text-[var(--app-heading)] shadow-[var(--app-card-shadow)]">
-          <DialogHeader className="border-b border-slate-200 px-6 py-5">
+        <DialogContent className="max-w-sm rounded-[28px] border-border bg-background p-0">
+          <DialogHeader className="border-b border-border px-6 py-5">
             <DialogTitle>券码详情</DialogTitle>
           </DialogHeader>
           {detailCoupon && (
             <div className="px-6 py-5">
               <div className="text-center">
-                <div className="text-base font-semibold text-slate-900">
+                <div className="text-base font-semibold text-foreground">
                   {detailCoupon.product.title}
                 </div>
-                <div className="mt-1 text-sm text-slate-500">
+                <div className="mt-1 text-sm text-muted-foreground">
                   {detailCoupon.product.app}
                 </div>
               </div>
 
               <div className="mt-5 flex justify-center">
-                <div className="rounded-2xl border border-slate-200 bg-white p-4">
+                <div className="rounded-2xl border border-border bg-background p-4">
                   <FakeQr value={detailCoupon.code} />
                 </div>
               </div>
 
               <div className="mt-4 text-center">
-                <code className="rounded-full bg-slate-100 px-4 py-2 font-mono text-sm text-slate-800">
+                <Badge variant="secondary" className="rounded-full px-4 py-2 font-mono text-sm">
                   {detailCoupon.code}
-                </code>
+                </Badge>
               </div>
 
-              <div className="mt-2 text-center text-xs text-slate-400">
+              <div className="mt-2 text-center text-xs text-muted-foreground">
                 有效期至{" "}
                 {detailCoupon.expiresAt instanceof Date
                   ? detailCoupon.expiresAt.toLocaleDateString("zh-CN")

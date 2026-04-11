@@ -34,13 +34,17 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Progress } from "@/components/ui/progress";
+import { Skeleton } from "@/components/ui/skeleton";
+import {
+  appCardClassName,
+  SectionHeading,
+  PageHeading,
+  StatCard,
+} from "@/components/shared";
 
 type PointsStatus = RouterOutputs["points"]["getStatus"];
 type UserProfile = RouterOutputs["user"]["me"];
 type OrderRecord = RouterOutputs["order"]["myOrders"][number];
-
-const surfaceClassName =
-  "gap-0 rounded-[28px] border border-[var(--app-card-border)] bg-[var(--app-card)] py-0 shadow-[var(--app-card-shadow)]";
 
 const CHECKIN_REWARDS = [200, 3000, 300, 500];
 const VIP_BENEFITS: Record<number, string[]> = {
@@ -84,28 +88,6 @@ const DAILY_TASKS = [
   },
 ] as const;
 
-function SectionHeading({
-  title,
-  subtitle,
-  action,
-}: {
-  title: string;
-  subtitle?: string;
-  action?: React.ReactNode;
-}) {
-  return (
-    <div className="flex items-start justify-between gap-3 md:items-center">
-      <div className="min-w-0">
-        <h2 className="text-lg font-semibold text-slate-900">{title}</h2>
-        {subtitle ? (
-          <p className="mt-1 text-xs leading-5 text-slate-500">{subtitle}</p>
-        ) : null}
-      </div>
-      {action}
-    </div>
-  );
-}
-
 function getCurrentTier(profile: UserProfile | undefined, vipTiers: ReturnType<typeof buildVipTiers>) {
   const level = Math.min(profile?.vipLevel ?? 0, vipTiers.length - 1);
   return vipTiers[level] ?? vipTiers[0];
@@ -120,11 +102,33 @@ function isToday(value: string | Date | null | undefined) {
   if (!value) return false;
   const date = typeof value === "string" ? new Date(value) : value;
   const now = new Date();
-
   return (
     date.getFullYear() === now.getFullYear() &&
     date.getMonth() === now.getMonth() &&
     date.getDate() === now.getDate()
+  );
+}
+
+function MemberSkeleton() {
+  return (
+    <div className="space-y-4 px-4 py-4 md:space-y-6 md:px-8 md:py-8">
+      <div className="flex justify-between">
+        <div className="space-y-2">
+          <Skeleton className="h-3 w-24" />
+          <Skeleton className="h-9 w-32" />
+        </div>
+        <Skeleton className="h-9 w-20 rounded-full" />
+      </div>
+      <div className="grid gap-4 xl:grid-cols-[1.35fr_0.95fr]">
+        <Skeleton className="h-64 rounded-[30px]" />
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <Skeleton key={i} className="h-24 rounded-[28px]" />
+          ))}
+        </div>
+      </div>
+      <Skeleton className="h-48 rounded-[28px]" />
+    </div>
   );
 }
 
@@ -162,9 +166,7 @@ export default function MemberPage() {
 
   const checkedIn = status?.checkedInToday ?? false;
   const nextDayIndex = status?.nextDayIndex ?? 1;
-  const completedCheckinDays = checkedIn
-    ? nextDayIndex
-    : Math.max(0, nextDayIndex - 1);
+  const completedCheckinDays = checkedIn ? nextDayIndex : Math.max(0, nextDayIndex - 1);
   const currentTier = getCurrentTier(profile, vipTiers);
   const nextTier = getNextTier(profile, vipTiers);
   const points = profile?.points ?? status?.points ?? 0;
@@ -172,20 +174,12 @@ export default function MemberPage() {
   const progressPct =
     nextTier.level === currentTier.level
       ? 100
-      : Math.min(
-          100,
-          ((points - currentTier.minPoints) /
-            (nextTier.minPoints - currentTier.minPoints)) *
-            100,
-        );
+      : Math.min(100, ((points - currentTier.minPoints) / (nextTier.minPoints - currentTier.minPoints)) * 100);
   const completedTaskCount = DAILY_TASKS.filter((task) =>
     task.id === "checkin" ? checkedIn : todayTasks.has(task.id),
   ).length;
   const hasPaidOrderToday = useMemo(
-    () =>
-      orders.some(
-        (order) => order.status === "PAID" && isToday(order.paidAt ?? order.createdAt),
-      ),
+    () => orders.some((order) => order.status === "PAID" && isToday(order.paidAt ?? order.createdAt)),
     [orders],
   );
   const isLoading = loadingStatus || loadingProfile;
@@ -194,7 +188,7 @@ export default function MemberPage() {
     await queryClient.invalidateQueries();
   }
 
-  async function runTask(taskId: string, displayReward: number) {
+  async function runTask(taskId: string) {
     setBusyTaskId(taskId);
     try {
       const result = await completeTaskMutation.mutateAsync({ taskId });
@@ -224,133 +218,99 @@ export default function MemberPage() {
   }
 
   async function handleTask(taskId: (typeof DAILY_TASKS)[number]["id"], reward: number) {
-    if (taskId === "checkin") {
-      await handleCheckin();
-      return;
-    }
-
-    if (taskId === "browse") {
-      openApp("抖音");
-      await runTask(taskId, reward);
-      return;
-    }
-
+    if (taskId === "checkin") { await handleCheckin(); return; }
+    if (taskId === "browse") { openApp("抖音"); await runTask(taskId); return; }
     if (taskId === "share") {
-      try {
-        await navigator.clipboard.writeText(window.location.href);
-      } catch {
-        toast.error("复制分享链接失败");
-        return;
-      }
-      await runTask(taskId, reward);
+      try { await navigator.clipboard.writeText(window.location.href); } catch { toast.error("复制分享链接失败"); return; }
+      await runTask(taskId);
       return;
     }
-
     if (taskId === "purchase") {
       if (todayTasks.has("purchase")) return;
-
-      if (!hasPaidOrderToday) {
-        toast.info("今天还没有完成兑换，先去首页挑个商品吧");
-        router.push("/");
-        return;
-      }
-
-      await runTask(taskId, reward);
+      if (!hasPaidOrderToday) { toast.info("今天还没有完成兑换，先去首页挑个商品吧"); router.push("/"); return; }
+      await runTask(taskId);
     }
   }
 
-  async function handleEarn(id: string, app: string, rewardPoints: number) {
+  async function handleEarn(id: string, app: string) {
     if (todayTasks.has(id) || busyTaskId === id) return;
     openApp(app);
-    await runTask(id, rewardPoints);
+    await runTask(id);
   }
 
-  if (isLoading) {
-    return (
-      <div className="flex min-h-[50vh] items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-slate-400" />
-      </div>
-    );
-  }
+  if (isLoading) return <MemberSkeleton />;
 
   return (
     <div className="space-y-4 px-4 py-4 md:space-y-6 md:px-8 md:py-8">
-      <section className="flex items-center justify-between gap-4">
-        <div>
-          <div className="text-[11px] font-medium uppercase tracking-[0.28em] text-slate-400">
-            Member Center
-          </div>
-          <h1 className="mt-2 text-[28px] font-semibold tracking-tight text-slate-900 md:text-[34px]">
-            会员中心
-          </h1>
-        </div>
-        <Dialog>
-          <DialogTrigger asChild>
-            <Button
-              variant="outline"
-              size="sm"
-              className="rounded-full border-[var(--app-card-border)] bg-[var(--app-card)] px-4 text-[var(--app-strong)] shadow-sm hover:bg-[var(--app-soft)]"
-            >
-              <Crown className="h-4 w-4" />
-              VIP 等级
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-md rounded-[28px] border border-[var(--app-card-border)] bg-[var(--app-card)] p-0 text-[var(--app-heading)] shadow-[var(--app-card-shadow)]">
-            <DialogHeader className="border-b border-slate-200 px-6 py-5">
-              <DialogTitle>VIP 等级体系</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-3 px-6 py-5">
-              {vipTiers.map((tier) => (
-                <Card
-                  key={tier.level}
-                  className={`gap-0 rounded-3xl border py-0 ${
-                    tier.level === (profile?.vipLevel ?? 0)
-                      ? "border-slate-900 bg-slate-900 text-white"
-                      : "border-slate-200 bg-slate-50 text-slate-900"
-                  }`}
-                >
-                  <CardContent className="p-4">
-                    <div className="flex items-center justify-between gap-3">
-                      <div>
-                        <div className="text-base font-semibold">{tier.name}</div>
-                        <div
-                          className={`mt-1 text-xs ${
-                            tier.level === (profile?.vipLevel ?? 0)
-                              ? "text-white/70"
-                              : "text-slate-500"
-                          }`}
-                        >
-                          需要 {tier.minPoints} 积分
+      <PageHeading
+        label="Member Center"
+        title="会员中心"
+        action={
+          <Dialog>
+            <DialogTrigger asChild>
+              <Button
+                variant="outline"
+                size="sm"
+                className="rounded-full border-[var(--app-card-border)] bg-[var(--app-card)] px-4 text-foreground shadow-sm hover:bg-secondary"
+              >
+                <Crown className="h-4 w-4" />
+                VIP 等级
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-md rounded-[28px] border-border bg-background p-0">
+              <DialogHeader className="border-b border-border px-6 py-5">
+                <DialogTitle>VIP 等级体系</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-3 px-6 py-5">
+                {vipTiers.map((tier) => {
+                  const isCurrent = tier.level === (profile?.vipLevel ?? 0);
+                  return (
+                    <Card
+                      key={tier.level}
+                      className={`gap-0 rounded-3xl border py-0 ${
+                        isCurrent
+                          ? "border-primary bg-primary text-primary-foreground"
+                          : "border-border bg-secondary/50 text-foreground"
+                      }`}
+                    >
+                      <CardContent className="p-4">
+                        <div className="flex items-center justify-between gap-3">
+                          <div>
+                            <div className="text-base font-semibold">{tier.name}</div>
+                            <div className={`mt-1 text-xs ${isCurrent ? "text-primary-foreground/70" : "text-muted-foreground"}`}>
+                              需要 {tier.minPoints} 积分
+                            </div>
+                          </div>
+                          {isCurrent && (
+                            <Badge className="bg-background text-foreground hover:bg-background">
+                              当前等级
+                            </Badge>
+                          )}
                         </div>
-                      </div>
-                      {tier.level === (profile?.vipLevel ?? 0) ? (
-                        <Badge className="bg-white text-slate-900 hover:bg-white">
-                          当前等级
-                        </Badge>
-                      ) : null}
-                    </div>
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      {tier.benefits.map((benefit) => (
-                        <Badge
-                          key={benefit}
-                          variant="outline"
-                          className={`rounded-full ${
-                            tier.level === (profile?.vipLevel ?? 0)
-                              ? "border-white/20 bg-white/10 text-white"
-                              : "border-slate-200 bg-white text-slate-600"
-                          }`}
-                        >
-                          {benefit}
-                        </Badge>
-                      ))}
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          </DialogContent>
-        </Dialog>
-      </section>
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          {tier.benefits.map((benefit) => (
+                            <Badge
+                              key={benefit}
+                              variant="outline"
+                              className={`rounded-full ${
+                                isCurrent
+                                  ? "border-primary-foreground/20 bg-primary-foreground/10 text-primary-foreground"
+                                  : "border-border bg-background text-muted-foreground"
+                              }`}
+                            >
+                              {benefit}
+                            </Badge>
+                          ))}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+            </DialogContent>
+          </Dialog>
+        }
+      />
 
       <section className="grid gap-4 xl:grid-cols-[minmax(0,1.35fr)_minmax(320px,0.95fr)]">
         <Card className="overflow-hidden rounded-[30px] border border-[var(--app-hero-border)] bg-[var(--app-hero-bg)] py-0 text-white shadow-[var(--app-hero-shadow)]">
@@ -371,7 +331,6 @@ export default function MemberPage() {
                   </div>
                 </div>
               </div>
-
               <div className="mt-6 rounded-[24px] bg-white/8 p-4 backdrop-blur">
                 <div className="flex items-center justify-between gap-3 text-xs text-white/70">
                   <span>距离 {nextTier.name}</span>
@@ -380,11 +339,7 @@ export default function MemberPage() {
                 <Progress value={progressPct} className="mt-3 h-2 bg-white/15" />
                 <div className="mt-4 flex flex-wrap gap-2">
                   {currentTier.benefits.map((benefit) => (
-                    <Badge
-                      key={benefit}
-                      variant="outline"
-                      className="rounded-full border-white/15 bg-white/10 text-white"
-                    >
+                    <Badge key={benefit} variant="outline" className="rounded-full border-white/15 bg-white/10 text-white">
                       {benefit}
                     </Badge>
                   ))}
@@ -395,42 +350,14 @@ export default function MemberPage() {
         </Card>
 
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
-          {[
-            {
-              label: "连续签到",
-              value: `${completedCheckinDays} 天`,
-              hint: "第 2 天奖励 3000 积分",
-            },
-            {
-              label: "今日任务",
-              value: `${completedTaskCount}/${DAILY_TASKS.length}`,
-              hint: "做完可稳定攒积分",
-            },
-            {
-              label: "当前等级",
-              value: currentTier.name,
-              hint: "会员等级越高权益越多",
-            },
-            {
-              label: "距离升级",
-              value: `${remainingPoints.toLocaleString("zh-CN")} 分`,
-              hint: `下一档 ${nextTier.name}`,
-            },
-          ].map((item) => (
-            <Card key={item.label} className={surfaceClassName}>
-              <CardContent className="p-4">
-                <div className="text-xs text-slate-500">{item.label}</div>
-                <div className="mt-2 text-2xl font-semibold text-slate-900">
-                  {item.value}
-                </div>
-                <div className="mt-1 text-xs text-slate-400">{item.hint}</div>
-              </CardContent>
-            </Card>
-          ))}
+          <StatCard label="连续签到" value={`${completedCheckinDays} 天`} hint="第 2 天奖励 3000 积分" />
+          <StatCard label="今日任务" value={`${completedTaskCount}/${DAILY_TASKS.length}`} hint="做完可稳定攒积分" />
+          <StatCard label="当前等级" value={currentTier.name} hint="会员等级越高权益越多" />
+          <StatCard label="距离升级" value={`${remainingPoints.toLocaleString("zh-CN")} 分`} hint={`下一档 ${nextTier.name}`} />
         </div>
       </section>
 
-      <Card className={surfaceClassName}>
+      <Card className={appCardClassName}>
         <CardContent className="p-5 md:p-6">
           <SectionHeading
             title="连续签到"
@@ -452,32 +379,28 @@ export default function MemberPage() {
               </Button>
             }
           />
-
           <div className="mt-5 grid grid-cols-2 gap-2.5 sm:grid-cols-4">
             {CHECKIN_REWARDS.map((reward, index) => {
               const done = index < completedCheckinDays;
-
               return (
-                <div
-                  key={reward}
-                  className={`rounded-[22px] border px-3 py-4 text-center ${
+                <Card
+                  key={index}
+                  className={`gap-0 rounded-[22px] border py-0 text-center ${
                     done
-                      ? "border-slate-900 bg-slate-900 text-white"
-                      : "border-slate-200 bg-slate-50 text-slate-900"
+                      ? "border-primary bg-primary text-primary-foreground"
+                      : "border-border bg-secondary/50 text-foreground"
                   }`}
                 >
-                  <div className={`text-xs ${done ? "text-white/60" : "text-slate-500"}`}>
-                    第 {index + 1} 天
-                  </div>
-                  <div className="mt-2 text-base font-semibold">+{reward}</div>
-                  <div className="mt-2 flex justify-center">
-                    {done ? (
-                      <Check className="h-4 w-4 text-white" />
-                    ) : (
-                      <Sparkles className="h-4 w-4 text-slate-400" />
-                    )}
-                  </div>
-                </div>
+                  <CardContent className="px-3 py-4">
+                    <div className={`text-xs ${done ? "text-primary-foreground/60" : "text-muted-foreground"}`}>
+                      第 {index + 1} 天
+                    </div>
+                    <div className="mt-2 text-base font-semibold">+{reward}</div>
+                    <div className="mt-2 flex justify-center">
+                      {done ? <Check className="h-4 w-4" /> : <Sparkles className="h-4 w-4 text-muted-foreground" />}
+                    </div>
+                  </CardContent>
+                </Card>
               );
             })}
           </div>
@@ -485,58 +408,40 @@ export default function MemberPage() {
       </Card>
 
       <section className="grid gap-4 xl:grid-cols-[minmax(0,1.15fr)_minmax(360px,0.85fr)]">
-        <Card className={surfaceClassName}>
+        <Card className={appCardClassName}>
           <CardContent className="p-5 md:p-6">
-            <SectionHeading
-              title="日常积分任务"
-              subtitle="保持轻量，围绕签到、浏览、分享和购买四个动作。"
-            />
+            <SectionHeading title="日常积分任务" subtitle="保持轻量，围绕签到、浏览、分享和购买四个动作。" />
             <div className="mt-5 grid gap-3">
               {DAILY_TASKS.map((task) => {
-                const done =
-                  task.id === "checkin" ? checkedIn : todayTasks.has(task.id);
+                const done = task.id === "checkin" ? checkedIn : todayTasks.has(task.id);
                 const Icon = task.icon;
-
                 return (
                   <div
                     key={task.id}
-                    className="flex flex-col gap-3 rounded-[24px] border border-slate-200 bg-slate-50 px-4 py-4 md:flex-row md:items-center md:justify-between"
+                    className="flex flex-col gap-3 rounded-[24px] border border-border bg-secondary/50 px-4 py-4 md:flex-row md:items-center md:justify-between"
                   >
                     <div className="flex items-center gap-3">
-                      <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white shadow-sm">
-                        <Icon className="h-5 w-5 text-slate-700" />
+                      <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-background shadow-sm">
+                        <Icon className="h-5 w-5 text-foreground" />
                       </div>
                       <div>
-                        <div className="text-sm font-semibold text-slate-900">
-                          {task.title}
-                        </div>
-                        <div className="mt-1 text-xs leading-5 text-slate-500">
+                        <div className="text-sm font-semibold text-foreground">{task.title}</div>
+                        <div className="mt-1 text-xs leading-5 text-muted-foreground">
                           {task.desc} · +{task.reward} 积分
                         </div>
                       </div>
                     </div>
-
                     <Button
                       size="sm"
                       variant={done ? "secondary" : "default"}
                       disabled={done || busyTaskId === task.id}
                       onClick={() => handleTask(task.id, task.reward)}
-                      className={
-                        done
-                          ? "rounded-full bg-slate-200 text-slate-500 hover:bg-slate-200"
-                          : "rounded-full"
-                      }
+                      className="rounded-full"
                     >
                       {busyTaskId === task.id ? (
-                        <>
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                          提交中
-                        </>
+                        <><Loader2 className="h-4 w-4 animate-spin" />提交中</>
                       ) : done ? (
-                        <>
-                          <Check className="h-4 w-4" />
-                          已完成
-                        </>
+                        <><Check className="h-4 w-4" />已完成</>
                       ) : task.id === "purchase" && !hasPaidOrderToday ? (
                         "去兑换"
                       ) : (
@@ -550,52 +455,41 @@ export default function MemberPage() {
           </CardContent>
         </Card>
 
-        <Card className={surfaceClassName}>
+        <Card className={appCardClassName}>
           <CardContent className="p-5 md:p-6">
-            <SectionHeading
-              title="看内容赚积分"
-              subtitle="桌面端改成独立侧栏卡片，更适合横屏浏览。"
-            />
+            <SectionHeading title="看内容赚积分" subtitle="桌面端改成独立侧栏卡片，更适合横屏浏览。" />
             <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
               {earnContents.map((content) => {
                 const done = todayTasks.has(content.id);
-
                 return (
-                  <button
+                  <Card
                     key={content.id}
-                    type="button"
-                    onClick={() =>
-                      handleEarn(content.id, content.app, content.rewardPoints)
-                    }
-                    className="overflow-hidden rounded-[24px] border border-[var(--app-card-border)] bg-[var(--app-card)] text-left shadow-[0_10px_30px_rgba(15,23,42,0.05)] transition hover:-translate-y-0.5 hover:bg-[var(--app-soft)] hover:shadow-[0_16px_36px_rgba(15,23,42,0.08)]"
+                    className="cursor-pointer gap-0 overflow-hidden rounded-[24px] border-[var(--app-card-border)] py-0 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
+                    onClick={() => handleEarn(content.id, content.app)}
                   >
                     <div className="flex h-24 items-center justify-center bg-[linear-gradient(135deg,#111827_0%,#374151_100%)]">
                       <Play className="h-8 w-8 text-white/60" />
                     </div>
-                    <div className="p-4">
-                      <div className="line-clamp-2 text-sm font-semibold text-slate-900">
+                    <CardContent className="p-4">
+                      <div className="line-clamp-2 text-sm font-semibold text-foreground">
                         {content.title}
                       </div>
                       <div className="mt-3 flex items-center justify-between gap-2">
-                        <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] text-slate-600">
+                        <Badge variant="secondary" className="rounded-full text-[11px]">
                           {content.subtitle}
-                        </span>
-                        <span
-                          className={`rounded-full px-2.5 py-1 text-[11px] font-medium ${
+                        </Badge>
+                        <Badge
+                          className={`rounded-full text-[11px] ${
                             done
-                              ? "bg-slate-900 text-white"
-                              : "bg-slate-100 text-slate-700"
+                              ? "bg-primary text-primary-foreground"
+                              : "bg-secondary text-foreground"
                           }`}
                         >
-                          {busyTaskId === content.id
-                            ? "领取中"
-                            : done
-                              ? "已领"
-                              : `+${content.rewardPoints}`}
-                        </span>
+                          {busyTaskId === content.id ? "领取中" : done ? "已领" : `+${content.rewardPoints}`}
+                        </Badge>
                       </div>
-                    </div>
-                  </button>
+                    </CardContent>
+                  </Card>
                 );
               })}
             </div>

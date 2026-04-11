@@ -28,7 +28,8 @@ export const metadata: Metadata = {
     locale: "zh_CN",
   },
   icons: {
-    icon: "/favicon.svg",
+    icon: "/logo.png",
+    apple: "/logo.png",
   },
 };
 

@@ -53,13 +53,14 @@ pub fn run() {
                     .expect("DISCOUNT_HUB_WEB_URL must be a valid absolute URL"),
             );
 
-            let mut builder = WebviewWindowBuilder::new(app, WINDOW_LABEL, window_url)
-                .title(WINDOW_TITLE)
-                .user_agent("DiscountHub/1.0");
+            let mut builder =
+                WebviewWindowBuilder::new(app, WINDOW_LABEL, window_url)
+                    .user_agent("DiscountHub/1.0");
 
             #[cfg(not(mobile))]
             {
                 builder = builder
+                    .title(WINDOW_TITLE)
                     .inner_size(430.0, 900.0)
                     .min_inner_size(375.0, 600.0);
             }

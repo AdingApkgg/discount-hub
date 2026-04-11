@@ -12,6 +12,15 @@ import { useQuery } from "@tanstack/react-query";
 import { useTRPC } from "@/trpc/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export default function DashboardPage() {
   const trpc = useTRPC();
@@ -67,8 +76,18 @@ export default function DashboardPage() {
       </div>
 
       {isLoading ? (
-        <div className="flex justify-center py-8">
-          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <Card key={i} className="border-border">
+              <CardContent className="p-5">
+                <div className="mb-3 flex items-center justify-between">
+                  <Skeleton className="h-4 w-16" />
+                  <Skeleton className="h-8 w-8 rounded-lg" />
+                </div>
+                <Skeleton className="h-8 w-20" />
+              </CardContent>
+            </Card>
+          ))}
         </div>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
@@ -110,35 +129,35 @@ export default function DashboardPage() {
           </div>
 
           {!records || records.length === 0 ? (
-            <div className="h-48 rounded-lg border border-border bg-secondary/30 flex items-center justify-center text-muted-foreground text-sm">
+            <div className="flex h-48 items-center justify-center rounded-lg border border-dashed border-border bg-secondary/30 text-sm text-muted-foreground">
               暂无核销记录
             </div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-border text-left text-muted-foreground">
-                    <th className="pb-2 font-medium">券码</th>
-                    <th className="pb-2 font-medium">商品</th>
-                    <th className="pb-2 font-medium">用户</th>
-                    <th className="pb-2 font-medium">核销人</th>
-                    <th className="pb-2 font-medium">时间</th>
-                  </tr>
-                </thead>
-                <tbody>
+              <Table>
+                <TableHeader>
+                  <TableRow className="border-border hover:bg-transparent">
+                    <TableHead>券码</TableHead>
+                    <TableHead>商品</TableHead>
+                    <TableHead>用户</TableHead>
+                    <TableHead>核销人</TableHead>
+                    <TableHead>时间</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
                   {records.slice(0, 20).map((r) => (
-                    <tr key={r.id} className="border-b border-border/50">
-                      <td className="py-2 font-mono text-xs">{r.coupon.code}</td>
-                      <td className="py-2">{r.coupon.product.title}</td>
-                      <td className="py-2">{r.coupon.user.name ?? r.coupon.user.email}</td>
-                      <td className="py-2">{r.verifier.name ?? r.verifier.email}</td>
-                      <td className="py-2 text-xs text-muted-foreground">
+                    <TableRow key={r.id} className="border-border">
+                      <TableCell className="font-mono text-xs">{r.coupon.code}</TableCell>
+                      <TableCell>{r.coupon.product.title}</TableCell>
+                      <TableCell>{r.coupon.user.name ?? r.coupon.user.email}</TableCell>
+                      <TableCell>{r.verifier.name ?? r.verifier.email}</TableCell>
+                      <TableCell className="text-xs text-muted-foreground">
                         {new Date(r.verifiedAt).toLocaleString("zh-CN")}
-                      </td>
-                    </tr>
+                      </TableCell>
+                    </TableRow>
                   ))}
-                </tbody>
-              </table>
+                </TableBody>
+              </Table>
             </div>
           )}
         </CardContent>

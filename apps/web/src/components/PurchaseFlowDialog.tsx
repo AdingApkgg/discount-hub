@@ -18,6 +18,9 @@ import {
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Label } from "@/components/ui/label";
+import { Separator } from "@/components/ui/separator";
 import FakeQr from "./FakeQr";
 import { toast } from "sonner";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -83,23 +86,15 @@ export default function PurchaseFlowDialog({
 
   const trpc = useTRPC();
   const queryClient = useQueryClient();
-  const purchaseMutation = useMutation(
-    trpc.order.purchase.mutationOptions(),
-  );
-  const completePaymentMutation = useMutation(
-    trpc.order.completePayment.mutationOptions(),
-  );
+  const purchaseMutation = useMutation(trpc.order.purchase.mutationOptions());
+  const completePaymentMutation = useMutation(trpc.order.completePayment.mutationOptions());
 
   const applySuccess = async (result: PaymentPayload) => {
     if (!result.coupon) {
       toast.error("支付完成，但券码尚未生成");
       return;
     }
-
-    const paidAt = result.order.paidAt
-      ? new Date(result.order.paidAt)
-      : new Date();
-
+    const paidAt = result.order.paidAt ? new Date(result.order.paidAt) : new Date();
     setPaymentSession(result.paymentSession);
     setPendingOrderId(result.order.id);
     setOrder({
@@ -109,15 +104,12 @@ export default function PurchaseFlowDialog({
       couponCode: result.coupon.code,
     });
     setStep("success");
-
     await queryClient.invalidateQueries();
-
     toast.success(
       result.taskReward > 0
         ? `支付成功！券码已生成，额外奖励 +${result.taskReward} 积分`
         : "支付成功！券码已生成",
     );
-
     window.dispatchEvent(
       new CustomEvent("jz:purchaseSuccess", {
         detail: {
@@ -134,28 +126,23 @@ export default function PurchaseFlowDialog({
   const payNow = async () => {
     if (paying) return;
     setPaying(true);
-
     try {
       const result = await purchaseMutation.mutateAsync({
         productId: scroll.id,
         qty,
         payMethod: method,
       });
-
       if (result.completed) {
         await applySuccess(result);
         return;
       }
-
       setPendingOrderId(result.order.id);
       setPaymentSession(result.paymentSession);
       setStep("pending");
       await queryClient.invalidateQueries();
       toast.success("订单已创建，请按页面指引完成支付");
     } catch (err: unknown) {
-      const message =
-        err instanceof Error ? err.message : "支付失败，请稍后重试";
-      toast.error(message);
+      toast.error(err instanceof Error ? err.message : "支付失败，请稍后重试");
     } finally {
       setPaying(false);
     }
@@ -164,16 +151,11 @@ export default function PurchaseFlowDialog({
   const confirmPayment = async () => {
     if (!pendingOrderId || confirming) return;
     setConfirming(true);
-
     try {
-      const result = await completePaymentMutation.mutateAsync({
-        orderId: pendingOrderId,
-      });
+      const result = await completePaymentMutation.mutateAsync({ orderId: pendingOrderId });
       await applySuccess(result);
     } catch (err: unknown) {
-      const message =
-        err instanceof Error ? err.message : "确认支付失败，请稍后重试";
-      toast.error(message);
+      toast.error(err instanceof Error ? err.message : "确认支付失败，请稍后重试");
     } finally {
       setConfirming(false);
     }
@@ -188,24 +170,14 @@ export default function PurchaseFlowDialog({
     }
   };
 
-  const pendingQrValue =
-    paymentSession?.qrCodeText ??
-    paymentSession?.walletAddress ??
-    pendingOrderId ??
-    "";
+  const pendingQrValue = paymentSession?.qrCodeText ?? paymentSession?.walletAddress ?? pendingOrderId ?? "";
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg bg-card border-border max-h-[90vh] flex flex-col p-0">
+      <DialogContent className="flex max-h-[90vh] flex-col border-border bg-background p-0 sm:max-w-lg">
         <DialogHeader className="border-b border-border px-5 py-4">
           <DialogTitle>
-            {step === "offer"
-              ? "去兑换"
-              : step === "pay"
-                ? "支付订单"
-                : step === "pending"
-                  ? "等待支付"
-                  : "支付成功"}
+            {step === "offer" ? "去兑换" : step === "pay" ? "支付订单" : step === "pending" ? "等待支付" : "支付成功"}
           </DialogTitle>
         </DialogHeader>
 
@@ -216,33 +188,24 @@ export default function PurchaseFlowDialog({
                 <CardContent className="p-4">
                   <div className="flex items-start justify-between gap-4">
                     <div className="min-w-0">
-                      <div className="text-sm text-muted-foreground">{scroll.app}</div>
-                      <div className="mt-1 text-lg font-semibold text-foreground truncate">
-                        {scroll.title}
-                      </div>
-                      <div className="mt-1 text-sm text-muted-foreground">
-                        {scroll.subtitle}
-                      </div>
+                      <Badge variant="secondary">{scroll.app}</Badge>
+                      <div className="mt-2 truncate text-lg font-semibold text-foreground">{scroll.title}</div>
+                      <div className="mt-1 text-sm text-muted-foreground">{scroll.subtitle}</div>
                     </div>
                     <Card className="border-border bg-secondary/50">
                       <CardContent className="p-3 text-right">
                         <div className="text-xs text-muted-foreground">失效时间</div>
-                        <div className="mt-1 text-sm font-semibold text-foreground">
-                          {formatExpires(scroll.expiresAt)}
-                        </div>
+                        <div className="mt-1 text-sm font-semibold text-foreground">{formatExpires(scroll.expiresAt)}</div>
                       </CardContent>
                     </Card>
                   </div>
                   <div className="mt-4 flex flex-wrap gap-2">
                     {scroll.tags.map((t) => (
-                      <Badge key={t} variant="outline" className="text-[11px] border-border">
-                        {t}
-                      </Badge>
+                      <Badge key={t} variant="outline" className="border-border text-[11px]">{t}</Badge>
                     ))}
                   </div>
-                  <div className="mt-4 text-sm text-muted-foreground">
-                    {scroll.description}
-                  </div>
+                  <Separator className="my-4" />
+                  <div className="text-sm text-muted-foreground">{scroll.description}</div>
                 </CardContent>
               </Card>
 
@@ -251,19 +214,15 @@ export default function PurchaseFlowDialog({
                   <div className="flex items-end justify-between gap-3">
                     <div className="text-sm text-muted-foreground">兑换价格</div>
                     <div className="text-right">
-                      <div className="flex items-baseline justify-end gap-2">
-                        <div className="text-lg font-semibold text-foreground">
-                          {scroll.pointsPrice} 积分 + {formatMoney(scroll.cashPrice)}
+                      <div className="text-lg font-semibold text-foreground">
+                        {scroll.pointsPrice} 积分 + {formatMoney(scroll.cashPrice)}
+                      </div>
+                      {typeof scroll.originalCashPrice === "number" && (
+                        <div className="mt-0.5 text-sm text-muted-foreground line-through">
+                          {formatMoney(scroll.originalCashPrice)}
                         </div>
-                        {typeof scroll.originalCashPrice === "number" && (
-                          <div className="text-sm text-muted-foreground line-through">
-                            {formatMoney(scroll.originalCashPrice)}
-                          </div>
-                        )}
-                      </div>
-                      <div className="mt-1 text-xs text-muted-foreground">
-                        {scroll.availableCountText}
-                      </div>
+                      )}
+                      <div className="mt-1 text-xs text-muted-foreground">{scroll.availableCountText}</div>
                     </div>
                   </div>
                 </CardContent>
@@ -279,7 +238,7 @@ export default function PurchaseFlowDialog({
                       "限购一张：本原型限制为 1 张。",
                     ].map((text, i) => (
                       <div key={i} className="flex gap-2">
-                        <span className="text-[var(--accent)]">{i + 1}</span>
+                        <span className="text-primary">{i + 1}</span>
                         <span>{text}</span>
                       </div>
                     ))}
@@ -295,45 +254,23 @@ export default function PurchaseFlowDialog({
                 <CardContent className="p-4">
                   <div className="flex items-start justify-between gap-4">
                     <div className="min-w-0">
-                      <div className="text-sm text-muted-foreground">{scroll.app}</div>
-                      <div className="mt-1 text-lg font-semibold text-foreground truncate">
-                        {scroll.title}
-                      </div>
+                      <Badge variant="secondary">{scroll.app}</Badge>
+                      <div className="mt-2 truncate text-lg font-semibold text-foreground">{scroll.title}</div>
                     </div>
                     <Card className="border-border bg-secondary/50">
                       <CardContent className="p-3 text-right">
                         <div className="text-xs text-muted-foreground">订单价格</div>
-                        <div className="mt-1 text-sm font-semibold text-foreground">
-                          {formatMoney(summary.cash)}
-                        </div>
-                        <div className="mt-0.5 text-xs text-muted-foreground">
-                          消耗 {summary.points} 积分
-                        </div>
+                        <div className="mt-1 text-sm font-semibold text-foreground">{formatMoney(summary.cash)}</div>
+                        <div className="mt-0.5 text-xs text-muted-foreground">消耗 {summary.points} 积分</div>
                       </CardContent>
                     </Card>
                   </div>
                   <div className="mt-4 flex items-center justify-between rounded-lg border border-border bg-secondary/50 px-3 py-2">
                     <div className="text-sm text-muted-foreground">购买数量</div>
                     <div className="flex items-center gap-2">
-                      <Button
-                        variant="outline"
-                        size="icon"
-                        className="h-8 w-8"
-                        onClick={() => setQty((v) => clampInt(v - 1, 1, 1))}
-                      >
-                        -
-                      </Button>
-                      <div className="w-10 text-center font-mono text-foreground">
-                        {qty}
-                      </div>
-                      <Button
-                        variant="outline"
-                        size="icon"
-                        className="h-8 w-8"
-                        onClick={() => setQty((v) => clampInt(v + 1, 1, 1))}
-                      >
-                        +
-                      </Button>
+                      <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => setQty((v) => clampInt(v - 1, 1, 1))}>-</Button>
+                      <div className="w-10 text-center font-mono text-foreground">{qty}</div>
+                      <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => setQty((v) => clampInt(v + 1, 1, 1))}>+</Button>
                     </div>
                   </div>
                 </CardContent>
@@ -341,44 +278,29 @@ export default function PurchaseFlowDialog({
 
               <Card className="border-border">
                 <CardContent className="p-4">
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="text-sm font-semibold text-foreground">
-                      选择支付方式
-                    </div>
-                    <div className="text-xs text-muted-foreground">
-                      共 {PAY_METHODS.length} 种
-                    </div>
+                  <div className="mb-3 flex items-center justify-between">
+                    <div className="text-sm font-semibold text-foreground">选择支付方式</div>
+                    <div className="text-xs text-muted-foreground">共 {PAY_METHODS.length} 种</div>
                   </div>
-                  <div className="grid gap-2 sm:grid-cols-2">
+                  <RadioGroup value={method} onValueChange={(v) => setMethod(v as PayMethod)} className="grid gap-2 sm:grid-cols-2">
                     {PAY_METHODS.map((m) => (
-                      <Card
+                      <Label
                         key={m.id}
+                        htmlFor={`pay-${m.id}`}
                         className={cn(
-                          "cursor-pointer transition border-border",
-                          method === m.id
-                            ? "ring-2 ring-primary/50 bg-primary/5"
-                            : "hover:bg-secondary/50",
+                          "flex cursor-pointer items-center gap-3 rounded-xl border border-border p-3 transition",
+                          method === m.id ? "border-primary bg-primary/5 ring-2 ring-primary/30" : "hover:bg-secondary/50",
                         )}
-                        onClick={() => setMethod(m.id)}
                       >
-                        <CardContent className="p-3">
-                          <div className="flex items-center justify-between gap-3">
-                            <div>
-                              <div className="text-sm font-semibold text-foreground">
-                                {m.name}
-                              </div>
-                              <div className="mt-1 text-[11px] text-muted-foreground">
-                                {m.providerLabel}
-                              </div>
-                            </div>
-                            <Badge variant="outline" className="text-[11px] border-border">
-                              {m.hint}
-                            </Badge>
-                          </div>
-                        </CardContent>
-                      </Card>
+                        <RadioGroupItem value={m.id} id={`pay-${m.id}`} />
+                        <div className="min-w-0 flex-1">
+                          <div className="text-sm font-semibold text-foreground">{m.name}</div>
+                          <div className="mt-0.5 text-[11px] text-muted-foreground">{m.providerLabel}</div>
+                        </div>
+                        <Badge variant="outline" className="border-border text-[11px]">{m.hint}</Badge>
+                      </Label>
                     ))}
-                  </div>
+                  </RadioGroup>
                 </CardContent>
               </Card>
             </div>
@@ -386,27 +308,14 @@ export default function PurchaseFlowDialog({
 
           {step === "pending" && paymentSession && pendingOrderId && (
             <div className="space-y-4">
-              <Card
-                className={cn(
-                  paymentSession.productionReady
-                    ? "border-sky-400/30 bg-sky-500/10"
-                    : "border-amber-400/30 bg-amber-500/10",
-                )}
-              >
+              <Card className={cn(paymentSession.productionReady ? "border-sky-400/30 bg-sky-500/10" : "border-amber-400/30 bg-amber-500/10")}>
                 <CardContent className="p-4">
                   <div className="flex items-center justify-between gap-3">
                     <div className="min-w-0">
-                      <div className="text-sm font-semibold text-foreground">
-                        {paymentSession.methodLabel}
-                      </div>
-                      <div className="mt-1 text-xs text-muted-foreground">
-                        网关：{paymentSession.providerLabel}
-                      </div>
+                      <div className="text-sm font-semibold text-foreground">{paymentSession.methodLabel}</div>
+                      <div className="mt-1 text-xs text-muted-foreground">网关：{paymentSession.providerLabel}</div>
                     </div>
-                    <Badge
-                      variant="outline"
-                      className="border-current text-[11px] text-foreground"
-                    >
+                    <Badge variant="outline" className="border-current text-[11px]">
                       {paymentSession.productionReady ? "已预留实单接口" : "占位联调模式"}
                     </Badge>
                   </div>
@@ -421,36 +330,22 @@ export default function PurchaseFlowDialog({
               <div className="grid gap-4 sm:grid-cols-[1fr_200px]">
                 <Card className="border-border">
                   <CardContent className="p-4">
-                    <div className="text-sm font-semibold text-foreground mb-3">
-                      支付信息
-                    </div>
-
+                    <div className="mb-3 text-sm font-semibold text-foreground">支付信息</div>
                     <div className="grid grid-cols-2 gap-3 text-sm">
                       {[
                         { label: "应付金额", value: paymentSession.amountText },
-                        {
-                          label: "到期时间",
-                          value: formatDateTime(new Date(paymentSession.expiresAt)),
-                        },
+                        { label: "到期时间", value: formatDateTime(new Date(paymentSession.expiresAt)) },
                         { label: "订单号", value: pendingOrderId, mono: true },
                         { label: "支付方式", value: paymentSession.methodLabel },
                       ].map((item) => (
                         <Card key={item.label} className="border-border bg-secondary/50">
                           <CardContent className="p-3">
                             <div className="text-xs text-muted-foreground">{item.label}</div>
-                            <div
-                              className={cn(
-                                "mt-1 font-semibold text-foreground",
-                                item.mono && "font-mono text-xs",
-                              )}
-                            >
-                              {item.value}
-                            </div>
+                            <div className={cn("mt-1 font-semibold text-foreground", item.mono && "font-mono text-xs")}>{item.value}</div>
                           </CardContent>
                         </Card>
                       ))}
                     </div>
-
                     <div className="mt-4 grid gap-2">
                       {paymentSession.fields.map((field) => (
                         <Card key={`${field.label}-${field.value}`} className="border-border bg-secondary/50">
@@ -458,24 +353,11 @@ export default function PurchaseFlowDialog({
                             <div className="flex items-center justify-between gap-3">
                               <div className="min-w-0">
                                 <div className="text-xs text-muted-foreground">{field.label}</div>
-                                <div
-                                  className={cn(
-                                    "mt-1 text-sm text-foreground break-all",
-                                    field.emphasized && "font-mono font-semibold",
-                                  )}
-                                >
-                                  {field.value}
-                                </div>
+                                <div className={cn("mt-1 break-all text-sm text-foreground", field.emphasized && "font-mono font-semibold")}>{field.value}</div>
                               </div>
                               {field.copyable && (
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => copyText(field.value)}
-                                  className="gap-2 border-border"
-                                >
-                                  <Copy className="h-3.5 w-3.5" />
-                                  复制
+                                <Button variant="outline" size="sm" onClick={() => copyText(field.value)} className="gap-2">
+                                  <Copy className="h-3.5 w-3.5" />复制
                                 </Button>
                               )}
                             </div>
@@ -483,29 +365,21 @@ export default function PurchaseFlowDialog({
                         </Card>
                       ))}
                     </div>
-
                     <div className="mt-4 grid gap-2 text-xs text-muted-foreground">
                       {paymentSession.instructions.map((text, index) => (
                         <div key={index} className="flex gap-2">
-                          <span className="text-[var(--accent)]">{index + 1}</span>
+                          <span className="text-primary">{index + 1}</span>
                           <span>{text}</span>
                         </div>
                       ))}
                     </div>
                   </CardContent>
                 </Card>
-
                 <Card className="border-border">
                   <CardContent className="p-4">
-                    <div className="text-sm font-semibold text-foreground">
-                      支付二维码
-                    </div>
-                    <div className="mt-3 flex justify-center">
-                      <FakeQr value={pendingQrValue} />
-                    </div>
-                    <div className="mt-3 text-xs text-muted-foreground text-center">
-                      当前为示意二维码，未来可替换为真实收银台二维码或钱包转账码
-                    </div>
+                    <div className="text-sm font-semibold text-foreground">支付二维码</div>
+                    <div className="mt-3 flex justify-center"><FakeQr value={pendingQrValue} /></div>
+                    <div className="mt-3 text-center text-xs text-muted-foreground">当前为示意二维码</div>
                   </CardContent>
                 </Card>
               </div>
@@ -517,16 +391,12 @@ export default function PurchaseFlowDialog({
               <Card className="border-emerald-400/30 bg-emerald-500/10">
                 <CardContent className="p-4">
                   <div className="flex items-center gap-3">
-                    <div className="h-10 w-10 rounded-lg bg-emerald-500/20 flex items-center justify-center">
-                      <CheckCircle2 className="h-6 w-6 text-emerald-300" />
+                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-500/20">
+                      <CheckCircle2 className="h-6 w-6 text-emerald-500" />
                     </div>
                     <div className="min-w-0">
-                      <div className="text-sm font-semibold text-foreground">
-                        支付成功
-                      </div>
-                      <div className="mt-0.5 text-xs text-muted-foreground">
-                        券码已生成，请及时兑换核销
-                      </div>
+                      <div className="text-sm font-semibold text-foreground">支付成功</div>
+                      <div className="mt-0.5 text-xs text-muted-foreground">券码已生成，请及时兑换核销</div>
                     </div>
                   </div>
                 </CardContent>
@@ -535,15 +405,10 @@ export default function PurchaseFlowDialog({
               <div className="grid gap-4 sm:grid-cols-[1fr_200px]">
                 <Card className="border-border">
                   <CardContent className="p-4">
-                    <div className="text-sm font-semibold text-foreground mb-3">
-                      支付结果
-                    </div>
+                    <div className="mb-3 text-sm font-semibold text-foreground">支付结果</div>
                     <div className="grid grid-cols-2 gap-3 text-sm">
                       {[
-                        {
-                          label: "实付",
-                          value: paymentSession?.amountText ?? formatMoney(summary.cash),
-                        },
+                        { label: "实付", value: paymentSession?.amountText ?? formatMoney(summary.cash) },
                         { label: "消耗积分", value: String(summary.points) },
                         { label: "数量", value: String(qty) },
                         { label: "订单时间", value: order.paidAt, mono: true },
@@ -551,77 +416,40 @@ export default function PurchaseFlowDialog({
                         <Card key={item.label} className="border-border bg-secondary/50">
                           <CardContent className="p-3">
                             <div className="text-xs text-muted-foreground">{item.label}</div>
-                            <div
-                              className={cn(
-                                "mt-1 font-semibold text-foreground",
-                                item.mono && "font-mono text-xs",
-                              )}
-                            >
-                              {item.value}
-                            </div>
+                            <div className={cn("mt-1 font-semibold text-foreground", item.mono && "font-mono text-xs")}>{item.value}</div>
                           </CardContent>
                         </Card>
                       ))}
                     </div>
-
                     <Card className="mt-4 border-border bg-secondary/50">
                       <CardContent className="p-3">
                         <div className="flex items-center justify-between gap-3">
                           <div>
                             <div className="text-xs text-muted-foreground">券码</div>
-                            <div className="mt-1 font-mono text-sm text-foreground">
-                              {order.couponCode}
-                            </div>
+                            <div className="mt-1 font-mono text-sm text-foreground">{order.couponCode}</div>
                           </div>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => copyText(order.couponCode)}
-                            className="gap-2 border-border"
-                          >
-                            <Copy className="h-3.5 w-3.5" />
-                            复制
+                          <Button variant="outline" size="sm" onClick={() => copyText(order.couponCode)} className="gap-2">
+                            <Copy className="h-3.5 w-3.5" />复制
                           </Button>
                         </div>
                       </CardContent>
                     </Card>
-
-                    <div className="mt-4 grid gap-2 text-xs text-muted-foreground">
-                      <div className="flex items-center gap-2">
-                        <CreditCard className="h-4 w-4" />
-                        <span>订单号：{order.orderId}</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <QrCode className="h-4 w-4" />
-                        <span>流水号：{order.serial}</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <ShieldCheck className="h-4 w-4" />
-                        <span>有效期：{formatExpires(scroll.expiresAt)}</span>
-                      </div>
+                    <Separator className="my-4" />
+                    <div className="grid gap-2 text-xs text-muted-foreground">
+                      <div className="flex items-center gap-2"><CreditCard className="h-4 w-4" /><span>订单号：{order.orderId}</span></div>
+                      <div className="flex items-center gap-2"><QrCode className="h-4 w-4" /><span>流水号：{order.serial}</span></div>
+                      <div className="flex items-center gap-2"><ShieldCheck className="h-4 w-4" /><span>有效期：{formatExpires(scroll.expiresAt)}</span></div>
                       {paymentSession && (
-                        <div className="flex items-center gap-2">
-                          <CreditCard className="h-4 w-4" />
-                          <span>
-                            渠道：{paymentSession.methodLabel} / {paymentSession.providerLabel}
-                          </span>
-                        </div>
+                        <div className="flex items-center gap-2"><CreditCard className="h-4 w-4" /><span>渠道：{paymentSession.methodLabel} / {paymentSession.providerLabel}</span></div>
                       )}
                     </div>
                   </CardContent>
                 </Card>
-
                 <Card className="border-border">
                   <CardContent className="p-4">
-                    <div className="text-sm font-semibold text-foreground">
-                      二维码（示意）
-                    </div>
-                    <div className="mt-3 flex justify-center">
-                      <FakeQr value={order.couponCode} />
-                    </div>
-                    <div className="mt-3 text-xs text-muted-foreground text-center">
-                      核销时出示券码或二维码
-                    </div>
+                    <div className="text-sm font-semibold text-foreground">二维码（示意）</div>
+                    <div className="mt-3 flex justify-center"><FakeQr value={order.couponCode} /></div>
+                    <div className="mt-3 text-center text-xs text-muted-foreground">核销时出示券码或二维码</div>
                   </CardContent>
                 </Card>
               </div>
@@ -633,80 +461,31 @@ export default function PurchaseFlowDialog({
           {step === "offer" && (
             <div className="flex items-center justify-between gap-3">
               <div className="text-sm text-muted-foreground">限购 1 张</div>
-              <Button
-                onClick={() => setStep("pay")}
-                className="bg-[var(--gradient-primary)] hover:brightness-110 text-white"
-                style={{ boxShadow: "var(--shadow-glow)" }}
-              >
+              <Button onClick={() => setStep("pay")} className="bg-[var(--gradient-primary)] text-white hover:brightness-110" style={{ boxShadow: "var(--shadow-glow)" }}>
                 立即购买
               </Button>
             </div>
           )}
           {step === "pay" && (
             <div className="flex items-center justify-between gap-3">
-              <Button
-                variant="outline"
-                onClick={() => setStep("offer")}
-                disabled={paying}
-              >
-                返回
-              </Button>
-              <Button
-                onClick={payNow}
-                className="bg-[var(--gradient-primary)] hover:brightness-110 text-white"
-                style={{ boxShadow: "var(--shadow-glow)" }}
-                disabled={paying}
-              >
-                {paying ? (
-                  <>
-                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                    创建订单中…
-                  </>
-                ) : summary.cash > 0 ? (
-                  `创建支付订单 ${formatMoney(summary.cash)}`
-                ) : (
-                  `确认兑换 ${summary.points} 积分`
-                )}
+              <Button variant="outline" onClick={() => setStep("offer")} disabled={paying}>返回</Button>
+              <Button onClick={payNow} className="bg-[var(--gradient-primary)] text-white hover:brightness-110" style={{ boxShadow: "var(--shadow-glow)" }} disabled={paying}>
+                {paying ? (<><Loader2 className="mr-2 h-4 w-4 animate-spin" />创建订单中…</>) : summary.cash > 0 ? `创建支付订单 ${formatMoney(summary.cash)}` : `确认兑换 ${summary.points} 积分`}
               </Button>
             </div>
           )}
           {step === "pending" && paymentSession && (
             <div className="flex items-center justify-between gap-3">
-              <Button variant="outline" onClick={() => onOpenChange(false)}>
-                稍后支付
-              </Button>
-              <Button
-                onClick={confirmPayment}
-                className="bg-[var(--gradient-primary)] hover:brightness-110 text-white"
-                style={{ boxShadow: "var(--shadow-glow)" }}
-                disabled={confirming || !paymentSession.demoActionEnabled}
-              >
-                {confirming ? (
-                  <>
-                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                    确认中…
-                  </>
-                ) : paymentSession.demoActionEnabled ? (
-                  "模拟支付完成"
-                ) : (
-                  "等待支付回调"
-                )}
+              <Button variant="outline" onClick={() => onOpenChange(false)}>稍后支付</Button>
+              <Button onClick={confirmPayment} className="bg-[var(--gradient-primary)] text-white hover:brightness-110" style={{ boxShadow: "var(--shadow-glow)" }} disabled={confirming || !paymentSession.demoActionEnabled}>
+                {confirming ? (<><Loader2 className="mr-2 h-4 w-4 animate-spin" />确认中…</>) : paymentSession.demoActionEnabled ? "模拟支付完成" : "等待支付回调"}
               </Button>
             </div>
           )}
           {step === "success" && (
             <div className="flex items-center justify-between gap-3">
-              <Button variant="outline" onClick={() => onOpenChange(false)}>
-                继续逛
-              </Button>
-              <Button
-                onClick={() => {
-                  onOpenChange(false);
-                  onGoMy();
-                }}
-                className="bg-[var(--gradient-primary)] hover:brightness-110 text-white"
-                style={{ boxShadow: "var(--shadow-glow)" }}
-              >
+              <Button variant="outline" onClick={() => onOpenChange(false)}>继续逛</Button>
+              <Button onClick={() => { onOpenChange(false); onGoMy(); }} className="bg-[var(--gradient-primary)] text-white hover:brightness-110" style={{ boxShadow: "var(--shadow-glow)" }}>
                 查看我的
               </Button>
             </div>
