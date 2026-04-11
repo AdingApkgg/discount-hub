@@ -89,7 +89,7 @@ function ProductCard({
   item: ProductItem;
   onClick: () => void;
 }) {
-  const price = item.cashPrice as number;
+  const price = Number(item.cashPrice);
 
   return (
     <Card

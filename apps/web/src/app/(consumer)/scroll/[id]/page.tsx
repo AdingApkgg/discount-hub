@@ -49,7 +49,7 @@ export default function ScrollDetailPage({
     );
   }
 
-  const price = item.cashPrice as number;
+  const price = Number(item.cashPrice);
   const expiresAtStr =
     item.expiresAt instanceof Date
       ? item.expiresAt.toLocaleDateString("zh-CN")
@@ -65,7 +65,7 @@ export default function ScrollDetailPage({
     pointsPrice: item.pointsPrice,
     cashPrice: price,
     originalCashPrice: item.originalCashPrice != null
-      ? (item.originalCashPrice as number)
+      ? Number(item.originalCashPrice)
       : undefined,
     expiresAt: expiresAtStr,
     availableCountText: `剩余 ${item.stock} 件`,

@@ -136,7 +136,7 @@ export default function OrdersPage() {
       (order) => order.coupon?.status === "USED",
     ).length;
     const totalRevenue = paidOrders
-      .reduce((sum, order) => sum + (order.cashPaid as number), 0)
+      .reduce((sum, order) => sum + Number(order.cashPaid), 0)
       .toFixed(2);
 
     return [
