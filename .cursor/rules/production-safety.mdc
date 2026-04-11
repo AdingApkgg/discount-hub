@@ -1,0 +1,26 @@
+---
+description: 生产环境安全约束 — 禁止危险操作
+alwaysApply: true
+---
+
+# 生产环境安全约束
+
+此机器上有多个生产项目在运行，任何操作都必须严格限定在本项目范围内。
+
+## 绝对禁止
+
+- ❌ 按端口号 kill 进程（`lsof -ti:PORT | xargs kill` 等）
+- ❌ `killall`、`pkill` 等批量杀进程命令
+- ❌ 修改 PostgreSQL 配置文件（pg_hba.conf、postgresql.conf 等）
+- ❌ 修改 Redis 配置文件
+- ❌ 修改 /etc 下的任何系统配置
+- ❌ 修改其他项目的文件或目录（本项目根目录之外）
+- ❌ `sudo` 任何命令
+- ❌ `DROP DATABASE` 非本项目的数据库
+
+## 必须遵守
+
+- ✅ 只杀本项目自己启动的进程（先确认 PID 属于本项目再 kill）
+- ✅ 端口冲突时，只报告给用户，不自行处理
+- ✅ 数据库操作只限 `discount_shopping` 库
+- ✅ 操作前先检查影响范围，有疑问先问用户

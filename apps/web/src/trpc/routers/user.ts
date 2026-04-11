@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { TRPCError } from "@trpc/server";
 import { createTRPCRouter, protectedProcedure, merchantProcedure } from "../init";
 
 export const userRouter = createTRPCRouter({
@@ -51,6 +52,39 @@ export const userRouter = createTRPCRouter({
     });
   }),
 
+  bindInviteCode: protectedProcedure
+    .input(z.object({ inviteCode: z.string().min(1) }))
+    .mutation(async ({ ctx, input }) => {
+      const currentUser = await ctx.prisma.user.findUnique({
+        where: { id: ctx.user.id },
+        select: { invitedById: true },
+      });
+
+      if (currentUser?.invitedById) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "已绑定邀请人" });
+      }
+
+      const inviter = await ctx.prisma.user.findFirst({
+        where: { inviteCode: input.inviteCode },
+        select: { id: true },
+      });
+
+      if (!inviter) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "邀请码无效" });
+      }
+
+      if (inviter.id === ctx.user.id) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "不能邀请自己" });
+      }
+
+      await ctx.prisma.user.update({
+        where: { id: ctx.user.id },
+        data: { invitedById: inviter.id },
+      });
+
+      return { success: true };
+    }),
+
   dashboardStats: merchantProcedure.query(async ({ ctx }) => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -75,7 +109,7 @@ export const userRouter = createTRPCRouter({
 
     return {
       todayVerifications,
-      todayRevenue: todayOrders._sum.cashPaid?.toNumber() ?? 0,
+      todayRevenue: todayOrders._sum.cashPaid != null ? Number(todayOrders._sum.cashPaid) : 0,
       todayOrderCount: todayOrders._count,
       activeUsers,
       activeProducts,

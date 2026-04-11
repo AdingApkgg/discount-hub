@@ -14,6 +14,7 @@ import {
   WalletCards,
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
+import { useSession } from "@/lib/auth-client";
 import { useTRPC } from "@/trpc/client";
 import type { RouterOutputs } from "@/trpc/types";
 import Countdown from "@/components/Countdown";
@@ -27,10 +28,6 @@ type UserProfile = RouterOutputs["user"]["me"];
 
 const surfaceClassName =
   "gap-0 rounded-[28px] border border-[var(--app-card-border)] bg-[var(--app-card)] py-0 shadow-[var(--app-card-shadow)]";
-
-function cashNum(v: number | { toNumber(): number }): number {
-  return typeof v === "number" ? v : v.toNumber();
-}
 
 function getVipLabel(profile: UserProfile | undefined | null) {
   if (!profile) return "普通会员";
@@ -92,7 +89,7 @@ function ProductCard({
   item: ProductItem;
   onClick: () => void;
 }) {
-  const price = cashNum(item.cashPrice);
+  const price = item.cashPrice as number;
 
   return (
     <Card
@@ -194,7 +191,11 @@ export default function HomePage() {
   const { data: zeroProducts, isLoading: loadingZero } = useQuery(
     trpc.product.list.queryOptions({ category: "zero" }),
   );
-  const { data: profile } = useQuery(trpc.user.me.queryOptions());
+  const { data: session } = useSession();
+  const { data: profile } = useQuery({
+    ...trpc.user.me.queryOptions(),
+    enabled: !!session?.user,
+  });
 
   const limited = useMemo(
     () => (limitedProducts ?? []) as ProductItem[],

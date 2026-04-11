@@ -43,23 +43,27 @@ const surfaceClassName =
   "gap-0 rounded-[28px] border border-[var(--app-card-border)] bg-[var(--app-card)] py-0 shadow-[var(--app-card-shadow)]";
 
 const CHECKIN_REWARDS = [200, 3000, 300, 500];
-const VIP_TIERS = [
-  { level: 0, name: "普通会员", minPoints: 0, benefits: ["基础兑换"] },
-  { level: 1, name: "VIP1", minPoints: 200, benefits: ["基础兑换", "每日签到 +200"] },
-  { level: 2, name: "VIP2", minPoints: 500, benefits: ["全部 VIP1", "限时折扣"] },
-  {
-    level: 3,
-    name: "VIP3",
-    minPoints: 1200,
-    benefits: ["全部 VIP2", "优先购资格", "专属折扣"],
-  },
-  {
-    level: 4,
-    name: "VIP4",
-    minPoints: 2000,
-    benefits: ["全部 VIP3", "抢先看", "双倍积分日"],
-  },
-];
+const VIP_BENEFITS: Record<number, string[]> = {
+  0: ["基础兑换"],
+  1: ["基础兑换", "每日签到奖励"],
+  2: ["全部 VIP1", "限时折扣"],
+  3: ["全部 VIP2", "优先购资格", "专属折扣"],
+  4: ["全部 VIP3", "抢先看", "双倍积分日"],
+};
+
+function buildVipTiers(pointsPerLevel: number, maxLevel: number) {
+  const tiers = [];
+  const displayMax = Math.min(maxLevel, Math.max(4, maxLevel));
+  for (let i = 0; i <= displayMax; i++) {
+    tiers.push({
+      level: i,
+      name: i === 0 ? "普通会员" : `VIP${i}`,
+      minPoints: i * pointsPerLevel,
+      benefits: VIP_BENEFITS[i] ?? [`全部 VIP${i - 1}`, "更多特权"],
+    });
+  }
+  return tiers;
+}
 
 const DAILY_TASKS = [
   { id: "checkin", title: "每日签到", desc: "每日首次签到", reward: 200, icon: CalendarCheck },
@@ -102,14 +106,14 @@ function SectionHeading({
   );
 }
 
-function getCurrentTier(profile: UserProfile | undefined) {
-  const level = Math.min(profile?.vipLevel ?? 0, VIP_TIERS.length - 1);
-  return VIP_TIERS[level] ?? VIP_TIERS[0];
+function getCurrentTier(profile: UserProfile | undefined, vipTiers: ReturnType<typeof buildVipTiers>) {
+  const level = Math.min(profile?.vipLevel ?? 0, vipTiers.length - 1);
+  return vipTiers[level] ?? vipTiers[0];
 }
 
-function getNextTier(profile: UserProfile | undefined) {
-  const level = Math.min((profile?.vipLevel ?? 0) + 1, VIP_TIERS.length - 1);
-  return VIP_TIERS[level] ?? VIP_TIERS[VIP_TIERS.length - 1];
+function getNextTier(profile: UserProfile | undefined, vipTiers: ReturnType<typeof buildVipTiers>) {
+  const level = Math.min((profile?.vipLevel ?? 0) + 1, vipTiers.length - 1);
+  return vipTiers[level] ?? vipTiers[vipTiers.length - 1];
 }
 
 function isToday(value: string | Date | null | undefined) {
@@ -151,13 +155,18 @@ export default function MemberPage() {
   );
   const todayTasks = new Set(status?.todayTasks ?? []);
 
+  const vipTiers = useMemo(
+    () => buildVipTiers(status?.vipPointsPerLevel ?? 500, status?.vipMaxLevel ?? 10),
+    [status?.vipPointsPerLevel, status?.vipMaxLevel],
+  );
+
   const checkedIn = status?.checkedInToday ?? false;
   const nextDayIndex = status?.nextDayIndex ?? 1;
   const completedCheckinDays = checkedIn
     ? nextDayIndex
     : Math.max(0, nextDayIndex - 1);
-  const currentTier = getCurrentTier(profile);
-  const nextTier = getNextTier(profile);
+  const currentTier = getCurrentTier(profile, vipTiers);
+  const nextTier = getNextTier(profile, vipTiers);
   const points = profile?.points ?? status?.points ?? 0;
   const remainingPoints = Math.max(0, nextTier.minPoints - points);
   const progressPct =
@@ -291,7 +300,7 @@ export default function MemberPage() {
               <DialogTitle>VIP 等级体系</DialogTitle>
             </DialogHeader>
             <div className="space-y-3 px-6 py-5">
-              {VIP_TIERS.map((tier) => (
+              {vipTiers.map((tier) => (
                 <Card
                   key={tier.level}
                   className={`gap-0 rounded-3xl border py-0 ${

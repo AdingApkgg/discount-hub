@@ -1,10 +1,10 @@
-import { z } from "zod";
 import { TRPCError } from "@trpc/server";
+import { verifyCodeSchema } from "@discount-hub/shared";
 import { createTRPCRouter, merchantProcedure } from "../init";
 
 export const verifyRouter = createTRPCRouter({
   verifyCoupon: merchantProcedure
-    .input(z.object({ code: z.string().min(1) }))
+    .input(verifyCodeSchema)
     .mutation(async ({ ctx, input }) => {
       const lockKey = `verify:lock:${input.code}`;
 

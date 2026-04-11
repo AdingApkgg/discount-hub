@@ -1,8 +1,8 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { auth } from "@/lib/auth";
 
-const PROTECTED_PREFIXES = ["/member", "/coupons", "/orders"];
-const MERCHANT_PREFIXES = ["/merchant", "/dashboard", "/verify"];
+const PROTECTED_PREFIXES = ["/member", "/coupons", "/orders", "/my-orders"];
+const MERCHANT_PREFIXES = ["/merchant", "/dashboard", "/verify", "/products", "/orders", "/settings"];
 
 const securityHeaders = {
   "X-Frame-Options": "DENY",

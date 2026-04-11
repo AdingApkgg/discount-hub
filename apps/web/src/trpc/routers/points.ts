@@ -2,6 +2,13 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { createTRPCRouter, protectedProcedure, sensitiveProcedure } from "../init";
 
+export const VIP_POINTS_PER_LEVEL = 500;
+export const VIP_MAX_LEVEL = 10;
+
+function computeVipLevel(points: number) {
+  return Math.min(VIP_MAX_LEVEL, Math.floor(points / VIP_POINTS_PER_LEVEL));
+}
+
 const CHECKIN_REWARDS = [200, 3000, 300, 500];
 
 /** Server-authoritative task reward map – clients may NOT specify reward values */
@@ -64,9 +71,16 @@ export const pointsRouter = createTRPCRouter({
         nextDayIndex = Math.min(4, lastCheckin.dayIndex + 1);
     }
 
+    const currentPoints = user?.points ?? 0;
+    const currentVip = user?.vipLevel ?? 0;
+    const nextLevelPoints = (currentVip + 1) * VIP_POINTS_PER_LEVEL;
+
     return {
-      points: user?.points ?? 0,
-      vipLevel: user?.vipLevel ?? 0,
+      points: currentPoints,
+      vipLevel: currentVip,
+      vipPointsPerLevel: VIP_POINTS_PER_LEVEL,
+      vipMaxLevel: VIP_MAX_LEVEL,
+      nextLevelPoints,
       checkedInToday: !!todayCheckin,
       nextDayIndex,
       todayTasks: todayTasks.map((t) => t.taskId),
@@ -108,10 +122,7 @@ export const pointsRouter = createTRPCRouter({
         data: {
           points: { increment: reward },
           vipLevel: {
-            set: Math.min(
-              10,
-              Math.floor((ctx.user.points + reward) / 500),
-            ),
+            set: computeVipLevel(ctx.user.points + reward),
           },
         },
       });
@@ -155,12 +166,15 @@ export const pointsRouter = createTRPCRouter({
           },
         });
 
-        await tx.user.update({
+        const updatedUser = await tx.user.update({
           where: { id: ctx.user.id },
-          data: { points: { increment: reward } },
+          data: {
+            points: { increment: reward },
+            vipLevel: { set: computeVipLevel(ctx.user.points + reward) },
+          },
         });
 
-        return { taskId: input.taskId, reward };
+        return { taskId: input.taskId, reward, points: updatedUser.points };
       });
     }),
 });

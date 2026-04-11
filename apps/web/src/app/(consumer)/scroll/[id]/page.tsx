@@ -14,10 +14,6 @@ import { Button } from "@/components/ui/button";
 
 type ProductDetail = RouterOutputs["product"]["byId"];
 
-function cashNum(v: number | { toNumber(): number }): number {
-  return typeof v === "number" ? v : v.toNumber();
-}
-
 export default function ScrollDetailPage({
   params,
 }: {
@@ -53,7 +49,7 @@ export default function ScrollDetailPage({
     );
   }
 
-  const price = cashNum(item.cashPrice);
+  const price = item.cashPrice as number;
   const expiresAtStr =
     item.expiresAt instanceof Date
       ? item.expiresAt.toLocaleDateString("zh-CN")
@@ -68,8 +64,8 @@ export default function ScrollDetailPage({
     description: item.description,
     pointsPrice: item.pointsPrice,
     cashPrice: price,
-    originalCashPrice: item.originalCashPrice
-      ? cashNum(item.originalCashPrice)
+    originalCashPrice: item.originalCashPrice != null
+      ? (item.originalCashPrice as number)
       : undefined,
     expiresAt: expiresAtStr,
     availableCountText: `剩余 ${item.stock} 件`,

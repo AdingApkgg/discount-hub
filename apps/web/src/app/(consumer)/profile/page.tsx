@@ -375,9 +375,13 @@ export default function ProfilePage() {
                     );
                   })}
                   {orders.length > 5 && (
-                    <div className="text-center text-xs text-slate-400 py-2">
-                      仅展示最近 5 条，共 {orders.length} 条订单
-                    </div>
+                    <button
+                      type="button"
+                      onClick={() => router.push("/my-orders")}
+                      className="w-full py-2 text-center text-xs text-slate-500 hover:text-slate-700 transition-colors"
+                    >
+                      查看全部 {orders.length} 条订单 →
+                    </button>
                   )}
                 </div>
               )}

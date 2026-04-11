@@ -1,8 +1,9 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Loader2, Receipt, Search } from "lucide-react";
-import { useQuery } from "@tanstack/react-query";
+import { Loader2, Receipt, Search, Undo2 } from "lucide-react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import { useTRPC } from "@/trpc/client";
 import type { RouterOutputs } from "@/trpc/types";
 import { getPayMethodDefinition, type PayMethod } from "@discount-hub/shared";
@@ -10,6 +11,15 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   Table,
   TableBody,
@@ -21,10 +31,7 @@ import {
 
 type OrdersPayload = RouterOutputs["order"]["allOrders"];
 type MerchantOrder = OrdersPayload["orders"][number];
-
-function cashNum(v: number | { toNumber(): number }) {
-  return typeof v === "number" ? v : v.toNumber();
-}
+type OrderStatusFilter = "all" | "PENDING" | "PAID" | "CANCELLED" | "REFUNDED";
 
 function payMethodLabel(payMethod: string) {
   return getPayMethodDefinition(payMethod as PayMethod)?.name ?? payMethod;
@@ -78,15 +85,24 @@ function statusBadge(order: MerchantOrder) {
   }
 }
 
+function canRefund(order: MerchantOrder) {
+  return order.status === "PAID" && order.coupon?.status !== "USED";
+}
+
 export default function OrdersPage() {
   const trpc = useTRPC();
+  const queryClient = useQueryClient();
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState<OrderStatusFilter>("all");
+  const [refundTarget, setRefundTarget] = useState<MerchantOrder | null>(null);
   const pageSize = 12;
 
   const { data, isLoading } = useQuery(
-    trpc.order.allOrders.queryOptions({ page, pageSize }),
+    trpc.order.allOrders.queryOptions({ page, pageSize, status: statusFilter }),
   );
+
+  const refundMutation = useMutation(trpc.order.refund.mutationOptions());
 
   const payload = data as OrdersPayload | undefined;
   const orders = useMemo(() => payload?.orders ?? [], [payload]);
@@ -120,7 +136,7 @@ export default function OrdersPage() {
       (order) => order.coupon?.status === "USED",
     ).length;
     const totalRevenue = paidOrders
-      .reduce((sum, order) => sum + cashNum(order.cashPaid), 0)
+      .reduce((sum, order) => sum + (order.cashPaid as number), 0)
       .toFixed(2);
 
     return [
@@ -134,12 +150,29 @@ export default function OrdersPage() {
 
   const totalPages = payload ? Math.max(1, Math.ceil(payload.total / payload.pageSize)) : 1;
 
+  async function handleRefund() {
+    if (!refundTarget) return;
+    try {
+      await refundMutation.mutateAsync({ orderId: refundTarget.id });
+      toast.success("退款成功，库存和积分已恢复");
+      setRefundTarget(null);
+      await queryClient.invalidateQueries();
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "退款失败");
+    }
+  }
+
+  function handleStatusChange(value: string) {
+    setStatusFilter(value as OrderStatusFilter);
+    setPage(1);
+  }
+
   return (
     <div className="p-6 max-w-6xl mx-auto space-y-6">
       <div>
         <h1 className="text-2xl font-semibold text-foreground">订单管理</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          查看真实订单、券码状态和交易收入。
+          查看订单、券码状态和交易收入，支持退款操作。
         </p>
       </div>
 
@@ -158,37 +191,27 @@ export default function OrdersPage() {
 
       <Card className="border-border">
         <CardContent className="p-5 space-y-4">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <div className="relative w-full sm:max-w-sm">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                value={search}
-                onChange={(event) => setSearch(event.target.value)}
-                placeholder="搜索订单号 / 用户 / 商品 / 券码"
-                className="pl-9"
-              />
-            </div>
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <Tabs value={statusFilter} onValueChange={handleStatusChange}>
+              <TabsList className="bg-secondary/50">
+                <TabsTrigger value="all">全部</TabsTrigger>
+                <TabsTrigger value="PENDING">待支付</TabsTrigger>
+                <TabsTrigger value="PAID">已支付</TabsTrigger>
+                <TabsTrigger value="REFUNDED">已退款</TabsTrigger>
+                <TabsTrigger value="CANCELLED">已取消</TabsTrigger>
+              </TabsList>
+            </Tabs>
 
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <span>
-                第 {payload?.page ?? page} / {totalPages} 页
-              </span>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setPage((current) => Math.max(1, current - 1))}
-                disabled={page <= 1}
-              >
-                上一页
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setPage((current) => Math.min(totalPages, current + 1))}
-                disabled={page >= totalPages}
-              >
-                下一页
-              </Button>
+            <div className="flex items-center gap-3">
+              <div className="relative w-full sm:max-w-sm">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  value={search}
+                  onChange={(event) => setSearch(event.target.value)}
+                  placeholder="搜索订单号 / 用户 / 商品 / 券码"
+                  className="pl-9"
+                />
+              </div>
             </div>
           </div>
 
@@ -203,7 +226,7 @@ export default function OrdersPage() {
                 当前没有匹配的订单
               </div>
               <div className="mt-1 text-sm text-muted-foreground">
-                试试清空搜索词，或者等用户完成首单后再回来查看。
+                试试清空搜索词，或者换个状态筛选看看。
               </div>
             </div>
           ) : (
@@ -220,6 +243,7 @@ export default function OrdersPage() {
                     <TableHead className="text-right">积分</TableHead>
                     <TableHead>状态</TableHead>
                     <TableHead>支付时间</TableHead>
+                    <TableHead className="text-right">操作</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -249,7 +273,7 @@ export default function OrdersPage() {
                         {payMethodLabel(order.payMethod)}
                       </TableCell>
                       <TableCell className="text-right text-foreground">
-                        ¥{cashNum(order.cashPaid).toFixed(2)}
+                        ¥{Number(order.cashPaid).toFixed(2)}
                       </TableCell>
                       <TableCell className="text-right text-muted-foreground">
                         {order.pointsPaid}
@@ -260,14 +284,105 @@ export default function OrdersPage() {
                           ? new Date(order.paidAt).toLocaleString("zh-CN")
                           : "未支付"}
                       </TableCell>
+                      <TableCell className="text-right">
+                        {canRefund(order) && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="gap-1.5 text-rose-400 hover:text-rose-300 hover:border-rose-400/50"
+                            onClick={() => setRefundTarget(order)}
+                          >
+                            <Undo2 className="h-3.5 w-3.5" />
+                            退款
+                          </Button>
+                        )}
+                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
               </Table>
             </div>
           )}
+
+          <div className="flex items-center justify-end gap-2 pt-2 text-sm text-muted-foreground">
+            <span>
+              第 {payload?.page ?? page} / {totalPages} 页（共 {payload?.total ?? 0} 条）
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setPage((current) => Math.max(1, current - 1))}
+              disabled={page <= 1}
+            >
+              上一页
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setPage((current) => Math.min(totalPages, current + 1))}
+              disabled={page >= totalPages}
+            >
+              下一页
+            </Button>
+          </div>
         </CardContent>
       </Card>
+
+      <Dialog open={!!refundTarget} onOpenChange={(open) => !open && setRefundTarget(null)}>
+        <DialogContent className="max-w-md bg-card border-border">
+          <DialogHeader>
+            <DialogTitle>确认退款</DialogTitle>
+            <DialogDescription>
+              退款后将恢复商品库存和用户积分，券码将失效。此操作不可撤销。
+            </DialogDescription>
+          </DialogHeader>
+          {refundTarget && (
+            <div className="space-y-2 text-sm">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">订单号</span>
+                <span className="font-mono text-foreground">{refundTarget.id}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">用户</span>
+                <span className="text-foreground">{refundTarget.user.name ?? refundTarget.user.email}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">商品</span>
+                <span className="text-foreground">{refundTarget.product.title}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">退款金额</span>
+                <span className="text-foreground font-semibold">¥{Number(refundTarget.cashPaid).toFixed(2)}</span>
+              </div>
+              {refundTarget.pointsPaid > 0 && (
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">退还积分</span>
+                  <span className="text-foreground">{refundTarget.pointsPaid}</span>
+                </div>
+              )}
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRefundTarget(null)}>
+              取消
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleRefund}
+              disabled={refundMutation.isPending}
+            >
+              {refundMutation.isPending ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  处理中...
+                </>
+              ) : (
+                "确认退款"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

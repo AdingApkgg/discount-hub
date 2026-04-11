@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Mail, Lock, Loader2, Sparkles, User } from "lucide-react";
+import { Gift, Mail, Lock, Loader2, Sparkles, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -10,17 +10,46 @@ import { Card, CardContent } from "@/components/ui/card";
 import { signIn, signUp } from "@/lib/auth-client";
 import { toast } from "sonner";
 import { useUserStore } from "@/stores/user";
+import { createTRPCClient, httpBatchLink } from "@trpc/client";
+import superjson from "superjson";
+import type { AppRouter } from "@/trpc/routers/_app";
+
+function makeDirectClient() {
+  return createTRPCClient<AppRouter>({
+    links: [
+      httpBatchLink({
+        url: `${process.env.NEXT_PUBLIC_APP_URL ?? ""}/api/trpc`,
+        transformer: superjson,
+      }),
+    ],
+  });
+}
 
 export default function LoginPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center">
+          <Loader2 className="w-8 h-8 animate-spin text-slate-400" />
+        </div>
+      }
+    >
+      <LoginForm />
+    </Suspense>
+  );
+}
+
+function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [isLogin, setIsLogin] = useState(true);
+  const [isLogin, setIsLogin] = useState(!searchParams.get("inviteCode"));
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const setDemoMode = useUserStore((s) => s.setDemoMode);
   const callbackUrl = searchParams.get("callbackUrl");
+  const inviteCode = searchParams.get("inviteCode");
   const nextUrl = callbackUrl?.startsWith("/") ? callbackUrl : "/";
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -41,6 +70,12 @@ export default function LoginPage() {
         if (res.error) {
           toast.error(res.error.message ?? "注册失败");
         } else {
+          if (inviteCode) {
+            try {
+              const client = makeDirectClient();
+              await client.user.bindInviteCode.mutate({ inviteCode });
+            } catch {}
+          }
           toast.success("注册成功");
           router.push(nextUrl);
         }
@@ -73,6 +108,12 @@ export default function LoginPage() {
               <p className="text-[var(--text-muted)] text-sm">
                 {isLogin ? "登录到您的账户" : "注册新账户开始使用"}
               </p>
+              {!isLogin && inviteCode && (
+                <div className="mt-3 flex items-center justify-center gap-1.5 text-xs text-emerald-600">
+                  <Gift className="h-3.5 w-3.5" />
+                  受邀注册，邀请码：{inviteCode}
+                </div>
+              )}
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-5">

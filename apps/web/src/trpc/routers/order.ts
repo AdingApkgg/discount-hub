@@ -7,7 +7,7 @@ import {
   sensitiveProcedure,
   type createTRPCContext,
 } from "../init";
-import { PAY_METHOD_IDS, createCouponCode, type PayMethod } from "@discount-hub/shared";
+import { createCouponCode, type PayMethod, purchaseRequestSchema } from "@discount-hub/shared";
 import { createPaymentSession } from "@/lib/payment/service";
 
 function todayStart() {
@@ -16,8 +16,23 @@ function todayStart() {
   return d;
 }
 
-function cashNum(v: number | { toNumber(): number }) {
-  return typeof v === "number" ? v : v.toNumber();
+function toNum(v: unknown): number {
+  if (typeof v === "number") return v;
+  if (v != null && typeof v === "object" && "toNumber" in v) return (v as { toNumber(): number }).toNumber();
+  return Number(v) || 0;
+}
+
+function normalizeOrder<T extends Record<string, unknown>>(o: T): T {
+  const out: Record<string, unknown> = { ...o, cashPaid: toNum(o.cashPaid) };
+  if (o.product && typeof o.product === "object") {
+    const p = o.product as Record<string, unknown>;
+    out.product = {
+      ...p,
+      cashPrice: toNum(p.cashPrice),
+      originalCashPrice: p.originalCashPrice != null ? toNum(p.originalCashPrice) : null,
+    };
+  }
+  return out as T;
 }
 
 type PrismaContext = Awaited<ReturnType<typeof createTRPCContext>>["prisma"];
@@ -185,13 +200,7 @@ async function finalizeOrderPayment(params: {
 
 export const orderRouter = createTRPCRouter({
   purchase: sensitiveProcedure
-    .input(
-      z.object({
-        productId: z.string(),
-        qty: z.number().int().min(1).max(10).default(1),
-        payMethod: z.enum(PAY_METHOD_IDS),
-      }),
-    )
+    .input(purchaseRequestSchema)
     .mutation(async ({ ctx, input }) => {
       const product = await ctx.prisma.product.findUnique({
         where: { id: input.productId },
@@ -208,7 +217,7 @@ export const orderRouter = createTRPCRouter({
         throw new TRPCError({ code: "BAD_REQUEST", message: "库存不足" });
       }
 
-      const cashPaid = cashNum(product.cashPrice) * input.qty;
+      const cashPaid = toNum(product.cashPrice) * input.qty;
       const pointsPaid = product.pointsPrice * input.qty;
       const user = await ctx.prisma.user.findUnique({
         where: { id: ctx.user.id },
@@ -246,7 +255,7 @@ export const orderRouter = createTRPCRouter({
             orderId: result.order.id,
             productTitle: result.productTitle,
             qty: result.order.qty,
-            cashPaid: cashNum(result.order.cashPaid),
+            cashPaid: toNum(result.order.cashPaid),
             payMethod: result.order.payMethod as PayMethod,
             paid: true,
           }),
@@ -262,7 +271,7 @@ export const orderRouter = createTRPCRouter({
           orderId: order.id,
           productTitle: product.title,
           qty: order.qty,
-          cashPaid: cashNum(order.cashPaid),
+          cashPaid: toNum(order.cashPaid),
           payMethod: order.payMethod as PayMethod,
           paid: false,
         }),
@@ -287,7 +296,7 @@ export const orderRouter = createTRPCRouter({
           orderId: result.order.id,
           productTitle: result.productTitle,
           qty: result.order.qty,
-          cashPaid: cashNum(result.order.cashPaid),
+          cashPaid: toNum(result.order.cashPaid),
           payMethod: result.order.payMethod as PayMethod,
           paid: true,
         }),
@@ -357,11 +366,12 @@ export const orderRouter = createTRPCRouter({
     }),
 
   myOrders: protectedProcedure.query(async ({ ctx }) => {
-    return ctx.prisma.order.findMany({
+    const orders = await ctx.prisma.order.findMany({
       where: { userId: ctx.user.id },
       include: { product: true, coupon: true },
       orderBy: { createdAt: "desc" },
     });
+    return orders.map(normalizeOrder);
   }),
 
   allOrders: merchantProcedure
@@ -370,21 +380,82 @@ export const orderRouter = createTRPCRouter({
         .object({
           page: z.number().int().min(1).default(1),
           pageSize: z.number().int().min(1).max(100).default(20),
+          status: z.enum(["all", "PENDING", "PAID", "CANCELLED", "REFUNDED"]).default("all"),
         })
         .optional(),
     )
     .query(async ({ ctx, input }) => {
       const page = input?.page ?? 1;
       const pageSize = input?.pageSize ?? 20;
+      const where: Record<string, unknown> = {};
+      if (input?.status && input.status !== "all") {
+        where.status = input.status;
+      }
       const [orders, total] = await Promise.all([
         ctx.prisma.order.findMany({
+          where,
           include: { user: true, product: true, coupon: true },
           orderBy: { createdAt: "desc" },
           take: pageSize,
           skip: (page - 1) * pageSize,
         }),
-        ctx.prisma.order.count(),
+        ctx.prisma.order.count({ where }),
       ]);
-      return { orders, total, page, pageSize };
+      return { orders: orders.map(normalizeOrder), total, page, pageSize };
+    }),
+
+  refund: merchantProcedure
+    .input(z.object({ orderId: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      const order = await ctx.prisma.order.findUnique({
+        where: { id: input.orderId },
+        include: { coupon: true },
+      });
+
+      if (!order) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "订单不存在" });
+      }
+
+      if (order.status !== "PAID") {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "仅已支付的订单可以退款",
+        });
+      }
+
+      if (order.coupon?.status === "USED") {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "券码已核销，无法退款",
+        });
+      }
+
+      return ctx.prisma.$transaction(async (tx) => {
+        await tx.order.update({
+          where: { id: order.id },
+          data: { status: "REFUNDED" },
+        });
+
+        if (order.coupon) {
+          await tx.coupon.update({
+            where: { id: order.coupon.id },
+            data: { status: "EXPIRED" },
+          });
+        }
+
+        await tx.product.update({
+          where: { id: order.productId },
+          data: { stock: { increment: order.qty } },
+        });
+
+        if (order.pointsPaid > 0) {
+          await tx.user.update({
+            where: { id: order.userId },
+            data: { points: { increment: order.pointsPaid } },
+          });
+        }
+
+        return { success: true };
+      });
     }),
 });

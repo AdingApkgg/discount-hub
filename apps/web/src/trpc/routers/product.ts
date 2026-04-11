@@ -1,8 +1,24 @@
 import { z } from "zod";
+import { TRPCError } from "@trpc/server";
+import { productCreateSchema, productUpdateSchema } from "@discount-hub/shared";
 import { createTRPCRouter, publicProcedure, merchantProcedure } from "../init";
 
-const PRODUCT_LIST_TTL = 60; // Cache product list for 60 seconds
-const PRODUCT_DETAIL_TTL = 120; // Cache individual products for 2 minutes
+const PRODUCT_LIST_TTL = 60;
+const PRODUCT_DETAIL_TTL = 120;
+
+function toNum(v: unknown): number {
+  if (typeof v === "number") return v;
+  if (v != null && typeof v === "object" && "toNumber" in v) return (v as { toNumber(): number }).toNumber();
+  return Number(v) || 0;
+}
+
+function normalizeProduct<T extends Record<string, unknown>>(p: T): T {
+  return {
+    ...p,
+    cashPrice: toNum(p.cashPrice),
+    originalCashPrice: p.originalCashPrice != null ? toNum(p.originalCashPrice) : null,
+  };
+}
 
 export const productRouter = createTRPCRouter({
   list: publicProcedure
@@ -40,12 +56,13 @@ export const productRouter = createTRPCRouter({
         orderBy: { createdAt: "desc" },
       });
 
-      // Write to cache
+      const normalized = products.map(normalizeProduct);
+
       if (ctx.redis) {
-        await ctx.redis.set(cacheKey, JSON.stringify(products), "EX", PRODUCT_LIST_TTL);
+        await ctx.redis.set(cacheKey, JSON.stringify(normalized), "EX", PRODUCT_LIST_TTL);
       }
 
-      return products;
+      return normalized;
     }),
 
   byId: publicProcedure
@@ -64,11 +81,15 @@ export const productRouter = createTRPCRouter({
         where: { id: input.id },
       });
 
-      if (product && ctx.redis) {
-        await ctx.redis.set(cacheKey, JSON.stringify(product), "EX", PRODUCT_DETAIL_TTL);
+      if (!product) return null;
+
+      const normalized = normalizeProduct(product);
+
+      if (ctx.redis) {
+        await ctx.redis.set(cacheKey, JSON.stringify(normalized), "EX", PRODUCT_DETAIL_TTL);
       }
 
-      return product;
+      return normalized;
     }),
 
   manageList: merchantProcedure
@@ -98,27 +119,16 @@ export const productRouter = createTRPCRouter({
         ];
       }
 
-      return ctx.prisma.product.findMany({
+      const products = await ctx.prisma.product.findMany({
         where,
         orderBy: [{ createdAt: "desc" }],
       });
+
+      return products.map(normalizeProduct);
     }),
 
   create: merchantProcedure
-    .input(
-      z.object({
-        app: z.string(),
-        title: z.string(),
-        subtitle: z.string().optional(),
-        description: z.string().optional(),
-        pointsPrice: z.number().int().min(0),
-        cashPrice: z.number().min(0),
-        originalCashPrice: z.number().min(0).optional(),
-        stock: z.number().int().min(0),
-        expiresAt: z.date(),
-        tags: z.array(z.string()).optional(),
-      }),
-    )
+    .input(productCreateSchema)
     .mutation(async ({ ctx, input }) => {
       const product = await ctx.prisma.product.create({ data: input });
 
@@ -132,26 +142,7 @@ export const productRouter = createTRPCRouter({
     }),
 
   update: merchantProcedure
-    .input(
-      z.object({
-        id: z.string(),
-        data: z.object({
-          title: z.string().optional(),
-          subtitle: z.string().optional(),
-          description: z.string().optional(),
-          app: z.string().optional(),
-          pointsPrice: z.number().int().min(0).optional(),
-          cashPrice: z.number().min(0).optional(),
-          originalCashPrice: z.number().min(0).nullable().optional(),
-          stock: z.number().int().min(0).optional(),
-          expiresAt: z.date().optional(),
-          tags: z.array(z.string()).optional(),
-          status: z
-            .enum(["ACTIVE", "SOLD_OUT", "EXPIRED", "DRAFT"])
-            .optional(),
-        }),
-      }),
-    )
+    .input(productUpdateSchema)
     .mutation(async ({ ctx, input }) => {
       const product = await ctx.prisma.product.update({
         where: { id: input.id },
@@ -166,5 +157,40 @@ export const productRouter = createTRPCRouter({
       }
 
       return product;
+    }),
+
+  delete: merchantProcedure
+    .input(z.object({ id: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      const activeOrders = await ctx.prisma.order.count({
+        where: {
+          productId: input.id,
+          status: { in: ["PENDING", "PAID"] },
+        },
+      });
+
+      if (activeOrders > 0) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: `该商品还有 ${activeOrders} 个未完结订单，无法删除`,
+        });
+      }
+
+      await ctx.prisma.$transaction(async (tx) => {
+        await tx.verificationRecord.deleteMany({
+          where: { coupon: { productId: input.id } },
+        });
+        await tx.coupon.deleteMany({ where: { productId: input.id } });
+        await tx.order.deleteMany({ where: { productId: input.id } });
+        await tx.product.delete({ where: { id: input.id } });
+      });
+
+      if (ctx.redis) {
+        const keys = await ctx.redis.keys("products:list:*");
+        if (keys.length > 0) await ctx.redis.del(...keys);
+        await ctx.redis.del(`products:detail:${input.id}`);
+      }
+
+      return { success: true };
     }),
 });

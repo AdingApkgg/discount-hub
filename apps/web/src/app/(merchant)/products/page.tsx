@@ -8,6 +8,7 @@ import {
   Plus,
   Search,
   Sparkles,
+  Trash2,
 } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -22,6 +23,7 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -68,12 +70,6 @@ const DEFAULT_FORM: ProductFormState = {
   status: "ACTIVE",
 };
 
-function cashNum(v: number | { toNumber(): number } | null | undefined) {
-  if (typeof v === "number") return v;
-  if (v && typeof v === "object" && "toNumber" in v) return v.toNumber();
-  return 0;
-}
-
 function formatDateInput(value: string | Date) {
   const d = typeof value === "string" ? new Date(value) : value;
   if (Number.isNaN(d.getTime())) return "";
@@ -94,11 +90,11 @@ function buildForm(product?: MerchantProduct | null): ProductFormState {
     subtitle: product.subtitle,
     description: product.description,
     pointsPrice: String(product.pointsPrice),
-    cashPrice: String(cashNum(product.cashPrice)),
+    cashPrice: String(Number(product.cashPrice)),
     originalCashPrice:
       product.originalCashPrice == null
         ? ""
-        : String(cashNum(product.originalCashPrice)),
+        : String(Number(product.originalCashPrice)),
     stock: String(product.stock),
     expiresAt: formatDateInput(product.expiresAt),
     tags: product.tags.join(", "),
@@ -144,6 +140,7 @@ export default function ProductsPage() {
   const [editing, setEditing] = useState<MerchantProduct | null>(null);
   const [form, setForm] = useState<ProductFormState>(DEFAULT_FORM);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<MerchantProduct | null>(null);
 
   const { data, isLoading } = useQuery(
     trpc.product.manageList.queryOptions({
@@ -158,6 +155,7 @@ export default function ProductsPage() {
 
   const createMutation = useMutation(trpc.product.create.mutationOptions());
   const updateMutation = useMutation(trpc.product.update.mutationOptions());
+  const deleteMutation = useMutation(trpc.product.delete.mutationOptions());
 
   const summary = useMemo(() => {
     const activeCount = products.filter((item) => item.status === "ACTIVE").length;
@@ -254,7 +252,10 @@ export default function ProductsPage() {
         });
         toast.success("商品已更新");
       } else {
-        await createMutation.mutateAsync(payload);
+        const createStatus = payload.status === "ACTIVE" || payload.status === "DRAFT"
+          ? payload.status
+          : "ACTIVE";
+        await createMutation.mutateAsync({ ...payload, status: createStatus });
         toast.success("商品已创建");
       }
 
@@ -280,6 +281,18 @@ export default function ProductsPage() {
       toast.error(err instanceof Error ? err.message : "状态更新失败");
     } finally {
       setBusyId(null);
+    }
+  }
+
+  async function handleDelete() {
+    if (!deleteTarget) return;
+    try {
+      await deleteMutation.mutateAsync({ id: deleteTarget.id });
+      toast.success(`已删除「${deleteTarget.title}」`);
+      setDeleteTarget(null);
+      await refreshAll();
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "删除失败");
     }
   }
 
@@ -382,7 +395,7 @@ export default function ProductsPage() {
                         {product.pointsPrice}
                       </TableCell>
                       <TableCell className="text-right text-foreground">
-                        ¥{cashNum(product.cashPrice).toFixed(2)}
+                        ¥{Number(product.cashPrice).toFixed(2)}
                       </TableCell>
                       <TableCell className="text-right text-muted-foreground">
                         {product.stock}
@@ -460,6 +473,15 @@ export default function ProductsPage() {
                               )}
                             </Button>
                           )}
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="gap-1.5 text-rose-400 hover:text-rose-300 hover:border-rose-400/50"
+                            onClick={() => setDeleteTarget(product)}
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                            删除
+                          </Button>
                         </div>
                       </TableCell>
                     </TableRow>
@@ -605,6 +627,52 @@ export default function ProductsPage() {
                 "保存修改"
               ) : (
                 "创建商品"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+        <DialogContent className="max-w-md bg-card border-border">
+          <DialogHeader>
+            <DialogTitle>确认删除</DialogTitle>
+            <DialogDescription>
+              删除后该商品及其关联的已完结订单、券码记录将被永久移除。此操作不可撤销。
+            </DialogDescription>
+          </DialogHeader>
+          {deleteTarget && (
+            <div className="space-y-2 text-sm">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">商品名称</span>
+                <span className="text-foreground font-medium">{deleteTarget.title}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">平台</span>
+                <span className="text-foreground">{deleteTarget.app}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">当前状态</span>
+                {statusBadge(deleteTarget.status)}
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteTarget(null)}>
+              取消
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleDelete}
+              disabled={deleteMutation.isPending}
+            >
+              {deleteMutation.isPending ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  删除中...
+                </>
+              ) : (
+                "确认删除"
               )}
             </Button>
           </DialogFooter>
