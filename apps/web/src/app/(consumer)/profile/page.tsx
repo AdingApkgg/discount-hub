@@ -51,6 +51,14 @@ import {
   EmptyStateDashed,
   StatCard,
 } from "@/components/shared";
+import {
+  motion,
+  AnimatedSection,
+  AnimatedItem,
+  PageTransition,
+  StaggerList,
+  HoverScale,
+} from "@/components/motion";
 
 type UserProfile = RouterOutputs["user"]["me"];
 type ReferralRecord = RouterOutputs["user"]["referrals"][number];
@@ -147,7 +155,9 @@ export default function ProfilePage() {
   ];
 
   return (
+    <PageTransition>
     <div className="space-y-4 px-4 py-4 md:space-y-6 md:px-8 md:py-8">
+      <AnimatedItem>
       <PageHeading
         label="Profile"
         title="我的"
@@ -163,7 +173,9 @@ export default function ProfilePage() {
           </Button>
         }
       />
+      </AnimatedItem>
 
+      <AnimatedItem>
       <section className="grid gap-4 xl:grid-cols-[minmax(0,1.2fr)_320px]">
         <Card className="overflow-hidden rounded-[30px] border border-[var(--app-hero-border)] bg-[var(--app-hero-bg)] py-0 text-white shadow-[var(--app-hero-shadow)]">
           <CardContent className="relative p-5 md:p-7">
@@ -199,14 +211,15 @@ export default function ProfilePage() {
           </CardContent>
         </Card>
 
-        <div className="grid grid-cols-3 gap-3 xl:grid-cols-1">
-          <StatCard label="累计邀请" value={profile?._count.referrals ?? 0} />
-          <StatCard label="累计订单" value={profile?._count.orders ?? 0} />
-          <StatCard label="我的券包" value={profile?._count.coupons ?? 0} />
-        </div>
+        <StaggerList className="grid grid-cols-3 gap-3 xl:grid-cols-1">
+          <AnimatedItem><StatCard label="累计邀请" value={profile?._count.referrals ?? 0} /></AnimatedItem>
+          <AnimatedItem><StatCard label="累计订单" value={profile?._count.orders ?? 0} /></AnimatedItem>
+          <AnimatedItem><StatCard label="我的券包" value={profile?._count.coupons ?? 0} /></AnimatedItem>
+        </StaggerList>
       </section>
+      </AnimatedItem>
 
-      <section className="grid gap-4 xl:grid-cols-[minmax(0,1.1fr)_minmax(360px,0.9fr)]">
+      <AnimatedSection className="grid gap-4 xl:grid-cols-[minmax(0,1.1fr)_minmax(360px,0.9fr)]">
         <Card className={appCardClassName}>
           <CardContent className="p-5 md:p-6">
             <SectionHeading
@@ -284,9 +297,9 @@ export default function ProfilePage() {
             </div>
           </CardContent>
         </Card>
-      </section>
+      </AnimatedSection>
 
-      <section>
+      <AnimatedSection>
         <Card className={appCardClassName}>
           <CardContent className="p-5 md:p-6">
             <SectionHeading
@@ -354,9 +367,9 @@ export default function ProfilePage() {
             </div>
           </CardContent>
         </Card>
-      </section>
+      </AnimatedSection>
 
-      <section className="grid gap-4 xl:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]">
+      <AnimatedSection className="grid gap-4 xl:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]">
         <Card className={appCardClassName}>
           <CardContent className="p-5 md:p-6">
             <SectionHeading title="资料编辑" subtitle="完善昵称和手机号，方便商家或客服联系。" />
@@ -453,8 +466,9 @@ export default function ProfilePage() {
             })}
           </Card>
         </div>
-      </section>
+      </AnimatedSection>
 
+      <AnimatedSection>
       <AlertDialog>
         <AlertDialogTrigger asChild>
           <Button
@@ -480,8 +494,10 @@ export default function ProfilePage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      </AnimatedSection>
 
       <div className="pb-1 text-center text-xs text-muted-foreground">版本 1.0.0</div>
     </div>
+    </PageTransition>
   );
 }

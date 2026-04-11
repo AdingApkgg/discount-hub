@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/sheet";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
+import { motion } from "@/components/motion";
 
 const navItems = [
   { href: "/dashboard", icon: LayoutDashboard, label: "数据看板" },
@@ -61,13 +62,22 @@ function SidebarContent({ pathname }: { pathname: string }) {
               key={item.href}
               variant={active ? "secondary" : "ghost"}
               className={cn(
-                "w-full justify-start gap-3",
-                active && "bg-primary/10 text-foreground",
+                "relative w-full justify-start gap-3",
+                active ? "bg-transparent text-foreground" : "",
               )}
               onClick={() => router.push(item.href)}
             >
-              <Icon className="h-5 w-5" />
-              {item.label}
+              {active && (
+                <motion.span
+                  layoutId="merchant-sidebar-pill"
+                  className="absolute inset-0 rounded-md bg-primary/10"
+                  transition={{ type: "spring", stiffness: 350, damping: 30 }}
+                />
+              )}
+              <span className="relative z-10 flex items-center gap-3">
+                <Icon className="h-5 w-5" />
+                {item.label}
+              </span>
             </Button>
           );
         })}
@@ -95,9 +105,14 @@ export default function MerchantShell({
 
   return (
     <div className="min-h-screen bg-background flex">
-      <aside className="hidden lg:flex flex-col w-64 border-r border-border bg-card">
+      <motion.aside
+        className="hidden lg:flex flex-col w-64 border-r border-border bg-card"
+        initial={{ x: -20, opacity: 0 }}
+        animate={{ x: 0, opacity: 1 }}
+        transition={{ type: "spring", stiffness: 300, damping: 28 }}
+      >
         <SidebarContent pathname={pathname} />
-      </aside>
+      </motion.aside>
 
       <div className="flex-1 flex flex-col">
         <header className="lg:hidden sticky top-0 z-20 border-b border-border bg-black/30 backdrop-blur-md">
@@ -117,7 +132,14 @@ export default function MerchantShell({
           </div>
         </header>
 
-        <main className="flex-1">{children}</main>
+        <motion.main
+          className="flex-1"
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ type: "spring", stiffness: 260, damping: 24, delay: 0.1 }}
+        >
+          {children}
+        </motion.main>
       </div>
     </div>
   );

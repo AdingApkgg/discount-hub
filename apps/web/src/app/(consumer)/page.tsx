@@ -29,6 +29,15 @@ import {
   PageHeading,
   EmptyState,
 } from "@/components/shared";
+import {
+  motion,
+  AnimatePresence,
+  AnimatedSection,
+  StaggerList,
+  AnimatedItem,
+  PageTransition,
+  HoverScale,
+} from "@/components/motion";
 
 type ProductItem = RouterOutputs["product"]["list"][number];
 type UserProfile = RouterOutputs["user"]["me"];
@@ -50,19 +59,21 @@ function QuickAction({
   onClick: () => void;
 }) {
   return (
-    <Button
-      variant="outline"
-      onClick={onClick}
-      className="h-auto flex-col items-start gap-0 rounded-[24px] border-[var(--app-card-border)] bg-[var(--app-card)] p-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:bg-secondary/80 hover:shadow-md"
-    >
-      <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-secondary">
-        <Icon className="h-5 w-5 text-foreground" />
-      </div>
-      <div className="mt-4 text-sm font-semibold text-foreground">{title}</div>
-      <div className="mt-1 text-xs leading-5 text-muted-foreground">
-        {subtitle}
-      </div>
-    </Button>
+    <HoverScale>
+      <Button
+        variant="outline"
+        onClick={onClick}
+        className="h-auto w-full flex-col items-start gap-0 rounded-[24px] border-[var(--app-card-border)] bg-[var(--app-card)] p-4 text-left shadow-sm hover:bg-secondary/80 hover:shadow-md"
+      >
+        <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-secondary">
+          <Icon className="h-5 w-5 text-foreground" />
+        </div>
+        <div className="mt-4 text-sm font-semibold text-foreground">{title}</div>
+        <div className="mt-1 text-xs leading-5 text-muted-foreground">
+          {subtitle}
+        </div>
+      </Button>
+    </HoverScale>
   );
 }
 
@@ -76,8 +87,9 @@ function ProductCard({
   const price = Number(item.cashPrice);
 
   return (
+    <HoverScale>
     <Card
-      className={`${appCardClassName} w-[250px] shrink-0 cursor-pointer overflow-hidden transition hover:-translate-y-0.5 hover:shadow-lg md:w-auto md:shrink`}
+      className={`${appCardClassName} w-[250px] shrink-0 cursor-pointer overflow-hidden md:w-auto md:shrink`}
       onClick={onClick}
     >
       <div className="relative h-28 overflow-hidden bg-[linear-gradient(135deg,#111827_0%,#1f2937_55%,#374151_100%)]">
@@ -129,6 +141,7 @@ function ProductCard({
         </div>
       </CardContent>
     </Card>
+    </HoverScale>
   );
 }
 
@@ -170,7 +183,7 @@ function ProductSection({
   onOpen: (id: string) => void;
 }) {
   return (
-    <section className="space-y-3">
+    <AnimatedSection className="space-y-3">
       <SectionHeading title={title} subtitle={subtitle} action={action} />
       {isLoading ? (
         <ProductSectionSkeleton />
@@ -178,19 +191,20 @@ function ProductSection({
         <EmptyState text={emptyText} />
       ) : (
         <ScrollArea className="md:overflow-visible">
-          <div className="flex gap-3 pb-1 md:grid md:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
+          <StaggerList className="flex gap-3 pb-1 md:grid md:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
             {items.map((item) => (
-              <ProductCard
-                key={item.id}
-                item={item}
-                onClick={() => onOpen(item.id)}
-              />
+              <AnimatedItem key={item.id}>
+                <ProductCard
+                  item={item}
+                  onClick={() => onOpen(item.id)}
+                />
+              </AnimatedItem>
             ))}
-          </div>
+          </StaggerList>
           <ScrollBar orientation="horizontal" className="md:hidden" />
         </ScrollArea>
       )}
-    </section>
+    </AnimatedSection>
   );
 }
 
@@ -239,7 +253,9 @@ export default function HomePage() {
   const openScroll = (id: string) => router.push(`/scroll/${id}`);
 
   return (
+    <PageTransition>
     <div className="space-y-4 px-4 py-4 md:space-y-6 md:px-8 md:py-8">
+      <AnimatedItem>
       <PageHeading
         label="Discount Hub"
         title="今日精选"
@@ -254,7 +270,9 @@ export default function HomePage() {
           </Button>
         }
       />
+      </AnimatedItem>
 
+      <AnimatedItem>
       <section className="grid gap-4 xl:grid-cols-[minmax(0,1.45fr)_minmax(340px,0.95fr)]">
         <Card className="overflow-hidden rounded-[30px] border border-[var(--app-hero-border)] bg-[var(--app-hero-bg)] py-0 text-white shadow-[var(--app-hero-shadow)]">
           <CardContent className="relative p-5 md:p-7">
@@ -269,28 +287,38 @@ export default function HomePage() {
                 </div>
               </div>
 
-              <div className="mt-5 max-w-[18rem] text-[28px] font-semibold leading-tight md:max-w-[24rem] md:text-[38px]">
-                {currentBanner.title}
-              </div>
-              <p className="mt-3 max-w-[22rem] text-sm leading-6 text-white/72 md:text-base">
-                {currentBanner.subtitle}
-              </p>
+              <AnimatePresence mode="wait">
+                <motion.div
+                  key={bannerIndex}
+                  initial={{ opacity: 0, x: 30, filter: "blur(4px)" }}
+                  animate={{ opacity: 1, x: 0, filter: "blur(0px)" }}
+                  exit={{ opacity: 0, x: -30, filter: "blur(4px)" }}
+                  transition={{ type: "spring", stiffness: 260, damping: 26 }}
+                >
+                  <div className="mt-5 max-w-[18rem] text-[28px] font-semibold leading-tight md:max-w-[24rem] md:text-[38px]">
+                    {currentBanner.title}
+                  </div>
+                  <p className="mt-3 max-w-[22rem] text-sm leading-6 text-white/72 md:text-base">
+                    {currentBanner.subtitle}
+                  </p>
 
-              <div className="mt-5 flex flex-wrap items-center gap-3">
-                <Button
-                  onClick={() => openScroll(currentBanner.scrollId)}
-                  className="rounded-full bg-[var(--app-hero-cta-bg)] px-5 text-[var(--app-hero-cta-text)] hover:bg-[var(--app-hero-cta-hover)]"
-                >
-                  {currentBanner.cta}
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={() => router.push("/member")}
-                  className="rounded-full border-white/15 bg-white/10 px-5 text-white hover:bg-white/16 hover:text-white"
-                >
-                  会员中心
-                </Button>
-              </div>
+                  <div className="mt-5 flex flex-wrap items-center gap-3">
+                    <Button
+                      onClick={() => openScroll(currentBanner.scrollId)}
+                      className="rounded-full bg-[var(--app-hero-cta-bg)] px-5 text-[var(--app-hero-cta-text)] hover:bg-[var(--app-hero-cta-hover)]"
+                    >
+                      {currentBanner.cta}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={() => router.push("/member")}
+                      className="rounded-full border-white/15 bg-white/10 px-5 text-white hover:bg-white/16 hover:text-white"
+                    >
+                      会员中心
+                    </Button>
+                  </div>
+                </motion.div>
+              </AnimatePresence>
 
               <div className="mt-6 grid grid-cols-3 gap-3 md:max-w-[34rem]">
                 {[
@@ -308,10 +336,13 @@ export default function HomePage() {
                     label: "我的券包",
                     value: `${(profile as UserProfile | undefined)?._count.coupons ?? 0} 张`,
                   },
-                ].map((stat) => (
-                  <div
+                ].map((stat, i) => (
+                  <motion.div
                     key={stat.label}
                     className="rounded-2xl bg-white/10 p-3 backdrop-blur"
+                    initial={{ opacity: 0, y: 12 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.3 + i * 0.08, type: "spring", stiffness: 260, damping: 24 }}
                   >
                     <div className="text-[11px] text-white/60">
                       {stat.label}
@@ -319,7 +350,7 @@ export default function HomePage() {
                     <div className="mt-2 text-base font-semibold">
                       {stat.value}
                     </div>
-                  </div>
+                  </motion.div>
                 ))}
               </div>
             </div>
@@ -327,6 +358,7 @@ export default function HomePage() {
         </Card>
 
         <div className="space-y-4">
+          <HoverScale>
           <Button
             variant="outline"
             onClick={() => router.push("/coupons")}
@@ -345,35 +377,45 @@ export default function HomePage() {
             </div>
             <ChevronRight className="h-4 w-4 text-muted-foreground" />
           </Button>
+          </HoverScale>
 
-          <div className="grid grid-cols-2 gap-3">
+          <StaggerList className="grid grid-cols-2 gap-3">
+            <AnimatedItem>
             <QuickAction
               icon={Sparkles}
               title="会员任务"
               subtitle="签到、浏览、分享都能拿积分"
               onClick={() => router.push("/member")}
             />
+            </AnimatedItem>
+            <AnimatedItem>
             <QuickAction
               icon={Ticket}
               title="我的券包"
               subtitle="购买后的权益都在这里查看"
               onClick={() => router.push("/coupons")}
             />
+            </AnimatedItem>
+            <AnimatedItem>
             <QuickAction
               icon={Gift}
               title="邀请有礼"
               subtitle="复制邀请码，持续拉新赚奖励"
               onClick={() => router.push("/profile")}
             />
+            </AnimatedItem>
+            <AnimatedItem>
             <QuickAction
               icon={WalletCards}
               title="账户资料"
               subtitle="完善昵称与手机号，方便联系"
               onClick={() => router.push("/profile")}
             />
-          </div>
+            </AnimatedItem>
+          </StaggerList>
         </div>
       </section>
+      </AnimatedItem>
 
       <ProductSection
         title="限时神券"
@@ -403,17 +445,18 @@ export default function HomePage() {
         onOpen={openScroll}
       />
 
-      <section className="grid gap-4 xl:grid-cols-[minmax(0,1.2fr)_360px]">
+      <AnimatedSection className="grid gap-4 xl:grid-cols-[minmax(0,1.2fr)_360px]">
         <Card className={appCardClassName}>
           <CardContent className="p-5 md:p-6">
             <SectionHeading
               title="福利攻略"
               subtitle="把首页信息流做得更像线框稿里的运营内容位。"
             />
-            <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-1">
+            <StaggerList className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-1">
               {hotPosts.map((post) => (
+                <AnimatedItem key={post.id}>
+                <HoverScale>
                 <Button
-                  key={post.id}
                   variant="outline"
                   className="h-auto w-full items-start justify-between gap-3 rounded-2xl border-[var(--app-card-border)] bg-[var(--app-card)] px-4 py-4 text-left hover:bg-secondary"
                 >
@@ -433,8 +476,10 @@ export default function HomePage() {
                   </div>
                   <ArrowRight className="mt-1 h-4 w-4 shrink-0 text-muted-foreground" />
                 </Button>
+                </HoverScale>
+                </AnimatedItem>
               ))}
-            </div>
+            </StaggerList>
           </CardContent>
         </Card>
 
@@ -453,10 +498,11 @@ export default function HomePage() {
                 </Badge>
               }
             />
-            <div className="mt-5 space-y-3">
+            <StaggerList className="mt-5 space-y-3">
               {hotRanking.map((item) => (
+                <AnimatedItem key={item.rank}>
+                <HoverScale scale={1.01}>
                 <div
-                  key={item.rank}
                   className="flex items-center justify-between gap-3 rounded-2xl border border-border bg-secondary/50 px-4 py-3"
                 >
                   <div className="flex items-center gap-3">
@@ -474,11 +520,14 @@ export default function HomePage() {
                   </div>
                   <ArrowRight className="h-4 w-4 text-muted-foreground" />
                 </div>
+                </HoverScale>
+                </AnimatedItem>
               ))}
-            </div>
+            </StaggerList>
           </CardContent>
         </Card>
-      </section>
+      </AnimatedSection>
     </div>
+    </PageTransition>
   );
 }

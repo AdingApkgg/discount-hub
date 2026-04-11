@@ -30,6 +30,14 @@ import {
   PageHeading,
   EmptyStateDashed,
 } from "@/components/shared";
+import {
+  motion,
+  AnimatePresence,
+  AnimatedSection,
+  AnimatedItem,
+  PageTransition,
+  HoverScale,
+} from "@/components/motion";
 
 type CouponWithProduct = {
   id: string;
@@ -98,7 +106,9 @@ export default function CouponsPage() {
   };
 
   return (
+    <PageTransition>
     <div className="space-y-4 px-4 py-4 md:px-8 md:py-8">
+      <AnimatedItem>
       <PageHeading
         label="Coupons"
         title="券包"
@@ -112,7 +122,9 @@ export default function CouponsPage() {
           </Badge>
         }
       />
+      </AnimatedItem>
 
+      <AnimatedItem>
       <Card className={appCardClassName}>
         <CardContent className="p-5">
           <Tabs value={tab} onValueChange={setTab}>
@@ -138,19 +150,34 @@ export default function CouponsPage() {
             {isLoading ? (
               <CouponsSkeleton />
             ) : filtered.length === 0 ? (
-              <EmptyStateDashed text="暂无券码" />
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ type: "spring", stiffness: 260, damping: 24 }}
+              >
+                <EmptyStateDashed text="暂无券码" />
+              </motion.div>
             ) : (
               <div className="space-y-3">
-                {filtered.map((coupon) => {
+                <AnimatePresence mode="popLayout">
+                {filtered.map((coupon, i) => {
                   const expiresAt =
                     coupon.expiresAt instanceof Date
                       ? coupon.expiresAt.toLocaleDateString("zh-CN")
                       : String(coupon.expiresAt).slice(0, 10);
 
                   return (
-                    <Card
+                    <motion.div
                       key={coupon.id}
-                      className={`cursor-pointer gap-0 overflow-hidden rounded-[24px] border py-0 transition hover:-translate-y-0.5 hover:shadow-md ${
+                      layout
+                      initial={{ opacity: 0, y: 16, scale: 0.97 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, scale: 0.95, y: -8 }}
+                      transition={{ type: "spring", stiffness: 300, damping: 28, delay: i * 0.04 }}
+                    >
+                    <HoverScale scale={1.01}>
+                    <Card
+                      className={`cursor-pointer gap-0 overflow-hidden rounded-[24px] border py-0 ${
                         coupon.status === "ACTIVE"
                           ? "border-border bg-background"
                           : "border-border bg-secondary/50"
@@ -209,13 +236,17 @@ export default function CouponsPage() {
                         </div>
                       </CardContent>
                     </Card>
+                    </HoverScale>
+                    </motion.div>
                   );
                 })}
+                </AnimatePresence>
               </div>
             )}
           </div>
         </CardContent>
       </Card>
+      </AnimatedItem>
 
       <Dialog open={!!detailCoupon} onOpenChange={() => setDetailCoupon(null)}>
         <DialogContent className="max-w-sm rounded-[28px] border-border bg-background p-0">
@@ -223,7 +254,12 @@ export default function CouponsPage() {
             <DialogTitle>券码详情</DialogTitle>
           </DialogHeader>
           {detailCoupon && (
-            <div className="px-6 py-5">
+            <motion.div
+              className="px-6 py-5"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ type: "spring", stiffness: 300, damping: 26 }}
+            >
               <div className="text-center">
                 <div className="text-base font-semibold text-foreground">
                   {detailCoupon.product.title}
@@ -233,11 +269,16 @@ export default function CouponsPage() {
                 </div>
               </div>
 
-              <div className="mt-5 flex justify-center">
+              <motion.div
+                className="mt-5 flex justify-center"
+                initial={{ scale: 0.8, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                transition={{ type: "spring", stiffness: 260, damping: 22, delay: 0.1 }}
+              >
                 <div className="rounded-2xl border border-border bg-background p-4">
                   <FakeQr value={detailCoupon.code} />
                 </div>
-              </div>
+              </motion.div>
 
               <div className="mt-4 text-center">
                 <Badge variant="secondary" className="rounded-full px-4 py-2 font-mono text-sm">
@@ -273,10 +314,11 @@ export default function CouponsPage() {
                   </Button>
                 )}
               </div>
-            </div>
+            </motion.div>
           )}
         </DialogContent>
       </Dialog>
     </div>
+    </PageTransition>
   );
 }

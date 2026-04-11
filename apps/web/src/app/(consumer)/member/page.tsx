@@ -41,6 +41,14 @@ import {
   PageHeading,
   StatCard,
 } from "@/components/shared";
+import {
+  motion,
+  AnimatedSection,
+  AnimatedItem,
+  PageTransition,
+  StaggerList,
+  HoverScale,
+} from "@/components/motion";
 
 type PointsStatus = RouterOutputs["points"]["getStatus"];
 type UserProfile = RouterOutputs["user"]["me"];
@@ -241,7 +249,9 @@ export default function MemberPage() {
   if (isLoading) return <MemberSkeleton />;
 
   return (
+    <PageTransition>
     <div className="space-y-4 px-4 py-4 md:space-y-6 md:px-8 md:py-8">
+      <AnimatedItem>
       <PageHeading
         label="Member Center"
         title="会员中心"
@@ -311,7 +321,9 @@ export default function MemberPage() {
           </Dialog>
         }
       />
+      </AnimatedItem>
 
+      <AnimatedItem>
       <section className="grid gap-4 xl:grid-cols-[minmax(0,1.35fr)_minmax(320px,0.95fr)]">
         <Card className="overflow-hidden rounded-[30px] border border-[var(--app-hero-border)] bg-[var(--app-hero-bg)] py-0 text-white shadow-[var(--app-hero-shadow)]">
           <CardContent className="relative p-5 md:p-7">
@@ -336,7 +348,14 @@ export default function MemberPage() {
                   <span>距离 {nextTier.name}</span>
                   <span>还差 {remainingPoints.toLocaleString("zh-CN")} 积分</span>
                 </div>
+                <motion.div
+                  initial={{ scaleX: 0 }}
+                  animate={{ scaleX: 1 }}
+                  transition={{ delay: 0.4, duration: 0.6, ease: "easeOut" }}
+                  style={{ transformOrigin: "left" }}
+                >
                 <Progress value={progressPct} className="mt-3 h-2 bg-white/15" />
+                </motion.div>
                 <div className="mt-4 flex flex-wrap gap-2">
                   {currentTier.benefits.map((benefit) => (
                     <Badge key={benefit} variant="outline" className="rounded-full border-white/15 bg-white/10 text-white">
@@ -349,14 +368,16 @@ export default function MemberPage() {
           </CardContent>
         </Card>
 
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
-          <StatCard label="连续签到" value={`${completedCheckinDays} 天`} hint="第 2 天奖励 3000 积分" />
-          <StatCard label="今日任务" value={`${completedTaskCount}/${DAILY_TASKS.length}`} hint="做完可稳定攒积分" />
-          <StatCard label="当前等级" value={currentTier.name} hint="会员等级越高权益越多" />
-          <StatCard label="距离升级" value={`${remainingPoints.toLocaleString("zh-CN")} 分`} hint={`下一档 ${nextTier.name}`} />
-        </div>
+        <StaggerList className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
+          <AnimatedItem><StatCard label="连续签到" value={`${completedCheckinDays} 天`} hint="第 2 天奖励 3000 积分" /></AnimatedItem>
+          <AnimatedItem><StatCard label="今日任务" value={`${completedTaskCount}/${DAILY_TASKS.length}`} hint="做完可稳定攒积分" /></AnimatedItem>
+          <AnimatedItem><StatCard label="当前等级" value={currentTier.name} hint="会员等级越高权益越多" /></AnimatedItem>
+          <AnimatedItem><StatCard label="距离升级" value={`${remainingPoints.toLocaleString("zh-CN")} 分`} hint={`下一档 ${nextTier.name}`} /></AnimatedItem>
+        </StaggerList>
       </section>
+      </AnimatedItem>
 
+      <AnimatedSection>
       <Card className={appCardClassName}>
         <CardContent className="p-5 md:p-6">
           <SectionHeading
@@ -379,12 +400,13 @@ export default function MemberPage() {
               </Button>
             }
           />
-          <div className="mt-5 grid grid-cols-2 gap-2.5 sm:grid-cols-4">
+          <StaggerList className="mt-5 grid grid-cols-2 gap-2.5 sm:grid-cols-4">
             {CHECKIN_REWARDS.map((reward, index) => {
               const done = index < completedCheckinDays;
               return (
+                <AnimatedItem key={index}>
+                <motion.div whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.97 }}>
                 <Card
-                  key={index}
                   className={`gap-0 rounded-[22px] border py-0 text-center ${
                     done
                       ? "border-primary bg-primary text-primary-foreground"
@@ -401,24 +423,29 @@ export default function MemberPage() {
                     </div>
                   </CardContent>
                 </Card>
+                </motion.div>
+                </AnimatedItem>
               );
             })}
-          </div>
+          </StaggerList>
         </CardContent>
       </Card>
+      </AnimatedSection>
 
-      <section className="grid gap-4 xl:grid-cols-[minmax(0,1.15fr)_minmax(360px,0.85fr)]">
+      <AnimatedSection className="grid gap-4 xl:grid-cols-[minmax(0,1.15fr)_minmax(360px,0.85fr)]">
         <Card className={appCardClassName}>
           <CardContent className="p-5 md:p-6">
             <SectionHeading title="日常积分任务" subtitle="保持轻量，围绕签到、浏览、分享和购买四个动作。" />
-            <div className="mt-5 grid gap-3">
+            <StaggerList className="mt-5 grid gap-3">
               {DAILY_TASKS.map((task) => {
                 const done = task.id === "checkin" ? checkedIn : todayTasks.has(task.id);
                 const Icon = task.icon;
                 return (
-                  <div
-                    key={task.id}
+                  <AnimatedItem key={task.id}>
+                  <motion.div
                     className="flex flex-col gap-3 rounded-[24px] border border-border bg-secondary/50 px-4 py-4 md:flex-row md:items-center md:justify-between"
+                    whileHover={{ scale: 1.01, y: -1 }}
+                    transition={{ type: "spring", stiffness: 400, damping: 30 }}
                   >
                     <div className="flex items-center gap-3">
                       <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-background shadow-sm">
@@ -448,23 +475,25 @@ export default function MemberPage() {
                         "去完成"
                       )}
                     </Button>
-                  </div>
+                  </motion.div>
+                  </AnimatedItem>
                 );
               })}
-            </div>
+            </StaggerList>
           </CardContent>
         </Card>
 
         <Card className={appCardClassName}>
           <CardContent className="p-5 md:p-6">
             <SectionHeading title="看内容赚积分" subtitle="桌面端改成独立侧栏卡片，更适合横屏浏览。" />
-            <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
+            <StaggerList className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
               {earnContents.map((content) => {
                 const done = todayTasks.has(content.id);
                 return (
+                  <AnimatedItem key={content.id}>
+                  <HoverScale>
                   <Card
-                    key={content.id}
-                    className="cursor-pointer gap-0 overflow-hidden rounded-[24px] border-[var(--app-card-border)] py-0 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
+                    className="cursor-pointer gap-0 overflow-hidden rounded-[24px] border-[var(--app-card-border)] py-0 shadow-sm"
                     onClick={() => handleEarn(content.id, content.app)}
                   >
                     <div className="flex h-24 items-center justify-center bg-[linear-gradient(135deg,#111827_0%,#374151_100%)]">
@@ -490,12 +519,15 @@ export default function MemberPage() {
                       </div>
                     </CardContent>
                   </Card>
+                  </HoverScale>
+                  </AnimatedItem>
                 );
               })}
-            </div>
+            </StaggerList>
           </CardContent>
         </Card>
-      </section>
+      </AnimatedSection>
     </div>
+    </PageTransition>
   );
 }

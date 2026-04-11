@@ -6,6 +6,7 @@ import { Home, Ticket, CreditCard, User, LogIn } from "lucide-react";
 import { useSession } from "@/lib/auth-client";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { motion } from "@/components/motion";
 
 const tabs = [
   { id: "/", icon: Home, label: "首页" },
@@ -31,7 +32,12 @@ export default function ConsumerNav() {
 
   return (
     <>
-      <header className="sticky top-0 z-20 hidden border-b border-[var(--app-card-border)] bg-[var(--app-nav-bg)]/95 backdrop-blur md:block">
+      <motion.header
+        className="sticky top-0 z-20 hidden border-b border-[var(--app-card-border)] bg-[var(--app-nav-bg)]/95 backdrop-blur md:block"
+        initial={{ y: -20, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        transition={{ type: "spring", stiffness: 300, damping: 30 }}
+      >
         <div className="flex items-center justify-between gap-6 px-8 py-5">
           <Button
             variant="ghost"
@@ -66,22 +72,36 @@ export default function ConsumerNav() {
                   variant={active ? "default" : "ghost"}
                   onClick={() => router.push(tab.id)}
                   className={cn(
-                    "gap-2 rounded-full px-4",
+                    "relative gap-2 rounded-full px-4",
                     active
-                      ? "bg-[var(--app-nav-active-bg)] text-[var(--app-nav-active-text)] shadow-[0_10px_24px_rgba(15,23,42,0.14)] hover:bg-[var(--app-nav-active-bg)]"
+                      ? "bg-transparent text-[var(--app-nav-active-text)] hover:bg-transparent"
                       : "text-muted-foreground hover:bg-[var(--app-nav-hover)] hover:text-foreground",
                   )}
                 >
-                  <Icon className="h-4 w-4" />
-                  <span>{tab.label}</span>
+                  {active && (
+                    <motion.span
+                      layoutId="desktop-nav-pill"
+                      className="absolute inset-0 rounded-full bg-[var(--app-nav-active-bg)] shadow-[0_10px_24px_rgba(15,23,42,0.14)]"
+                      transition={{ type: "spring", stiffness: 380, damping: 32 }}
+                    />
+                  )}
+                  <span className="relative z-10 flex items-center gap-2">
+                    <Icon className="h-4 w-4" />
+                    <span>{tab.label}</span>
+                  </span>
                 </Button>
               );
             })}
           </nav>
         </div>
-      </header>
+      </motion.header>
 
-      <div className="fixed inset-x-0 bottom-0 z-30 mx-auto w-full px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-2 md:hidden">
+      <motion.div
+        className="fixed inset-x-0 bottom-0 z-30 mx-auto w-full px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-2 md:hidden"
+        initial={{ y: 40, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        transition={{ type: "spring", stiffness: 300, damping: 28, delay: 0.15 }}
+      >
         <nav className="rounded-[28px] border border-[var(--app-card-border)] bg-[var(--app-nav-bg)] p-2 shadow-[0_-8px_32px_rgba(15,23,42,0.08)] backdrop-blur">
           <div className="flex items-center justify-between gap-2">
             {navTabs.map((tab) => {
@@ -94,26 +114,30 @@ export default function ConsumerNav() {
                   variant="ghost"
                   onClick={() => router.push(tab.id)}
                   className={cn(
-                    "h-auto min-w-0 flex-1 flex-col gap-1 rounded-[20px] px-2 py-3 text-[11px] font-medium",
+                    "relative h-auto min-w-0 flex-1 flex-col gap-1 rounded-[20px] px-2 py-3 text-[11px] font-medium",
                     active
-                      ? "bg-[var(--app-nav-active-bg)] text-[var(--app-nav-active-text)] shadow-[0_10px_24px_rgba(15,23,42,0.18)] hover:bg-[var(--app-nav-active-bg)]"
+                      ? "text-[var(--app-nav-active-text)] hover:bg-transparent"
                       : "text-muted-foreground hover:bg-[var(--app-nav-hover)] hover:text-foreground",
                   )}
                   aria-label={tab.label}
                 >
-                  <Icon
-                    className={cn(
-                      "h-[18px] w-[18px]",
-                      active ? "text-[var(--app-nav-active-text)]" : "",
-                    )}
-                  />
-                  <span>{tab.label}</span>
+                  {active && (
+                    <motion.span
+                      layoutId="mobile-nav-pill"
+                      className="absolute inset-0 rounded-[20px] bg-[var(--app-nav-active-bg)] shadow-[0_10px_24px_rgba(15,23,42,0.18)]"
+                      transition={{ type: "spring", stiffness: 380, damping: 32 }}
+                    />
+                  )}
+                  <span className="relative z-10 flex flex-col items-center gap-1">
+                    <Icon className="h-[18px] w-[18px]" />
+                    <span>{tab.label}</span>
+                  </span>
                 </Button>
               );
             })}
           </div>
         </nav>
-      </div>
+      </motion.div>
     </>
   );
 }
