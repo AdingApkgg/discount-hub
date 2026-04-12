@@ -1,7 +1,7 @@
 use tauri::{webview::WebviewWindowBuilder, WebviewUrl};
 use url::Url;
 
-const DEFAULT_WEB_URL: &str = "http://localhost:3000";
+const DEFAULT_WEB_URL: &str = "https://discount-hub.larx.cc/";
 const WINDOW_LABEL: &str = "main";
 const WINDOW_TITLE: &str = "Discount Hub";
 const BUILD_WEB_URL: Option<&str> = option_env!("DISCOUNT_HUB_WEB_URL");

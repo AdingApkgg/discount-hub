@@ -44,6 +44,11 @@ apps/web/src/generated/
 # claude code worktrees
 .claude/
 
+# APK builds
+apps/web/public/downloads/*.apk
+apps/mobile/*.apk
+apps/mobile/debug.keystore
+
 # misc
 *.pem
 .lock

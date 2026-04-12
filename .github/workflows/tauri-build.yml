@@ -4,9 +4,9 @@ on:
   workflow_dispatch:
     inputs:
       web_url:
-        description: "Web URL the Tauri shell loads (e.g. https://your-domain.com)"
+        description: "Web URL the Tauri shell loads (e.g. https://discount-hub.larx.cc/)"
         required: true
-        default: "https://example.com"
+        default: "https://discount-hub.larx.cc/"
   push:
     tags:
       - "v*"
@@ -16,52 +16,9 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  DISCOUNT_HUB_WEB_URL: ${{ github.event.inputs.web_url || vars.DISCOUNT_HUB_WEB_URL || 'https://example.com' }}
+  DISCOUNT_HUB_WEB_URL: ${{ github.event.inputs.web_url || vars.DISCOUNT_HUB_WEB_URL || 'https://discount-hub.larx.cc/' }}
 
 jobs:
-  # ─── Windows (.msi + .exe) ──────────────────────────
-  build-windows:
-    name: Build Windows
-    runs-on: windows-latest
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Install pnpm
-        uses: pnpm/action-setup@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 24
-          cache: pnpm
-
-      - name: Install Rust stable
-        uses: dtolnay/rust-toolchain@stable
-
-      - name: Rust cache
-        uses: swatinem/rust-cache@v2
-        with:
-          workspaces: apps/mobile/src-tauri -> target
-
-      - name: Install frontend dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Build Tauri (Windows)
-        run: pnpm --filter mobile desktop:build
-        env:
-          DISCOUNT_HUB_WEB_URL: ${{ env.DISCOUNT_HUB_WEB_URL }}
-
-      - name: Upload Windows artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: tauri-windows
-          path: |
-            apps/mobile/src-tauri/target/release/bundle/msi/*.msi
-            apps/mobile/src-tauri/target/release/bundle/nsis/*.exe
-          if-no-files-found: error
-
   # ─── Android (.apk) ─────────────────────────────────
   build-android:
     name: Build Android
@@ -77,7 +34,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 24
+          node-version: 22
           cache: pnpm
 
       - name: Setup Java
@@ -90,7 +47,7 @@ jobs:
         uses: android-actions/setup-android@v3
 
       - name: Install Android NDK
-        run: sdkmanager --install "ndk;27.2.12803"
+        run: sdkmanager --install "ndk;27.2.12479018"
 
       - name: Install Rust stable
         uses: dtolnay/rust-toolchain@stable
@@ -114,14 +71,14 @@ jobs:
         working-directory: apps/mobile
         run: pnpm tauri android init
         env:
-          NDK_HOME: ${{ env.ANDROID_HOME }}/ndk/27.2.12803
+          NDK_HOME: ${{ env.ANDROID_HOME }}/ndk/27.2.12479018
 
       - name: Build Tauri (Android)
         working-directory: apps/mobile
-        run: pnpm tauri android build --apk
+        run: pnpm tauri android build --apk true
         env:
           DISCOUNT_HUB_WEB_URL: ${{ env.DISCOUNT_HUB_WEB_URL }}
-          NDK_HOME: ${{ env.ANDROID_HOME }}/ndk/27.2.12803
+          NDK_HOME: ${{ env.ANDROID_HOME }}/ndk/27.2.12479018
 
       - name: Upload Android artifacts
         uses: actions/upload-artifact@v4
