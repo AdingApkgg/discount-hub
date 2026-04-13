@@ -56,6 +56,16 @@ export const merchantProcedure = protectedProcedure.use(
   },
 );
 
+/** Admin-only: 30 req / 60s per user */
+export const adminProcedure = protectedProcedure.use(
+  async ({ ctx, next }) => {
+    if (ctx.user.role !== "ADMIN") {
+      throw new TRPCError({ code: "FORBIDDEN", message: "仅管理员可访问" });
+    }
+    return next({ ctx });
+  },
+);
+
 /** Strict rate limit for sensitive mutations: 10 req / 60s */
 export const sensitiveProcedure = protectedProcedure.use(
   async ({ ctx, next }) => {

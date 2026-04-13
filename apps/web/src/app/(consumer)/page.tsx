@@ -93,8 +93,17 @@ function ProductCard({
       onClick={onClick}
     >
       <div className="relative h-28 overflow-hidden bg-[linear-gradient(135deg,#111827_0%,#1f2937_55%,#374151_100%)]">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.18),transparent_48%),radial-gradient(circle_at_bottom_right,rgba(255,255,255,0.1),transparent_42%)]" />
-        <div className="absolute inset-x-0 bottom-0 flex items-end justify-between p-4">
+        {item.imageUrl && (
+          <img
+            src={item.imageUrl}
+            alt={item.title}
+            className="absolute inset-0 h-full w-full object-cover"
+          />
+        )}
+        {!item.imageUrl && (
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.18),transparent_48%),radial-gradient(circle_at_bottom_right,rgba(255,255,255,0.1),transparent_42%)]" />
+        )}
+        <div className="absolute inset-x-0 bottom-0 flex items-end justify-between bg-gradient-to-t from-black/60 to-transparent p-4">
           <div className="min-w-0">
             <Badge className="bg-white/12 text-white hover:bg-white/12">
               {item.app}

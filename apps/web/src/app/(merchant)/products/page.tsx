@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import {
+  ImagePlus,
   Loader2,
   Package,
   Pencil,
@@ -9,6 +10,7 @@ import {
   Search,
   Sparkles,
   Trash2,
+  X,
 } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -56,6 +58,7 @@ type ProductFormState = {
   title: string;
   subtitle: string;
   description: string;
+  imageUrl: string;
   pointsPrice: string;
   cashPrice: string;
   originalCashPrice: string;
@@ -70,6 +73,7 @@ const DEFAULT_FORM: ProductFormState = {
   title: "",
   subtitle: "",
   description: "",
+  imageUrl: "",
   pointsPrice: "0",
   cashPrice: "0",
   originalCashPrice: "",
@@ -98,6 +102,7 @@ function buildForm(product?: MerchantProduct | null): ProductFormState {
     title: product.title,
     subtitle: product.subtitle,
     description: product.description,
+    imageUrl: product.imageUrl ?? "",
     pointsPrice: String(product.pointsPrice),
     cashPrice: String(Number(product.cashPrice)),
     originalCashPrice:
@@ -150,6 +155,7 @@ export default function ProductsPage() {
   const [form, setForm] = useState<ProductFormState>(DEFAULT_FORM);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<MerchantProduct | null>(null);
+  const [uploading, setUploading] = useState(false);
 
   const { data, isLoading } = useQuery(
     trpc.product.manageList.queryOptions({
@@ -190,6 +196,25 @@ export default function ProductsPage() {
     setForm((prev) => ({ ...prev, [key]: value }));
   }
 
+  async function handleImageUpload(file: File) {
+    setUploading(true);
+    try {
+      const body = new FormData();
+      body.append("file", file);
+      const res = await fetch("/api/upload", { method: "POST", body });
+      const json = await res.json();
+      if (!res.ok) {
+        toast.error(json.error ?? "上传失败");
+        return;
+      }
+      updateForm("imageUrl", json.url);
+    } catch {
+      toast.error("上传失败，请稍后重试");
+    } finally {
+      setUploading(false);
+    }
+  }
+
   function openCreateDialog() {
     setEditing(null);
     setForm(DEFAULT_FORM);
@@ -217,6 +242,7 @@ export default function ProductsPage() {
       title: form.title.trim(),
       subtitle: form.subtitle.trim() || undefined,
       description: form.description.trim() || undefined,
+      imageUrl: form.imageUrl || undefined,
       pointsPrice: Number(form.pointsPrice),
       cashPrice: Number(form.cashPrice),
       originalCashPrice: form.originalCashPrice
@@ -250,6 +276,7 @@ export default function ProductsPage() {
             title: payload.title,
             subtitle: payload.subtitle,
             description: payload.description,
+            imageUrl: payload.imageUrl ?? null,
             pointsPrice: payload.pointsPrice,
             cashPrice: payload.cashPrice,
             originalCashPrice: payload.originalCashPrice ?? null,
@@ -541,6 +568,47 @@ export default function ProductsPage() {
                 rows={4}
                 placeholder="填写商品说明和权益细节"
               />
+            </div>
+            <div className="space-y-2 sm:col-span-2">
+              <Label>商品图片</Label>
+              {form.imageUrl ? (
+                <div className="relative inline-block">
+                  <img
+                    src={form.imageUrl}
+                    alt="商品图片"
+                    className="h-32 w-auto rounded-lg border border-border object-cover"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => updateForm("imageUrl", "")}
+                    className="absolute -right-2 -top-2 flex h-6 w-6 items-center justify-center rounded-full bg-destructive text-destructive-foreground shadow-sm hover:bg-destructive/90"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              ) : (
+                <label className="flex h-32 cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-border bg-secondary/30 text-muted-foreground transition-colors hover:border-primary/50 hover:bg-secondary/50">
+                  {uploading ? (
+                    <Loader2 className="h-6 w-6 animate-spin" />
+                  ) : (
+                    <ImagePlus className="h-6 w-6" />
+                  )}
+                  <span className="text-xs">
+                    {uploading ? "上传中..." : "点击上传图片（JPG / PNG / WebP，≤ 5MB）"}
+                  </span>
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp,image/gif"
+                    className="hidden"
+                    disabled={uploading}
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) handleImageUpload(file);
+                      e.target.value = "";
+                    }}
+                  />
+                </label>
+              )}
             </div>
             <div className="space-y-2">
               <Label>积分价</Label>

@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
+    "check": "pnpm lint && pnpm typecheck",
     "test": "vitest run",
     "test:watch": "vitest",
     "db:push": "prisma db push",

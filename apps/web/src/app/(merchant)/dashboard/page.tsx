@@ -1,12 +1,12 @@
 "use client";
 
+import { useMemo } from "react";
 import {
   CheckCircle2,
   DollarSign,
   Users,
   Package,
   TrendingUp,
-  Loader2,
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { useTRPC } from "@/trpc/client";
@@ -22,6 +22,28 @@ import {
 } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
 
+function MiniBarChart({
+  data,
+  color = "bg-primary",
+}: {
+  data: number[];
+  color?: string;
+}) {
+  const max = Math.max(...data, 1);
+  return (
+    <div className="flex items-end gap-1 h-16">
+      {data.map((v, i) => (
+        <div key={i} className="flex-1 flex flex-col items-center gap-1">
+          <div
+            className={`w-full rounded-sm ${color} min-h-[2px] transition-all`}
+            style={{ height: `${(v / max) * 100}%` }}
+          />
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export default function DashboardPage() {
   const trpc = useTRPC();
 
@@ -32,6 +54,22 @@ export default function DashboardPage() {
   const { data: records } = useQuery(
     trpc.verify.recentRecords.queryOptions(),
   );
+
+  const { data: trend } = useQuery(trpc.admin.trendStats.queryOptions());
+
+  const trendCharts = useMemo(() => {
+    if (!trend) return null;
+    const labels = trend.map((d) => d.date.slice(5));
+    return {
+      labels,
+      orders: trend.map((d) => d.orders),
+      revenue: trend.map((d) => d.revenue),
+      verifications: trend.map((d) => d.verifications),
+      totalOrders: trend.reduce((s, d) => s + d.orders, 0),
+      totalRevenue: trend.reduce((s, d) => s + d.revenue, 0),
+      totalVerifications: trend.reduce((s, d) => s + d.verifications, 0),
+    };
+  }, [trend]);
 
   const statCards = [
     {
@@ -97,7 +135,9 @@ export default function DashboardPage() {
               <Card key={s.label} className="border-border">
                 <CardContent className="p-5">
                   <div className="flex items-center justify-between mb-3">
-                    <div className="text-sm text-muted-foreground">{s.label}</div>
+                    <div className="text-sm text-muted-foreground">
+                      {s.label}
+                    </div>
                     <div className="h-8 w-8 rounded-lg bg-secondary flex items-center justify-center">
                       <Icon className={`h-4 w-4 ${s.color}`} />
                     </div>
@@ -109,6 +149,72 @@ export default function DashboardPage() {
               </Card>
             );
           })}
+        </div>
+      )}
+
+      {trendCharts && (
+        <div className="grid gap-4 lg:grid-cols-3">
+          <Card className="border-border">
+            <CardContent className="p-5 space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="text-sm text-muted-foreground">近 7 日订单</div>
+                <Badge variant="outline" className="text-xs border-border">
+                  {trendCharts.totalOrders} 单
+                </Badge>
+              </div>
+              <MiniBarChart
+                data={trendCharts.orders}
+                color="bg-violet-500"
+              />
+              <div className="flex justify-between text-[10px] text-muted-foreground">
+                {trendCharts.labels.map((l) => (
+                  <span key={l}>{l}</span>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="border-border">
+            <CardContent className="p-5 space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="text-sm text-muted-foreground">近 7 日收入</div>
+                <Badge variant="outline" className="text-xs border-border">
+                  ¥{trendCharts.totalRevenue.toFixed(2)}
+                </Badge>
+              </div>
+              <MiniBarChart
+                data={trendCharts.revenue}
+                color="bg-blue-500"
+              />
+              <div className="flex justify-between text-[10px] text-muted-foreground">
+                {trendCharts.labels.map((l) => (
+                  <span key={l}>{l}</span>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="border-border">
+            <CardContent className="p-5 space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="text-sm text-muted-foreground">
+                  近 7 日核销
+                </div>
+                <Badge variant="outline" className="text-xs border-border">
+                  {trendCharts.totalVerifications} 次
+                </Badge>
+              </div>
+              <MiniBarChart
+                data={trendCharts.verifications}
+                color="bg-emerald-500"
+              />
+              <div className="flex justify-between text-[10px] text-muted-foreground">
+                {trendCharts.labels.map((l) => (
+                  <span key={l}>{l}</span>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
         </div>
       )}
 
@@ -147,10 +253,16 @@ export default function DashboardPage() {
                 <TableBody>
                   {records.slice(0, 20).map((r) => (
                     <TableRow key={r.id} className="border-border">
-                      <TableCell className="font-mono text-xs">{r.coupon.code}</TableCell>
+                      <TableCell className="font-mono text-xs">
+                        {r.coupon.code}
+                      </TableCell>
                       <TableCell>{r.coupon.product.title}</TableCell>
-                      <TableCell>{r.coupon.user.name ?? r.coupon.user.email}</TableCell>
-                      <TableCell>{r.verifier.name ?? r.verifier.email}</TableCell>
+                      <TableCell>
+                        {r.coupon.user.name ?? r.coupon.user.email}
+                      </TableCell>
+                      <TableCell>
+                        {r.verifier.name ?? r.verifier.email}
+                      </TableCell>
                       <TableCell className="text-xs text-muted-foreground">
                         {new Date(r.verifiedAt).toLocaleString("zh-CN")}
                       </TableCell>

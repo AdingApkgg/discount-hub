@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useSyncExternalStore } from "react";
 import { X, Download } from "lucide-react";
 import Image from "next/image";
 
@@ -8,32 +8,35 @@ const DISMISS_KEY = "android-banner-dismissed";
 const DISMISS_DAYS = 7;
 const APK_URL = "/downloads/discount-hub.apk";
 
-function shouldShow(): boolean {
+function getIsAndroid(): boolean {
   if (typeof navigator === "undefined") return false;
   const ua = navigator.userAgent;
   if (!/Android/i.test(ua)) return false;
   if (/DiscountHub/i.test(ua)) return false;
-
-  const dismissed = localStorage.getItem(DISMISS_KEY);
-  if (dismissed) {
-    const ts = Number(dismissed);
-    if (Date.now() - ts < DISMISS_DAYS * 86_400_000) return false;
-  }
   return true;
 }
 
+function isDismissed(): boolean {
+  const dismissed = localStorage.getItem(DISMISS_KEY);
+  if (!dismissed) return false;
+  return Date.now() - Number(dismissed) < DISMISS_DAYS * 86_400_000;
+}
+
+const subscribe = () => () => {};
+const useIsAndroid = () =>
+  useSyncExternalStore(subscribe, getIsAndroid, () => false);
+
 export default function AndroidAppBanner() {
-  const [visible, setVisible] = useState(false);
+  const isAndroid = useIsAndroid();
+  const [dismissed, setDismissed] = useState(() =>
+    typeof window === "undefined" ? true : isDismissed(),
+  );
 
-  useEffect(() => {
-    setVisible(shouldShow());
-  }, []);
-
-  if (!visible) return null;
+  if (!isAndroid || dismissed) return null;
 
   const dismiss = () => {
     localStorage.setItem(DISMISS_KEY, String(Date.now()));
-    setVisible(false);
+    setDismissed(true);
   };
 
   return (

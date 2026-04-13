@@ -79,6 +79,7 @@ export default function ScrollDetailPage({
     title: item.title,
     subtitle: item.subtitle,
     description: item.description,
+    imageUrl: item.imageUrl,
     pointsPrice: item.pointsPrice,
     cashPrice: price,
     originalCashPrice:
@@ -108,7 +109,15 @@ export default function ScrollDetailPage({
 
         <div className="mt-6 grid gap-6 lg:grid-cols-2">
           <Card className="overflow-hidden border-border">
-            <div className="h-72 bg-[radial-gradient(circle_at_20%_30%,rgba(255,45,85,0.35),transparent_60%),radial-gradient(circle_at_70%_70%,rgba(138,43,226,0.35),transparent_55%)]" />
+            <div className="relative h-72 bg-[radial-gradient(circle_at_20%_30%,rgba(255,45,85,0.35),transparent_60%),radial-gradient(circle_at_70%_70%,rgba(138,43,226,0.35),transparent_55%)]">
+              {item.imageUrl && (
+                <img
+                  src={item.imageUrl}
+                  alt={item.title}
+                  className="absolute inset-0 h-full w-full object-cover"
+                />
+              )}
+            </div>
             <CardContent className="p-5">
               <div className="flex flex-wrap gap-2">
                 {item.tags.map((t: string) => (

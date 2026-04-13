@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Loader2, Save, Store, Bell, Shield, Palette } from "lucide-react";
+import { Loader2, Save, Store, Bell, Shield, Palette, Sun, Moon, Monitor } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useTheme } from "next-themes";
 import { toast } from "sonner";
 import { useTRPC } from "@/trpc/client";
 import { authClient } from "@/lib/auth-client";
@@ -14,6 +15,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { cn } from "@/lib/utils";
 
 type NotifyPrefs = {
   orderNotify: boolean;

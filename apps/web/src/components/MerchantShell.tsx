@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import {
   LayoutDashboard,
@@ -8,7 +9,10 @@ import {
   ClipboardList,
   Settings,
   Menu,
+  Ticket,
+  Users,
 } from "lucide-react";
+import { useSession } from "@/lib/auth-client";
 import { Button } from "@/components/ui/button";
 import {
   Sheet,
@@ -20,16 +24,36 @@ import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 import { motion } from "@/components/motion";
 
-const navItems = [
+type NavItem = {
+  href: string;
+  icon: typeof LayoutDashboard;
+  label: string;
+  adminOnly?: boolean;
+};
+
+const allNavItems: NavItem[] = [
   { href: "/dashboard", icon: LayoutDashboard, label: "数据看板" },
   { href: "/verify", icon: QrCode, label: "扫码核销" },
   { href: "/products", icon: Package, label: "商品管理" },
   { href: "/orders", icon: ClipboardList, label: "订单管理" },
+  { href: "/coupons", icon: Ticket, label: "券码管理" },
+  { href: "/users", icon: Users, label: "用户管理", adminOnly: true },
   { href: "/settings", icon: Settings, label: "设置" },
-] as const;
+];
 
-function SidebarContent({ pathname }: { pathname: string }) {
+function SidebarContent({
+  pathname,
+  isAdmin,
+}: {
+  pathname: string;
+  isAdmin: boolean;
+}) {
   const router = useRouter();
+
+  const navItems = useMemo(
+    () => allNavItems.filter((item) => !item.adminOnly || isAdmin),
+    [isAdmin],
+  );
 
   return (
     <>
@@ -48,7 +72,9 @@ function SidebarContent({ pathname }: { pathname: string }) {
           />
           <div>
             <div className="text-sm font-semibold text-foreground">折扣中心</div>
-            <div className="text-xs text-muted-foreground">商家后台</div>
+            <div className="text-xs text-muted-foreground">
+              {isAdmin ? "管理后台" : "商家后台"}
+            </div>
           </div>
         </button>
       </div>
@@ -102,6 +128,9 @@ export default function MerchantShell({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
+  const { data: session } = useSession();
+  const isAdmin =
+    (session?.user as { role?: string } | undefined)?.role === "ADMIN";
 
   return (
     <div className="min-h-screen bg-background flex">
@@ -111,13 +140,15 @@ export default function MerchantShell({
         animate={{ x: 0, opacity: 1 }}
         transition={{ type: "spring", stiffness: 300, damping: 28 }}
       >
-        <SidebarContent pathname={pathname} />
+        <SidebarContent pathname={pathname} isAdmin={isAdmin} />
       </motion.aside>
 
       <div className="flex-1 flex flex-col">
         <header className="lg:hidden sticky top-0 z-20 border-b border-border bg-black/30 backdrop-blur-md">
           <div className="px-4 py-3 flex items-center justify-between gap-3">
-            <div className="text-sm font-semibold text-foreground">商家后台</div>
+            <div className="text-sm font-semibold text-foreground">
+              {isAdmin ? "管理后台" : "商家后台"}
+            </div>
             <Sheet>
               <SheetTrigger asChild>
                 <Button variant="outline" size="icon" className="h-9 w-9">
@@ -126,7 +157,7 @@ export default function MerchantShell({
               </SheetTrigger>
               <SheetContent side="left" className="p-0 w-64 bg-card border-border">
                 <SheetTitle className="sr-only">导航菜单</SheetTitle>
-                <SidebarContent pathname={pathname} />
+                <SidebarContent pathname={pathname} isAdmin={isAdmin} />
               </SheetContent>
             </Sheet>
           </div>

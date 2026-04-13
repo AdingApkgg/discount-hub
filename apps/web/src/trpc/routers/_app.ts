@@ -4,6 +4,7 @@ import { orderRouter } from "./order";
 import { verifyRouter } from "./verify";
 import { pointsRouter } from "./points";
 import { userRouter } from "./user";
+import { adminRouter } from "./admin";
 
 export const appRouter = createTRPCRouter({
   product: productRouter,
@@ -11,6 +12,7 @@ export const appRouter = createTRPCRouter({
   verify: verifyRouter,
   points: pointsRouter,
   user: userRouter,
+  admin: adminRouter,
 });
 
 export type AppRouter = typeof appRouter;

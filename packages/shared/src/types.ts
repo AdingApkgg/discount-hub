@@ -4,6 +4,7 @@ export interface ScrollItem {
   title: string;
   subtitle: string;
   description: string;
+  imageUrl?: string | null;
   pointsPrice: number;
   cashPrice: number;
   originalCashPrice?: number;
