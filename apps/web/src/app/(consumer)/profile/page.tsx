@@ -25,13 +25,14 @@ import { signOut } from "@/lib/auth-client";
 import { useTRPC } from "@/trpc/client";
 import type { RouterOutputs } from "@/trpc/types";
 import { inviteBenefits } from "@/data/mock";
+import { cn } from "@/lib/utils";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Separator } from "@/components/ui/separator";
+
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   AlertDialog,
@@ -444,26 +445,32 @@ export default function ProfilePage() {
           </Card>
 
           <Card className={appCardClassName}>
+            <div className="py-1">
             {menuItems.map((item, index) => {
               const Icon = item.icon;
+              const isFirst = index === 0;
+              const isLast = index === menuItems.length - 1;
               return (
-                <div key={item.label}>
-                  {index === 2 && <Separator />}
-                  <Button
-                    variant="ghost"
-                    className="h-auto w-full justify-start gap-3 rounded-none px-5 py-4"
-                  >
-                    <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-secondary">
-                      <Icon className="h-5 w-5 text-muted-foreground" />
-                    </div>
-                    <span className="flex-1 text-left text-sm font-medium text-foreground">
-                      {item.label}
-                    </span>
-                    <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                  </Button>
-                </div>
+                <Button
+                  key={item.label}
+                  variant="ghost"
+                  className={cn(
+                    "h-auto w-full justify-start gap-3 rounded-none px-5 py-4",
+                    isFirst && "rounded-t-[28px]",
+                    isLast && "rounded-b-[28px]",
+                  )}
+                >
+                  <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-secondary">
+                    <Icon className="h-5 w-5 text-muted-foreground" />
+                  </div>
+                  <span className="flex-1 text-left text-sm font-medium text-foreground">
+                    {item.label}
+                  </span>
+                  <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                </Button>
               );
             })}
+            </div>
           </Card>
         </div>
       </AnimatedSection>

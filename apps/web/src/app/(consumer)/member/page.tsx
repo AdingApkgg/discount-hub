@@ -485,7 +485,7 @@ export default function MemberPage() {
 
         <Card className={appCardClassName}>
           <CardContent className="p-5 md:p-6">
-            <SectionHeading title="看内容赚积分" subtitle="桌面端改成独立侧栏卡片，更适合横屏浏览。" />
+            <SectionHeading title="看内容赚积分" subtitle="浏览指定内容即可获得额外积分奖励。" />
             <StaggerList className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
               {earnContents.map((content) => {
                 const done = todayTasks.has(content.id);
@@ -496,8 +496,8 @@ export default function MemberPage() {
                     className="cursor-pointer gap-0 overflow-hidden rounded-[24px] border-[var(--app-card-border)] py-0 shadow-sm"
                     onClick={() => handleEarn(content.id, content.app)}
                   >
-                    <div className="flex h-24 items-center justify-center bg-[linear-gradient(135deg,#111827_0%,#374151_100%)]">
-                      <Play className="h-8 w-8 text-white/60" />
+                    <div className="flex aspect-square items-center justify-center bg-[linear-gradient(135deg,#111827_0%,#374151_100%)]">
+                      <Play className="h-10 w-10 text-white/60" />
                     </div>
                     <CardContent className="p-4">
                       <div className="line-clamp-2 text-sm font-semibold text-foreground">

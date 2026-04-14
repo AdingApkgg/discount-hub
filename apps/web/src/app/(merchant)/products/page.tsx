@@ -576,7 +576,7 @@ export default function ProductsPage() {
                   <img
                     src={form.imageUrl}
                     alt="商品图片"
-                    className="h-32 w-auto rounded-lg border border-border object-cover"
+                    className="aspect-square h-40 rounded-lg border border-border object-cover"
                   />
                   <button
                     type="button"
@@ -587,7 +587,7 @@ export default function ProductsPage() {
                   </button>
                 </div>
               ) : (
-                <label className="flex h-32 cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-border bg-secondary/30 text-muted-foreground transition-colors hover:border-primary/50 hover:bg-secondary/50">
+                <label className="flex aspect-square h-40 cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-border bg-secondary/30 text-muted-foreground transition-colors hover:border-primary/50 hover:bg-secondary/50">
                   {uploading ? (
                     <Loader2 className="h-6 w-6 animate-spin" />
                   ) : (

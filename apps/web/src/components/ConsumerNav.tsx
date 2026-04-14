@@ -56,7 +56,7 @@ export default function ConsumerNav() {
                 Discount Hub
               </div>
               <div className="truncate text-xs text-muted-foreground">
-                Web 端按宽屏自适应展示
+                优惠券交易平台
               </div>
             </div>
           </Button>

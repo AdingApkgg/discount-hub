@@ -36,7 +36,7 @@ const allNavItems: NavItem[] = [
   { href: "/verify", icon: QrCode, label: "扫码核销" },
   { href: "/products", icon: Package, label: "商品管理" },
   { href: "/orders", icon: ClipboardList, label: "订单管理" },
-  { href: "/coupons", icon: Ticket, label: "券码管理" },
+  { href: "/coupon-manage", icon: Ticket, label: "券码管理" },
   { href: "/users", icon: Users, label: "用户管理", adminOnly: true },
   { href: "/settings", icon: Settings, label: "设置" },
 ];
@@ -112,11 +112,14 @@ function SidebarContent({
         <Separator className="mb-4" />
         <Button
           variant="outline"
-          className="w-full"
+          className="w-full rounded-xl"
           onClick={() => router.push("/")}
         >
           切换到 C 端
         </Button>
+        <div className="mt-3 text-center text-[11px] text-muted-foreground">
+          v1.0.0
+        </div>
       </div>
     </>
   );
@@ -144,10 +147,19 @@ export default function MerchantShell({
       </motion.aside>
 
       <div className="flex-1 flex flex-col">
-        <header className="lg:hidden sticky top-0 z-20 border-b border-border bg-black/30 backdrop-blur-md">
+        <header className="lg:hidden sticky top-0 z-20 border-b border-border bg-card/90 backdrop-blur-md">
           <div className="px-4 py-3 flex items-center justify-between gap-3">
-            <div className="text-sm font-semibold text-foreground">
-              {isAdmin ? "管理后台" : "商家后台"}
+            <div className="flex items-center gap-2.5">
+              <div
+                className="h-7 w-7 rounded-lg"
+                style={{
+                  background: "var(--gradient-primary)",
+                  boxShadow: "var(--shadow-glow)",
+                }}
+              />
+              <span className="text-sm font-semibold text-foreground">
+                {isAdmin ? "管理后台" : "商家后台"}
+              </span>
             </div>
             <Sheet>
               <SheetTrigger asChild>

@@ -21,7 +21,7 @@ function DetailSkeleton() {
     <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6">
       <Skeleton className="h-10 w-28 rounded-lg" />
       <div className="mt-6 grid gap-6 lg:grid-cols-2">
-        <Skeleton className="h-[400px] rounded-xl" />
+        <Skeleton className="aspect-square rounded-xl" />
         <div className="space-y-4">
           <Skeleton className="h-6 w-20" />
           <Skeleton className="h-10 w-3/4" />
@@ -109,7 +109,7 @@ export default function ScrollDetailPage({
 
         <div className="mt-6 grid gap-6 lg:grid-cols-2">
           <Card className="overflow-hidden border-border">
-            <div className="relative h-72 bg-[radial-gradient(circle_at_20%_30%,rgba(255,45,85,0.35),transparent_60%),radial-gradient(circle_at_70%_70%,rgba(138,43,226,0.35),transparent_55%)]">
+            <div className="relative aspect-square bg-[radial-gradient(circle_at_20%_30%,rgba(255,45,85,0.35),transparent_60%),radial-gradient(circle_at_70%_70%,rgba(138,43,226,0.35),transparent_55%)]">
               {item.imageUrl && (
                 <img
                   src={item.imageUrl}

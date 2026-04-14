@@ -128,7 +128,7 @@ export function GridSkeleton({ count = 4 }: { count?: number }) {
       {Array.from({ length: count }).map((_, i) => (
         <Card key={i} className={appCardClassName}>
           <CardContent className="space-y-3 p-4">
-            <Skeleton className="h-28 w-full rounded-xl" />
+            <Skeleton className="aspect-square w-full rounded-xl" />
             <Skeleton className="h-4 w-2/3" />
             <Skeleton className="h-4 w-1/2" />
           </CardContent>

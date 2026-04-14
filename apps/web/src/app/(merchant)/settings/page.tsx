@@ -11,7 +11,6 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -38,6 +37,97 @@ function loadNotifyPrefs(): NotifyPrefs {
 
 function saveNotifyPrefs(prefs: NotifyPrefs) {
   localStorage.setItem(NOTIFY_KEY, JSON.stringify(prefs));
+}
+
+const themeOptions = [
+  { value: "light", label: "浅色", icon: Sun, description: "明亮的浅色界面" },
+  { value: "dark", label: "深色", icon: Moon, description: "护眼的暗色界面" },
+  {
+    value: "system",
+    label: "跟随系统",
+    icon: Monitor,
+    description: "自动跟随操作系统设置",
+  },
+] as const;
+
+function AppearanceTab() {
+  const { theme, setTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => setMounted(true), []);
+
+  if (!mounted) {
+    return (
+      <Card className="border-border">
+        <CardContent className="p-6">
+          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground mx-auto" />
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <Card className="border-border">
+      <CardContent className="p-6 space-y-6">
+        <div>
+          <h3 className="text-sm font-medium text-foreground">主题模式</h3>
+          <p className="mt-1 text-xs text-muted-foreground">
+            选择界面的颜色主题
+          </p>
+        </div>
+
+        <div className="grid gap-3 sm:grid-cols-3">
+          {themeOptions.map((opt) => {
+            const active = theme === opt.value;
+            const Icon = opt.icon;
+            return (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => {
+                  setTheme(opt.value);
+                  toast.success(`已切换为${opt.label}模式`);
+                }}
+                className={cn(
+                  "flex flex-col items-center gap-3 rounded-lg border p-5 text-center transition-all",
+                  active
+                    ? "border-primary bg-primary/5 ring-1 ring-primary"
+                    : "border-border hover:border-primary/40 hover:bg-secondary/50",
+                )}
+              >
+                <div
+                  className={cn(
+                    "h-10 w-10 rounded-lg flex items-center justify-center",
+                    active ? "bg-primary/10" : "bg-secondary",
+                  )}
+                >
+                  <Icon
+                    className={cn(
+                      "h-5 w-5",
+                      active ? "text-primary" : "text-muted-foreground",
+                    )}
+                  />
+                </div>
+                <div>
+                  <div
+                    className={cn(
+                      "text-sm font-medium",
+                      active ? "text-primary" : "text-foreground",
+                    )}
+                  >
+                    {opt.label}
+                  </div>
+                  <div className="mt-0.5 text-xs text-muted-foreground">
+                    {opt.description}
+                  </div>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      </CardContent>
+    </Card>
+  );
 }
 
 export default function SettingsPage() {
@@ -337,13 +427,7 @@ export default function SettingsPage() {
         </TabsContent>
 
         <TabsContent value="appearance">
-          <Card className="border-border">
-            <CardContent className="p-6 space-y-6">
-              <div className="text-sm text-muted-foreground">
-                外观自定义功能将在后续版本中实现，当前使用默认暗色主题。
-              </div>
-            </CardContent>
-          </Card>
+          <AppearanceTab />
         </TabsContent>
       </Tabs>
     </div>

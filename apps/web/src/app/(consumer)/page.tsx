@@ -89,15 +89,15 @@ function ProductCard({
   return (
     <HoverScale>
     <Card
-      className={`${appCardClassName} w-[250px] shrink-0 cursor-pointer overflow-hidden md:w-auto md:shrink`}
+      className={`${appCardClassName} group w-[250px] shrink-0 cursor-pointer overflow-hidden transition-shadow duration-200 hover:shadow-[0_16px_48px_rgba(15,23,42,0.12)] md:w-auto md:shrink`}
       onClick={onClick}
     >
-      <div className="relative h-28 overflow-hidden bg-[linear-gradient(135deg,#111827_0%,#1f2937_55%,#374151_100%)]">
+      <div className="relative aspect-square overflow-hidden bg-[linear-gradient(135deg,#111827_0%,#1f2937_55%,#374151_100%)]">
         {item.imageUrl && (
           <img
             src={item.imageUrl}
             alt={item.title}
-            className="absolute inset-0 h-full w-full object-cover"
+            className="absolute inset-0 h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
           />
         )}
         {!item.imageUrl && (
@@ -137,15 +137,11 @@ function ProductCard({
               </span>
             </div>
           </div>
-          <div className="text-right text-xs leading-5 text-muted-foreground">
-            <div>库存 {item.stock}</div>
-            <Button
-              variant="link"
-              size="sm"
-              className="h-auto p-0 text-xs font-medium"
-            >
+          <div className="flex flex-col items-end gap-1.5">
+            <span className="text-xs text-muted-foreground">库存 {item.stock}</span>
+            <Badge className="rounded-full bg-foreground px-3 py-0.5 text-[11px] text-background hover:bg-foreground/90">
               去兑换
-            </Button>
+            </Badge>
           </div>
         </div>
       </CardContent>
@@ -159,7 +155,7 @@ function ProductSectionSkeleton() {
     <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
       {Array.from({ length: 4 }).map((_, i) => (
         <Card key={i} className={appCardClassName}>
-          <Skeleton className="h-28 w-full rounded-t-[28px]" />
+          <Skeleton className="aspect-square w-full rounded-t-[28px]" />
           <CardContent className="space-y-3 p-4">
             <Skeleton className="h-4 w-2/3" />
             <Skeleton className="h-4 w-1/2" />
@@ -291,8 +287,24 @@ export default function HomePage() {
                 <Badge className="border-none bg-white/12 text-white hover:bg-white/12">
                   本周主推
                 </Badge>
-                <div className="text-xs text-white/60">
-                  {bannerIndex + 1}/{banners.length}
+                <div className="flex items-center gap-1.5">
+                  {banners.map((_, i) => (
+                    <button
+                      key={i}
+                      type="button"
+                      onClick={() => setBannerIndex(i)}
+                      aria-label={`切换到第 ${i + 1} 张`}
+                      className="group p-0.5"
+                    >
+                      <span
+                        className={`block rounded-full transition-all duration-300 ${
+                          i === bannerIndex
+                            ? "h-2 w-5 bg-white"
+                            : "h-2 w-2 bg-white/30 group-hover:bg-white/50"
+                        }`}
+                      />
+                    </button>
+                  ))}
                 </div>
               </div>
 
@@ -371,13 +383,13 @@ export default function HomePage() {
           <Button
             variant="outline"
             onClick={() => router.push("/coupons")}
-            className="h-auto w-full justify-start gap-3 rounded-[24px] border-[var(--app-card-border)] bg-[var(--app-card)] px-4 py-3 text-left shadow-sm hover:bg-secondary"
+            className="h-auto w-full justify-start gap-4 rounded-[24px] border-[var(--app-card-border)] bg-[var(--app-card)] px-5 py-4 text-left shadow-[0_4px_20px_rgba(15,23,42,0.06)] transition-shadow hover:bg-secondary hover:shadow-[0_8px_30px_rgba(15,23,42,0.1)]"
           >
-            <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-secondary">
-              <Search className="h-4 w-4 text-muted-foreground" />
+            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-primary/10 to-accent/10">
+              <Search className="h-5 w-5 text-primary" />
             </div>
             <div className="min-w-0 flex-1">
-              <div className="text-sm font-medium text-foreground">
+              <div className="text-sm font-semibold text-foreground">
                 搜索会员、券包、积分兑换权益
               </div>
               <div className="mt-1 text-xs text-muted-foreground">
@@ -459,7 +471,7 @@ export default function HomePage() {
           <CardContent className="p-5 md:p-6">
             <SectionHeading
               title="福利攻略"
-              subtitle="把首页信息流做得更像线框稿里的运营内容位。"
+              subtitle="最新活动资讯与优惠技巧，帮你轻松省更多。"
             />
             <StaggerList className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-1">
               {hotPosts.map((post) => (
