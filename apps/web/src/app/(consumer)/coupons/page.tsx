@@ -33,7 +33,6 @@ import {
 import {
   motion,
   AnimatePresence,
-  AnimatedSection,
   AnimatedItem,
   PageTransition,
   HoverScale,

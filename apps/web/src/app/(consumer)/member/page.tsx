@@ -224,7 +224,7 @@ export default function MemberPage() {
     }
   }
 
-  async function handleTask(taskId: (typeof DAILY_TASKS)[number]["id"], _reward: number) {
+  async function handleTask(taskId: (typeof DAILY_TASKS)[number]["id"]) {
     if (taskId === "checkin") { await handleCheckin(); return; }
     if (taskId === "browse") { openApp("抖音"); await runTask(taskId); return; }
     if (taskId === "share") {
@@ -461,7 +461,7 @@ export default function MemberPage() {
                       size="sm"
                       variant={done ? "secondary" : "default"}
                       disabled={done || busyTaskId === task.id}
-                      onClick={() => handleTask(task.id, task.reward)}
+                      onClick={() => handleTask(task.id)}
                       className="rounded-full"
                     >
                       {busyTaskId === task.id ? (

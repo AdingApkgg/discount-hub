@@ -20,7 +20,7 @@ import {
 } from "@/components/ui/table";
 
 type CouponsPayload = RouterOutputs["admin"]["listCoupons"];
-type CouponItem = CouponsPayload["coupons"][number];
+type _CouponItem = CouponsPayload["coupons"][number];
 type CouponStatusFilter = "all" | "ACTIVE" | "USED" | "EXPIRED";
 
 function couponStatusBadge(status: string) {
