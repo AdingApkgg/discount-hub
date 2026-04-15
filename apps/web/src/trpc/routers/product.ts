@@ -1,6 +1,5 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
-import type { Prisma } from "@/generated/prisma";
 import { productCreateSchema, productUpdateSchema } from "@discount-hub/shared";
 import { createTRPCRouter, publicProcedure, merchantProcedure } from "../init";
 

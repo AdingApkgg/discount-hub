@@ -10,7 +10,7 @@ const agentProcedure = protectedProcedure.use(async ({ ctx, next }) => {
 });
 
 export const agentRouter = createTRPCRouter({
-  apply: protectedProcedure
+  submitApplication: protectedProcedure
     .input(
       z.object({
         realName: z.string().min(1),
@@ -93,20 +93,18 @@ export const agentRouter = createTRPCRouter({
 
       const newStatus = input.approve ? "APPROVED" : "REJECTED";
 
-      const ops = [
-        ctx.prisma.agentApplication.update({
-          where: { id: input.id },
-          data: { status: newStatus, reviewNote: input.note, reviewedAt: new Date() },
-        }),
-      ];
+      const application = await ctx.prisma.agentApplication.update({
+        where: { id: input.id },
+        data: { status: newStatus, reviewNote: input.note, reviewedAt: new Date() },
+      });
+
       if (input.approve) {
-        ops.push(
-          ctx.prisma.user.update({ where: { id: app.userId }, data: { role: "AGENT" } }),
-        );
+        await ctx.prisma.user.update({
+          where: { id: app.userId },
+          data: { role: "AGENT" },
+        });
       }
 
-      const results = await ctx.prisma.$transaction(ops);
-      const application = results[0];
       return application;
     }),
 });

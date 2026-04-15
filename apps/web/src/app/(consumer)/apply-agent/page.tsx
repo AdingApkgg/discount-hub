@@ -2,11 +2,10 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Check, Clock, FileText, Loader2, Send } from "lucide-react";
+import { ArrowLeft, Check, Clock, Loader2, Send } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { useTRPC } from "@/trpc/client";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -36,7 +35,7 @@ export default function ApplyAgentPage() {
     retry: false,
   });
 
-  const applyMutation = useMutation(trpc.agent.apply.mutationOptions());
+  const applyMutation = useMutation(trpc.agent.submitApplication.mutationOptions());
 
   const app = application as { status: string; realName: string; region: string; platforms: string[]; reviewNote?: string | null } | null;
   const currentStep = stepIndex(app?.status);

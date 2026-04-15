@@ -224,7 +224,7 @@ export default function MemberPage() {
     }
   }
 
-  async function handleTask(taskId: (typeof DAILY_TASKS)[number]["id"], reward: number) {
+  async function handleTask(taskId: (typeof DAILY_TASKS)[number]["id"], _reward: number) {
     if (taskId === "checkin") { await handleCheckin(); return; }
     if (taskId === "browse") { openApp("抖音"); await runTask(taskId); return; }
     if (taskId === "share") {
@@ -431,7 +431,7 @@ export default function MemberPage() {
       </Card>
       </AnimatedSection>
 
-      <AnimatedSection id="daily-tasks" className="grid gap-4 xl:grid-cols-[minmax(0,1.15fr)_minmax(360px,0.85fr)]">
+      <AnimatedSection className="grid gap-4 xl:grid-cols-[minmax(0,1.15fr)_minmax(360px,0.85fr)]">
         <Card className={appCardClassName}>
           <CardContent className="p-5 md:p-6">
             <SectionHeading title="日常积分任务" subtitle="保持轻量，围绕签到、浏览、分享和购买四个动作。" />
@@ -559,8 +559,7 @@ export default function MemberPage() {
               className="flex-1 rounded-full"
               onClick={() => {
                 setCheckinResult(null);
-                const taskSection = document.getElementById("daily-tasks");
-                taskSection?.scrollIntoView({ behavior: "smooth" });
+                window.scrollTo({ top: document.body.scrollHeight, behavior: "smooth" });
               }}
             >
               去做任务

@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { ArrowLeft, Heart } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { appCardClassName, PageHeading, EmptyStateDashed } from "@/components/shared";
+import { PageHeading, EmptyStateDashed } from "@/components/shared";
 import { PageTransition, AnimatedItem } from "@/components/motion";
 
 export default function PromotionsPage() {

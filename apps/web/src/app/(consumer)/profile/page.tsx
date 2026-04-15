@@ -16,14 +16,11 @@ import {
   Mail,
   MessageCircle,
   Moon,
-  Package,
   Phone,
   Save,
   Settings,
-  ShoppingBag,
   Star,
   Sun,
-  Users,
 } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -55,11 +52,9 @@ import {
   appCardClassName,
   SectionHeading,
   PageHeading,
-  EmptyStateDashed,
   StatCard,
 } from "@/components/shared";
 import {
-  motion,
   AnimatedSection,
   AnimatedItem,
   PageTransition,
@@ -102,12 +97,10 @@ export default function ProfilePage() {
 
   const { data: profileData, isLoading } = useQuery(trpc.user.me.queryOptions());
   const { data: referralsData } = useQuery(trpc.user.referrals.queryOptions());
-  const { data: ordersData } = useQuery(trpc.order.myOrders.queryOptions());
   const updateProfileMutation = useMutation(trpc.user.updateProfile.mutationOptions());
 
   const profile = profileData as UserProfile | undefined;
   const referrals = (referralsData ?? []) as ReferralRecord[];
-  const orders = ordersData ?? [];
   const draftName = hasDraft ? draft.name : (profile?.name ?? "");
   const draftPhone = hasDraft ? draft.phone : (profile?.phone ?? "");
 
@@ -167,9 +160,9 @@ export default function ProfilePage() {
   ];
 
   const orderTabs = [
-    { label: "待付款", href: "/orders?tab=pending" },
-    { label: "待使用", href: "/orders?tab=unused" },
-    { label: "已完成", href: "/orders?tab=used" },
+    { label: "待付款", href: "/my-orders?tab=pending" },
+    { label: "待使用", href: "/my-orders?tab=unused" },
+    { label: "已完成", href: "/my-orders?tab=used" },
   ];
 
   const menuItems = [
@@ -279,7 +272,7 @@ export default function ProfilePage() {
               title="我的订单"
               subtitle="按状态快速查看"
               action={
-                <Button variant="link" size="sm" onClick={() => router.push("/orders")} className="text-xs text-muted-foreground">
+                <Button variant="link" size="sm" onClick={() => router.push("/my-orders")} className="text-xs text-muted-foreground">
                   查看全部 →
                 </Button>
               }
