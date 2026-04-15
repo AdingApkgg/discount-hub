@@ -2,7 +2,7 @@
 
 import { use, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Clock, Sparkles } from "lucide-react";
+import { ArrowLeft, Clock, Minus, Plus, Sparkles } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { useTRPC } from "@/trpc/client";
 import type { RouterOutputs } from "@/trpc/types";
@@ -43,6 +43,7 @@ export default function ScrollDetailPage({
   const router = useRouter();
   const trpc = useTRPC();
   const [openBuy, setOpenBuy] = useState(false);
+  const [qty, setQty] = useState(1);
   const [targetAt] = useState(() => Date.now() + 6 * 60 * 60 * 1000);
 
   const { data: product, isLoading } = useQuery(
@@ -154,8 +155,11 @@ export default function ScrollDetailPage({
                 </Badge>
               </div>
 
-              <div className="mt-4">
-                <Countdown targetAt={targetAt} />
+              <div className="mt-4 rounded-2xl bg-red-500/10 px-4 py-3">
+                <div className="text-xs font-medium text-red-500">限时倒计时</div>
+                <div className="mt-1 text-2xl font-bold text-red-500">
+                  <Countdown targetAt={targetAt} />
+                </div>
               </div>
 
               <Card className="mt-5 border-border bg-secondary/30">
@@ -180,23 +184,18 @@ export default function ScrollDetailPage({
 
               <Separator className="my-6" />
 
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                  <div className="text-xs text-muted-foreground">兑换价格</div>
-                  <div className="mt-1 text-xl font-semibold text-foreground">
+              <div>
+                <div className="text-xs text-muted-foreground">兑换价格</div>
+                <div className="mt-1 flex items-baseline gap-2">
+                  <span className="text-xl font-semibold text-foreground">
                     {item.pointsPrice} 积分 + ¥{price.toFixed(2)}
-                  </div>
+                  </span>
+                  {scrollItem.originalCashPrice != null && scrollItem.originalCashPrice > price && (
+                    <span className="text-sm text-muted-foreground line-through">
+                      ¥{scrollItem.originalCashPrice.toFixed(2)}
+                    </span>
+                  )}
                 </div>
-                <Button
-                  onClick={() => setOpenBuy(true)}
-                  disabled={item.stock <= 0 || item.status !== "ACTIVE"}
-                  className="bg-[var(--gradient-primary)] text-white hover:brightness-110"
-                  style={{ boxShadow: "var(--shadow-glow)" }}
-                >
-                  {item.stock > 0 && item.status === "ACTIVE"
-                    ? "去兑换"
-                    : "暂不可兑换"}
-                </Button>
               </div>
 
               <div className="mt-4 text-xs text-muted-foreground">
@@ -204,6 +203,38 @@ export default function ScrollDetailPage({
               </div>
             </CardContent>
           </Card>
+        </div>
+      </div>
+
+      <div className="h-20" />
+
+      <div className="fixed inset-x-0 bottom-0 z-20 border-t border-border bg-background/95 px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 backdrop-blur">
+        <div className="mx-auto flex max-w-6xl items-center justify-between gap-4">
+          <div className="flex items-baseline gap-2">
+            <span className="text-lg font-bold text-foreground">{item.pointsPrice} 积分 + ¥{price.toFixed(2)}</span>
+            {scrollItem.originalCashPrice != null && scrollItem.originalCashPrice > price && (
+              <span className="text-xs text-muted-foreground line-through">¥{scrollItem.originalCashPrice.toFixed(2)}</span>
+            )}
+          </div>
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-1.5 rounded-full border border-border bg-secondary/50 px-1">
+              <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full" onClick={() => setQty(Math.max(1, qty - 1))} disabled={qty <= 1}>
+                <Minus className="h-3.5 w-3.5" />
+              </Button>
+              <span className="w-6 text-center text-sm font-medium text-foreground">{qty}</span>
+              <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full" onClick={() => setQty(Math.min(item.stock, qty + 1))} disabled={qty >= item.stock}>
+                <Plus className="h-3.5 w-3.5" />
+              </Button>
+            </div>
+            <Button
+              onClick={() => setOpenBuy(true)}
+              disabled={item.stock <= 0 || item.status !== "ACTIVE"}
+              className="rounded-full bg-[var(--gradient-primary)] px-6 text-white hover:brightness-110"
+              style={{ boxShadow: "var(--shadow-glow)" }}
+            >
+              {item.stock > 0 && item.status === "ACTIVE" ? "立即兑换" : "暂不可兑换"}
+            </Button>
+          </div>
         </div>
       </div>
 

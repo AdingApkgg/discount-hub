@@ -145,6 +145,7 @@ export default function MemberPage() {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
   const [busyTaskId, setBusyTaskId] = useState<string | null>(null);
+  const [checkinResult, setCheckinResult] = useState<{ reward: number; dayIndex: number } | null>(null);
 
   const { data: statusData, isLoading: loadingStatus } = useQuery(
     trpc.points.getStatus.queryOptions(),
@@ -215,9 +216,7 @@ export default function MemberPage() {
     try {
       const result = await checkinMutation.mutateAsync();
       await refreshAll();
-      toast.success(`签到成功！+${result.reward} 积分`, {
-        description: `连续签到第 ${result.dayIndex} 天`,
-      });
+      setCheckinResult({ reward: result.reward, dayIndex: result.dayIndex });
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "签到失败");
     } finally {
@@ -432,7 +431,7 @@ export default function MemberPage() {
       </Card>
       </AnimatedSection>
 
-      <AnimatedSection className="grid gap-4 xl:grid-cols-[minmax(0,1.15fr)_minmax(360px,0.85fr)]">
+      <AnimatedSection id="daily-tasks" className="grid gap-4 xl:grid-cols-[minmax(0,1.15fr)_minmax(360px,0.85fr)]">
         <Card className={appCardClassName}>
           <CardContent className="p-5 md:p-6">
             <SectionHeading title="日常积分任务" subtitle="保持轻量，围绕签到、浏览、分享和购买四个动作。" />
@@ -528,6 +527,48 @@ export default function MemberPage() {
         </Card>
       </AnimatedSection>
     </div>
+
+    <Dialog open={!!checkinResult} onOpenChange={(open) => !open && setCheckinResult(null)}>
+      <DialogContent className="max-w-sm rounded-[28px] border-border bg-background p-0">
+        <div className="p-6 text-center">
+          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-primary/10">
+            <CalendarCheck className="h-8 w-8 text-primary" />
+          </div>
+          <div className="mt-4 text-xl font-bold text-foreground">签到成功！</div>
+          <div className="mt-2 text-3xl font-bold text-primary">+{checkinResult?.reward ?? 0}</div>
+          <div className="text-sm text-muted-foreground">积分已到账</div>
+          <div className="mt-3 rounded-2xl bg-secondary/50 px-4 py-3">
+            <div className="text-sm text-foreground">
+              连续签到第 <span className="font-bold text-primary">{checkinResult?.dayIndex ?? 1}</span> 天
+            </div>
+            {(checkinResult?.dayIndex ?? 0) < CHECKIN_REWARDS.length && (
+              <div className="mt-1 text-xs text-muted-foreground">
+                明日签到奖励：+{CHECKIN_REWARDS[checkinResult?.dayIndex ?? 0] ?? 200} 积分
+              </div>
+            )}
+          </div>
+          <div className="mt-5 flex gap-3">
+            <Button
+              variant="outline"
+              className="flex-1 rounded-full"
+              onClick={() => setCheckinResult(null)}
+            >
+              知道了
+            </Button>
+            <Button
+              className="flex-1 rounded-full"
+              onClick={() => {
+                setCheckinResult(null);
+                const taskSection = document.getElementById("daily-tasks");
+                taskSection?.scrollIntoView({ behavior: "smooth" });
+              }}
+            >
+              去做任务
+            </Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
     </PageTransition>
   );
 }

@@ -2,7 +2,7 @@
 
 import { usePathname, useRouter } from "next/navigation";
 import Image from "next/image";
-import { Home, Ticket, CreditCard, User, LogIn } from "lucide-react";
+import { Home, Flame, User, LogIn } from "lucide-react";
 import { useSession } from "@/lib/auth-client";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -10,8 +10,7 @@ import { motion } from "@/components/motion";
 
 const tabs = [
   { id: "/", icon: Home, label: "首页" },
-  { id: "/coupons", icon: Ticket, label: "券包" },
-  { id: "/member", icon: CreditCard, label: "会员" },
+  { id: "/feed", icon: Flame, label: "X热点" },
   { id: "/profile", icon: User, label: "我的" },
 ] as const;
 

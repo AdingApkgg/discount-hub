@@ -2,21 +2,27 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useTheme } from "next-themes";
 import {
-  Bell,
   ChevronRight,
   Copy,
-  FileText,
+  Crown,
+  Eye,
   Gift,
-  HelpCircle,
+  Heart,
+  Info,
   Loader2,
   LogOut,
   Mail,
+  MessageCircle,
+  Moon,
   Package,
   Phone,
   Save,
   Settings,
   ShoppingBag,
+  Star,
+  Sun,
   Users,
 } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -88,6 +94,7 @@ function ProfileSkeleton() {
 
 export default function ProfilePage() {
   const router = useRouter();
+  const { theme, setTheme } = useTheme();
   const trpc = useTRPC();
   const queryClient = useQueryClient();
   const [draft, setDraft] = useState({ name: "", phone: "" });
@@ -148,11 +155,27 @@ export default function ProfilePage() {
   const userName = profile?.name ?? "演示用户";
   const vipLabel = (profile?.vipLevel ?? 0) <= 0 ? "普通会员" : `VIP${profile?.vipLevel}`;
 
+  const vipExpiresAt = (profile as { vipExpiresAt?: string | Date | null } | undefined)?.vipExpiresAt;
+  const vipExpiresLabel = vipExpiresAt
+    ? `${new Date(vipExpiresAt).toLocaleDateString("zh-CN")} 到期`
+    : null;
+
+  const quickGrid = [
+    { icon: Star, label: "我的收藏", href: "/favorites" },
+    { icon: Heart, label: "我的推广", href: "/promotions" },
+    { icon: Eye, label: "我的足迹", href: "/footprints" },
+  ];
+
+  const orderTabs = [
+    { label: "待付款", href: "/orders?tab=pending" },
+    { label: "待使用", href: "/orders?tab=unused" },
+    { label: "已完成", href: "/orders?tab=used" },
+  ];
+
   const menuItems = [
-    { icon: Settings, label: "账户设置" },
-    { icon: Bell, label: "消息通知" },
-    { icon: HelpCircle, label: "帮助中心" },
-    { icon: FileText, label: "服务条款" },
+    { icon: Settings, label: "设置", href: undefined as string | undefined },
+    { icon: Info, label: "关于我们", href: "/about" },
+    { icon: MessageCircle, label: "联系客服", href: "/contact" },
   ];
 
   return (
@@ -194,9 +217,12 @@ export default function ProfilePage() {
                   </div>
                   <div className="mt-2 flex flex-wrap items-center gap-2 text-sm text-white/70">
                     <Badge className="bg-white/10 text-xs text-white hover:bg-white/10">
-                      {vipLabel}
+                      <Crown className="mr-1 h-3 w-3" />{vipLabel}
                     </Badge>
                     <span>{(profile?.points ?? 0).toLocaleString("zh-CN")} 积分</span>
+                    {vipExpiresLabel && (
+                      <span className="text-xs text-white/50">{vipExpiresLabel}</span>
+                    )}
                   </div>
                 </div>
               </div>
@@ -220,81 +246,27 @@ export default function ProfilePage() {
       </section>
       </AnimatedItem>
 
-      <AnimatedSection className="grid gap-4 xl:grid-cols-[minmax(0,1.1fr)_minmax(360px,0.9fr)]">
+      <AnimatedSection>
         <Card className={appCardClassName}>
           <CardContent className="p-5 md:p-6">
-            <SectionHeading
-              title="邀请好友"
-              subtitle="复制专属邀请码或注册链接，后续可以继续扩展拉新奖励。"
-              action={<Gift className="h-5 w-5 text-muted-foreground" />}
-            />
-            <div className="mt-5 grid gap-3 md:grid-cols-2">
-              <Card className="gap-0 rounded-[22px] border-border bg-secondary/50 py-0">
-                <CardContent className="p-4">
-                  <div className="text-xs text-muted-foreground">邀请码</div>
-                  <div className="mt-2 font-mono text-sm text-foreground">{inviteCode}</div>
-                </CardContent>
-              </Card>
-              <Card className="gap-0 rounded-[22px] border-border bg-secondary/50 py-0">
-                <CardContent className="p-4">
-                  <div className="text-xs text-muted-foreground">邀请链接</div>
-                  <div className="mt-2 break-all font-mono text-xs leading-5 text-foreground">
-                    {inviteLink || "当前环境暂不可生成链接"}
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-            <div className="mt-4 flex flex-wrap gap-2">
-              {inviteBenefits.map((benefit) => (
-                <Badge key={benefit} variant="outline" className="rounded-full border-border bg-background text-muted-foreground">
-                  {benefit}
-                </Badge>
-              ))}
-            </div>
-            <div className="mt-5 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-              <div className="text-xs leading-5 text-muted-foreground">
-                已邀请 {referrals.length} 位好友，注册链接可以直接复制使用。
-              </div>
-              <Button onClick={handleCopyInvite} className="w-full rounded-full px-4 md:w-auto">
-                立即邀请
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className={appCardClassName}>
-          <CardContent className="p-5 md:p-6">
-            <SectionHeading
-              title="邀请记录"
-              subtitle="当前展示注册成功的好友列表。"
-              action={<Users className="h-4 w-4 text-muted-foreground" />}
-            />
-            <div className="mt-5">
-              {referrals.length === 0 ? (
-                <EmptyStateDashed text="还没有邀请记录，复制邀请码后就可以开始拉新。" />
-              ) : (
-                <div className="space-y-3">
-                  {referrals.map((record) => (
-                    <Card key={record.id} className="gap-0 rounded-[22px] border-border bg-secondary/50 py-0">
-                      <CardContent className="p-4">
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="min-w-0">
-                            <div className="text-sm font-semibold text-foreground">
-                              {record.name ?? record.email}
-                            </div>
-                            <div className="mt-1 text-xs leading-5 text-muted-foreground">
-                              注册时间：{new Date(record.createdAt).toLocaleString("zh-CN")}
-                            </div>
-                          </div>
-                          <Badge variant="outline" className="rounded-full border-border bg-background text-muted-foreground">
-                            已注册
-                          </Badge>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-              )}
+            <div className="grid grid-cols-3 gap-3">
+              {quickGrid.map((item) => {
+                const Icon = item.icon;
+                return (
+                  <HoverScale key={item.label}>
+                    <Button
+                      variant="ghost"
+                      className="flex h-auto w-full flex-col items-center gap-2 rounded-2xl py-4"
+                      onClick={() => router.push(item.href)}
+                    >
+                      <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-secondary">
+                        <Icon className="h-5 w-5 text-foreground" />
+                      </div>
+                      <span className="text-xs font-medium text-foreground">{item.label}</span>
+                    </Button>
+                  </HoverScale>
+                );
+              })}
             </div>
           </CardContent>
         </Card>
@@ -304,67 +276,77 @@ export default function ProfilePage() {
         <Card className={appCardClassName}>
           <CardContent className="p-5 md:p-6">
             <SectionHeading
-              title="订单记录"
-              subtitle="最近的购买订单和兑换记录。"
-              action={<ShoppingBag className="h-5 w-5 text-muted-foreground" />}
+              title="我的订单"
+              subtitle="按状态快速查看"
+              action={
+                <Button variant="link" size="sm" onClick={() => router.push("/orders")} className="text-xs text-muted-foreground">
+                  查看全部 →
+                </Button>
+              }
             />
-            <div className="mt-5">
-              {orders.length === 0 ? (
-                <EmptyStateDashed text="还没有订单记录，快去首页兑换权益吧。" />
-              ) : (
-                <div className="space-y-3">
-                  {orders.slice(0, 5).map((order) => {
-                    const statusMap: Record<string, { label: string; cls: string }> = {
-                      PENDING: { label: "待付款", cls: "bg-amber-50 text-amber-700 border-amber-200" },
-                      PAID: { label: "已付款", cls: "bg-blue-50 text-blue-700 border-blue-200" },
-                      COMPLETED: { label: "已完成", cls: "bg-green-50 text-green-700 border-green-200" },
-                      CANCELLED: { label: "已取消", cls: "bg-secondary text-muted-foreground border-border" },
-                    };
-                    const s = statusMap[order.status] ?? { label: order.status, cls: "bg-secondary text-muted-foreground border-border" };
-                    const createdAt = order.createdAt instanceof Date ? order.createdAt : new Date(order.createdAt);
+            <div className="mt-4 grid grid-cols-3 gap-3">
+              {orderTabs.map((tab) => (
+                <HoverScale key={tab.label}>
+                  <Button
+                    variant="outline"
+                    className="w-full rounded-2xl border-border bg-secondary/50 py-6 text-sm font-medium text-foreground hover:bg-secondary"
+                    onClick={() => router.push(tab.href)}
+                  >
+                    {tab.label}
+                  </Button>
+                </HoverScale>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      </AnimatedSection>
 
-                    return (
-                      <Card key={order.id} className="gap-0 rounded-[22px] border-border bg-secondary/50 py-0">
-                        <CardContent className="p-4">
-                          <div className="flex items-start justify-between gap-3">
-                            <div className="flex min-w-0 items-start gap-3">
-                              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-background shadow-sm">
-                                <Package className="h-5 w-5 text-muted-foreground" />
-                              </div>
-                              <div className="min-w-0">
-                                <div className="truncate text-sm font-semibold text-foreground">
-                                  {order.product.title}
-                                </div>
-                                <div className="mt-1 text-xs text-muted-foreground">
-                                  {order.product.app} · {createdAt.toLocaleString("zh-CN")}
-                                </div>
-                              </div>
-                            </div>
-                            <Badge variant="outline" className={`shrink-0 rounded-full ${s.cls}`}>
-                              {s.label}
-                            </Badge>
-                          </div>
-                          <div className="mt-3 flex items-center justify-between text-xs text-muted-foreground">
-                            <span>{order.pointsPaid} 积分 + ¥{Number(order.cashPaid).toFixed(2)}</span>
-                            {order.coupon && (
-                              <span className="font-mono text-foreground">券码: {order.coupon.code}</span>
-                            )}
-                          </div>
-                        </CardContent>
-                      </Card>
-                    );
-                  })}
-                  {orders.length > 5 && (
-                    <Button
-                      variant="link"
-                      onClick={() => router.push("/my-orders")}
-                      className="w-full text-xs text-muted-foreground"
-                    >
-                      查看全部 {orders.length} 条订单 →
-                    </Button>
-                  )}
+      <AnimatedSection>
+        <HoverScale scale={1.01}>
+          <Card className={`${appCardClassName} cursor-pointer`} onClick={() => router.push("/apply-agent")}>
+            <CardContent className="p-5">
+              <div className="flex items-center justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-primary/10 to-accent/10">
+                    <Crown className="h-5 w-5 text-primary" />
+                  </div>
+                  <div>
+                    <div className="text-sm font-semibold text-foreground">申请代理</div>
+                    <div className="text-xs text-muted-foreground">成为官方代理商，享受专属权益</div>
+                  </div>
                 </div>
-              )}
+                <ChevronRight className="h-4 w-4 text-muted-foreground" />
+              </div>
+            </CardContent>
+          </Card>
+        </HoverScale>
+      </AnimatedSection>
+
+      <AnimatedSection>
+        <Card className={appCardClassName}>
+          <CardContent className="p-5 md:p-6">
+            <SectionHeading
+              title="邀请好友"
+              subtitle={`已邀请 ${referrals.length} 位好友`}
+              action={<Gift className="h-5 w-5 text-muted-foreground" />}
+            />
+            <div className="mt-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+              <div className="flex flex-wrap gap-2">
+                {inviteBenefits.map((benefit) => (
+                  <Badge key={benefit} variant="outline" className="rounded-full border-border bg-background text-muted-foreground">
+                    {benefit}
+                  </Badge>
+                ))}
+              </div>
+              <div className="flex gap-2">
+                <Button variant="outline" onClick={() => router.push("/invite")} className="rounded-full">
+                  邀请详情
+                </Button>
+                <Button onClick={handleCopyInvite} className="rounded-full">
+                  <Copy className="h-4 w-4" />
+                  复制邀请码
+                </Button>
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -454,6 +436,7 @@ export default function ProfilePage() {
                 <Button
                   key={item.label}
                   variant="ghost"
+                  onClick={() => item.href && router.push(item.href)}
                   className={cn(
                     "h-auto w-full justify-start gap-3 rounded-none px-5 py-4",
                     isFirst && "rounded-t-[28px]",
@@ -473,6 +456,17 @@ export default function ProfilePage() {
             </div>
           </Card>
         </div>
+      </AnimatedSection>
+
+      <AnimatedSection>
+        <Button
+          variant="outline"
+          className="w-full rounded-2xl border-border bg-background py-6"
+          onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+        >
+          {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+          {theme === "dark" ? "切换到浅色模式" : "切换到深色模式"}
+        </Button>
       </AnimatedSection>
 
       <AnimatedSection>

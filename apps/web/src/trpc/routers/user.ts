@@ -15,6 +15,7 @@ export const userRouter = createTRPCRouter({
         role: true,
         points: true,
         vipLevel: true,
+        vipExpiresAt: true,
         inviteCode: true,
         createdAt: true,
         _count: { select: { referrals: true, orders: true, coupons: true } },
@@ -52,6 +53,23 @@ export const userRouter = createTRPCRouter({
     });
   }),
 
+  myFavorites: protectedProcedure.query(async ({ ctx }) => {
+    return ctx.prisma.favorite.findMany({
+      where: { userId: ctx.user.id },
+      include: { product: true },
+      orderBy: { createdAt: "desc" },
+    });
+  }),
+
+  myFootprints: protectedProcedure.query(async ({ ctx }) => {
+    return ctx.prisma.footprint.findMany({
+      where: { userId: ctx.user.id },
+      include: { product: true },
+      orderBy: { viewedAt: "desc" },
+      take: 100,
+    });
+  }),
+
   bindInviteCode: protectedProcedure
     .input(z.object({ inviteCode: z.string().min(1) }))
     .mutation(async ({ ctx, input }) => {
@@ -83,6 +101,30 @@ export const userRouter = createTRPCRouter({
       });
 
       return { success: true };
+    }),
+
+  toggleFavorite: protectedProcedure
+    .input(z.object({ productId: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      const existing = await ctx.prisma.favorite.findUnique({
+        where: { userId_productId: { userId: ctx.user.id, productId: input.productId } },
+      });
+      if (existing) {
+        await ctx.prisma.favorite.delete({ where: { id: existing.id } });
+        return { favorited: false };
+      }
+      await ctx.prisma.favorite.create({
+        data: { userId: ctx.user.id, productId: input.productId },
+      });
+      return { favorited: true };
+    }),
+
+  recordFootprint: protectedProcedure
+    .input(z.object({ productId: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      return ctx.prisma.footprint.create({
+        data: { userId: ctx.user.id, productId: input.productId },
+      });
     }),
 
   dashboardStats: merchantProcedure.query(async ({ ctx }) => {

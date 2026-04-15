@@ -441,7 +441,14 @@ export default function HomePage() {
       <ProductSection
         title="限时神券"
         subtitle="今天的放量权益都集中在这里，倒计时结束后会自动下架。"
-        action={<Countdown targetAt={targetAt} variant="light" />}
+        action={
+          <div className="flex items-center gap-3">
+            <Countdown targetAt={targetAt} variant="light" />
+            <Button variant="link" size="sm" onClick={() => router.push("/category/limited")} className="text-xs text-muted-foreground">
+              查看全部 →
+            </Button>
+          </div>
+        }
         items={limited}
         isLoading={loadingLimited}
         emptyText="暂无限时商品"
@@ -451,6 +458,11 @@ export default function HomePage() {
       <ProductSection
         title="今日值得兑"
         subtitle="今天最稳妥的三类组合，适合直接下单。"
+        action={
+          <Button variant="link" size="sm" onClick={() => router.push("/category/today")} className="text-xs text-muted-foreground">
+            查看全部 →
+          </Button>
+        }
         items={today}
         isLoading={loadingToday}
         emptyText="暂无推荐商品"
@@ -460,6 +472,11 @@ export default function HomePage() {
       <ProductSection
         title="0 元兑专区"
         subtitle="只消耗积分，不额外花现金，适合先攒后换。"
+        action={
+          <Button variant="link" size="sm" onClick={() => router.push("/category/zero")} className="text-xs text-muted-foreground">
+            查看全部 →
+          </Button>
+        }
         items={zero}
         isLoading={loadingZero}
         emptyText="暂无零元购商品"

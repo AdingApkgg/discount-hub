@@ -11,6 +11,7 @@ import {
   Menu,
   Ticket,
   Users,
+  UserCheck,
 } from "lucide-react";
 import { useSession } from "@/lib/auth-client";
 import { Button } from "@/components/ui/button";
@@ -38,6 +39,7 @@ const allNavItems: NavItem[] = [
   { href: "/orders", icon: ClipboardList, label: "订单管理" },
   { href: "/coupon-manage", icon: Ticket, label: "券码管理" },
   { href: "/users", icon: Users, label: "用户管理", adminOnly: true },
+  { href: "/agent-review", icon: UserCheck, label: "代理审核", adminOnly: true },
   { href: "/settings", icon: Settings, label: "设置" },
 ];
 
