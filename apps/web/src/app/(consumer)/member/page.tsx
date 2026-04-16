@@ -5,13 +5,16 @@ import { useRouter } from "next/navigation";
 import {
   CalendarCheck,
   Check,
+  ChevronRight,
   Crown,
   Eye,
+  Gift,
   Loader2,
   Play,
   Share2,
   ShoppingCart,
   Sparkles,
+  Trophy,
 } from "lucide-react";
 import {
   useMutation,
@@ -54,28 +57,13 @@ type PointsStatus = RouterOutputs["points"]["getStatus"];
 type UserProfile = RouterOutputs["user"]["me"];
 type OrderRecord = RouterOutputs["order"]["myOrders"][number];
 
-const CHECKIN_REWARDS = [200, 3000, 300, 500];
 const VIP_BENEFITS: Record<number, string[]> = {
   0: ["基础兑换"],
-  1: ["基础兑换", "每日签到奖励"],
-  2: ["全部 VIP1", "限时折扣"],
-  3: ["全部 VIP2", "优先购资格", "专属折扣"],
-  4: ["全部 VIP3", "抢先看", "双倍积分日"],
+  1: ["基础兑换", "每日签到奖励 +5%"],
+  2: ["全部 VIP1", "签到奖励 +10%", "限时折扣"],
+  3: ["全部 VIP2", "签到奖励 +15%", "优先购资格", "专属折扣"],
+  4: ["全部 VIP3", "签到奖励 +20%", "抢先看", "双倍积分日"],
 };
-
-function buildVipTiers(pointsPerLevel: number, maxLevel: number) {
-  const tiers = [];
-  const displayMax = Math.min(maxLevel, Math.max(4, maxLevel));
-  for (let i = 0; i <= displayMax; i++) {
-    tiers.push({
-      level: i,
-      name: i === 0 ? "普通会员" : `VIP${i}`,
-      minPoints: i * pointsPerLevel,
-      benefits: VIP_BENEFITS[i] ?? [`全部 VIP${i - 1}`, "更多特权"],
-    });
-  }
-  return tiers;
-}
 
 const DAILY_TASKS = [
   { id: "checkin", title: "每日签到", desc: "每日首次签到", reward: 200, icon: CalendarCheck },
@@ -95,6 +83,20 @@ const DAILY_TASKS = [
     icon: Share2,
   },
 ] as const;
+
+function buildVipTiers(pointsPerLevel: number, maxLevel: number) {
+  const tiers = [];
+  const displayMax = Math.min(maxLevel, Math.max(4, maxLevel));
+  for (let i = 0; i <= displayMax; i++) {
+    tiers.push({
+      level: i,
+      name: i === 0 ? "普通会员" : `VIP${i}`,
+      minPoints: i * pointsPerLevel,
+      benefits: VIP_BENEFITS[i] ?? [`全部 VIP${i - 1}`, `签到奖励 +${Math.min(i * 5, 25)}%`, "更多特权"],
+    });
+  }
+  return tiers;
+}
 
 function getCurrentTier(profile: UserProfile | undefined, vipTiers: ReturnType<typeof buildVipTiers>) {
   const level = Math.min(profile?.vipLevel ?? 0, vipTiers.length - 1);
@@ -145,7 +147,7 @@ export default function MemberPage() {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
   const [busyTaskId, setBusyTaskId] = useState<string | null>(null);
-  const [checkinResult, setCheckinResult] = useState<{ reward: number; dayIndex: number } | null>(null);
+  const [checkinResult, setCheckinResult] = useState<{ reward: number; dayIndex: number; cycle: number } | null>(null);
 
   const { data: statusData, isLoading: loadingStatus } = useQuery(
     trpc.points.getStatus.queryOptions(),
@@ -168,6 +170,9 @@ export default function MemberPage() {
   );
   const todayTasks = new Set(status?.todayTasks ?? []);
 
+  const checkinRewards = status?.checkinRewards ?? [200, 3000, 300, 500, 800, 1200, 10000];
+  const checkinCycle = status?.checkinCycle ?? 7;
+
   const vipTiers = useMemo(
     () => buildVipTiers(status?.vipPointsPerLevel ?? 500, status?.vipMaxLevel ?? 10),
     [status?.vipPointsPerLevel, status?.vipMaxLevel],
@@ -187,10 +192,12 @@ export default function MemberPage() {
   const completedTaskCount = DAILY_TASKS.filter((task) =>
     task.id === "checkin" ? checkedIn : todayTasks.has(task.id),
   ).length;
+  const taskProgressPct = Math.round((completedTaskCount / DAILY_TASKS.length) * 100);
   const hasPaidOrderToday = useMemo(
     () => orders.some((order) => order.status === "PAID" && isToday(order.paidAt ?? order.createdAt)),
     [orders],
   );
+  const totalCheckinCycleReward = checkinRewards.reduce((a, b) => a + b, 0);
   const isLoading = loadingStatus || loadingProfile;
 
   async function refreshAll() {
@@ -216,7 +223,7 @@ export default function MemberPage() {
     try {
       const result = await checkinMutation.mutateAsync();
       await refreshAll();
-      setCheckinResult({ reward: result.reward, dayIndex: result.dayIndex });
+      setCheckinResult({ reward: result.reward, dayIndex: result.dayIndex, cycle: result.cycle });
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "签到失败");
     } finally {
@@ -247,13 +254,17 @@ export default function MemberPage() {
 
   if (isLoading) return <MemberSkeleton />;
 
+  const vipBonusPct = status?.vipCheckinBonus
+    ? Math.round((status.vipCheckinBonus[Math.min(profile?.vipLevel ?? 0, 4)] ?? 0) * 100)
+    : 0;
+
   return (
     <PageTransition>
     <div className="space-y-4 px-4 py-4 md:space-y-6 md:px-8 md:py-8">
       <AnimatedItem>
       <PageHeading
         label="Member Center"
-        title="会员中心"
+        title={<>会员中心 · <span className="text-primary">{points.toLocaleString("zh-CN")} 积分</span></>}
         action={
           <Dialog>
             <DialogTrigger asChild>
@@ -269,6 +280,7 @@ export default function MemberPage() {
             <DialogContent className="max-w-md rounded-[28px] border-border bg-background p-0">
               <DialogHeader className="border-b border-border px-6 py-5">
                 <DialogTitle>VIP 等级体系</DialogTitle>
+                <p className="mt-1 text-xs text-muted-foreground">签到奖励权重 &gt; 会员等级加成，签到是积分的核心来源</p>
               </DialogHeader>
               <div className="space-y-3 px-6 py-5">
                 {vipTiers.map((tier) => {
@@ -334,6 +346,11 @@ export default function MemberPage() {
                   <div className="mt-2 text-[30px] font-semibold leading-none md:text-[40px]">
                     {currentTier.name}
                   </div>
+                  {vipBonusPct > 0 && (
+                    <Badge className="mt-2 bg-white/12 text-xs text-white hover:bg-white/12">
+                      签到奖励 +{vipBonusPct}%
+                    </Badge>
+                  )}
                 </div>
                 <div className="rounded-[22px] bg-white/10 px-4 py-3 text-right backdrop-blur">
                   <div className="text-xs text-white/60">当前积分</div>
@@ -368,25 +385,60 @@ export default function MemberPage() {
         </Card>
 
         <StaggerList className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
-          <AnimatedItem><StatCard label="连续签到" value={`${completedCheckinDays} 天`} hint="第 2 天奖励 3000 积分" /></AnimatedItem>
-          <AnimatedItem><StatCard label="今日任务" value={`${completedTaskCount}/${DAILY_TASKS.length}`} hint="做完可稳定攒积分" /></AnimatedItem>
-          <AnimatedItem><StatCard label="当前等级" value={currentTier.name} hint="会员等级越高权益越多" /></AnimatedItem>
+          <AnimatedItem><StatCard label="连续签到" value={`${completedCheckinDays} / ${checkinCycle} 天`} hint={completedCheckinDays >= checkinCycle ? "恭喜完成一轮！明天开始新周期" : `第 ${checkinCycle} 天奖励 ${checkinRewards[checkinCycle - 1].toLocaleString("zh-CN")} 积分`} /></AnimatedItem>
+          <AnimatedItem>
+            <Card className={appCardClassName}>
+              <CardContent className="px-5 py-4">
+                <div className="flex items-center justify-between">
+                  <div className="text-xs text-muted-foreground">今日任务</div>
+                  <div className="text-lg font-semibold text-foreground">{completedTaskCount}/{DAILY_TASKS.length}</div>
+                </div>
+                <Progress value={taskProgressPct} className="mt-2 h-1.5" />
+                <div className="mt-2 text-xs text-muted-foreground">
+                  {completedTaskCount >= DAILY_TASKS.length ? "全部完成，明天继续！" : "做完可稳定攒积分"}
+                </div>
+              </CardContent>
+            </Card>
+          </AnimatedItem>
+          <AnimatedItem><StatCard label="当前等级" value={currentTier.name} hint="会员等级越高，签到奖励加成越多" /></AnimatedItem>
           <AnimatedItem><StatCard label="距离升级" value={`${remainingPoints.toLocaleString("zh-CN")} 分`} hint={`下一档 ${nextTier.name}`} /></AnimatedItem>
         </StaggerList>
       </section>
+      </AnimatedItem>
+
+      {/* 兑换引导入口 */}
+      <AnimatedItem>
+        <Card className={`${appCardClassName} cursor-pointer`} onClick={() => router.push("/")}>
+          <CardContent className="p-5">
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-primary/10 to-accent/10">
+                  <Gift className="h-5 w-5 text-primary" />
+                </div>
+                <div>
+                  <div className="text-sm font-semibold text-foreground">
+                    用积分去兑换 · <span className="text-primary">{points.toLocaleString("zh-CN")} 积分可用</span>
+                  </div>
+                  <div className="text-xs text-muted-foreground">浏览 0 元兑专区和限时神券，积分即刻抵现</div>
+                </div>
+              </div>
+              <ChevronRight className="h-4 w-4 text-muted-foreground" />
+            </div>
+          </CardContent>
+        </Card>
       </AnimatedItem>
 
       <AnimatedSection>
       <Card className={appCardClassName}>
         <CardContent className="p-5 md:p-6">
           <SectionHeading
-            title="连续签到"
-            subtitle="连续签到奖励递增，签到越稳，兑换越轻松。"
+            title={<>连续签到 · <span className="text-primary">7 天可得 {totalCheckinCycleReward.toLocaleString("zh-CN")} 积分</span></>}
+            subtitle="连续签到奖励递增，第 7 天获得 10,000 积分大奖！签到是最核心的积分来源。"
             action={
               <Button
                 onClick={handleCheckin}
                 disabled={checkedIn || busyTaskId === "checkin"}
-                className="rounded-full px-4"
+                className="rounded-full px-5"
               >
                 {busyTaskId === "checkin" ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
@@ -399,9 +451,10 @@ export default function MemberPage() {
               </Button>
             }
           />
-          <StaggerList className="mt-5 grid grid-cols-2 gap-2.5 sm:grid-cols-4">
-            {CHECKIN_REWARDS.map((reward, index) => {
+          <StaggerList className="mt-5 grid grid-cols-4 gap-2.5 sm:grid-cols-7">
+            {checkinRewards.map((reward, index) => {
               const done = index < completedCheckinDays;
+              const isSpecial = index === checkinCycle - 1;
               return (
                 <AnimatedItem key={index}>
                 <motion.div whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.97 }}>
@@ -409,16 +462,26 @@ export default function MemberPage() {
                   className={`gap-0 rounded-[22px] border py-0 text-center ${
                     done
                       ? "border-primary bg-primary text-primary-foreground"
-                      : "border-border bg-secondary/50 text-foreground"
+                      : isSpecial
+                        ? "border-primary/50 bg-primary/5 text-foreground"
+                        : "border-border bg-secondary/50 text-foreground"
                   }`}
                 >
-                  <CardContent className="px-3 py-4">
+                  <CardContent className="px-2 py-4">
                     <div className={`text-xs ${done ? "text-primary-foreground/60" : "text-muted-foreground"}`}>
                       第 {index + 1} 天
                     </div>
-                    <div className="mt-2 text-base font-semibold">+{reward}</div>
+                    <div className={`mt-2 text-sm font-semibold ${isSpecial && !done ? "text-primary" : ""}`}>
+                      {reward >= 1000 ? `${(reward / 1000).toFixed(reward % 1000 === 0 ? 0 : 1)}k` : `+${reward}`}
+                    </div>
                     <div className="mt-2 flex justify-center">
-                      {done ? <Check className="h-4 w-4" /> : <Sparkles className="h-4 w-4 text-muted-foreground" />}
+                      {done ? (
+                        <Check className="h-4 w-4" />
+                      ) : isSpecial ? (
+                        <Trophy className="h-4 w-4 text-primary" />
+                      ) : (
+                        <Sparkles className="h-4 w-4 text-muted-foreground" />
+                      )}
                     </div>
                   </CardContent>
                 </Card>
@@ -434,8 +497,12 @@ export default function MemberPage() {
       <AnimatedSection className="grid gap-4 xl:grid-cols-[minmax(0,1.15fr)_minmax(360px,0.85fr)]">
         <Card className={appCardClassName}>
           <CardContent className="p-5 md:p-6">
-            <SectionHeading title="日常积分任务" subtitle="保持轻量，围绕签到、浏览、分享和购买四个动作。" />
-            <StaggerList className="mt-5 grid gap-3">
+            <SectionHeading
+              title="日常积分任务"
+              subtitle={`完成进度 ${completedTaskCount}/${DAILY_TASKS.length} — 保持轻量，围绕签到、浏览、分享和购买四个动作。`}
+            />
+            <Progress value={taskProgressPct} className="mt-3 mb-5 h-1.5" />
+            <StaggerList className="grid gap-3">
               {DAILY_TASKS.map((task) => {
                 const done = task.id === "checkin" ? checkedIn : todayTasks.has(task.id);
                 const Icon = task.icon;
@@ -447,13 +514,16 @@ export default function MemberPage() {
                     transition={{ type: "spring", stiffness: 400, damping: 30 }}
                   >
                     <div className="flex items-center gap-3">
-                      <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-background shadow-sm">
-                        <Icon className="h-5 w-5 text-foreground" />
+                      <div className={`flex h-11 w-11 items-center justify-center rounded-2xl shadow-sm ${done ? "bg-primary/10" : "bg-background"}`}>
+                        <Icon className={`h-5 w-5 ${done ? "text-primary" : "text-foreground"}`} />
                       </div>
                       <div>
-                        <div className="text-sm font-semibold text-foreground">{task.title}</div>
+                        <div className="text-sm font-semibold text-foreground">
+                          {task.title}
+                          {done && <Check className="ml-1.5 inline h-3.5 w-3.5 text-primary" />}
+                        </div>
                         <div className="mt-1 text-xs leading-5 text-muted-foreground">
-                          {task.desc} · +{task.reward} 积分
+                          {task.desc} · <span className="font-medium text-primary">+{task.reward} 积分</span>
                         </div>
                       </div>
                     </div>
@@ -537,13 +607,21 @@ export default function MemberPage() {
           <div className="mt-4 text-xl font-bold text-foreground">签到成功！</div>
           <div className="mt-2 text-3xl font-bold text-primary">+{checkinResult?.reward ?? 0}</div>
           <div className="text-sm text-muted-foreground">积分已到账</div>
+          {vipBonusPct > 0 && (
+            <div className="mt-1 text-xs text-primary/70">含 VIP{profile?.vipLevel} 签到加成 +{vipBonusPct}%</div>
+          )}
           <div className="mt-3 rounded-2xl bg-secondary/50 px-4 py-3">
             <div className="text-sm text-foreground">
-              连续签到第 <span className="font-bold text-primary">{checkinResult?.dayIndex ?? 1}</span> 天
+              连续签到第 <span className="font-bold text-primary">{checkinResult?.dayIndex ?? 1}</span> / {checkinResult?.cycle ?? checkinCycle} 天
             </div>
-            {(checkinResult?.dayIndex ?? 0) < CHECKIN_REWARDS.length && (
+            {(checkinResult?.dayIndex ?? 0) < checkinCycle && (
               <div className="mt-1 text-xs text-muted-foreground">
-                明日签到奖励：+{CHECKIN_REWARDS[checkinResult?.dayIndex ?? 0] ?? 200} 积分
+                明日签到奖励：+{checkinRewards[checkinResult?.dayIndex ?? 0] ?? 200} 积分
+              </div>
+            )}
+            {(checkinResult?.dayIndex ?? 0) >= checkinCycle && (
+              <div className="mt-1 text-xs text-primary font-medium">
+                恭喜完成 {checkinCycle} 天连续签到！明天开始新一轮
               </div>
             )}
           </div>

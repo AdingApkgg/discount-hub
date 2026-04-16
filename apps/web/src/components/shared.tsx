@@ -13,7 +13,7 @@ export function SectionHeading({
   subtitle,
   action,
 }: {
-  title: string;
+  title: React.ReactNode;
   subtitle?: string;
   action?: React.ReactNode;
 }) {
@@ -38,7 +38,7 @@ export function PageHeading({
   action,
 }: {
   label: string;
-  title: string;
+  title: React.ReactNode;
   action?: React.ReactNode;
 }) {
   return (

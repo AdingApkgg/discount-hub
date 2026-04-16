@@ -9,7 +9,16 @@ function computeVipLevel(points: number) {
   return Math.min(VIP_MAX_LEVEL, Math.floor(points / VIP_POINTS_PER_LEVEL));
 }
 
-const CHECKIN_REWARDS = [200, 3000, 300, 500];
+const CHECKIN_REWARDS = [200, 3000, 300, 500, 800, 1200, 10000];
+const CHECKIN_CYCLE = CHECKIN_REWARDS.length;
+
+const VIP_CHECKIN_BONUS: Record<number, number> = {
+  0: 0,
+  1: 0.05,
+  2: 0.10,
+  3: 0.15,
+  4: 0.20,
+};
 
 /** Server-authoritative task reward map – clients may NOT specify reward values */
 const TASK_REWARDS: Record<string, number> = {
@@ -22,10 +31,12 @@ const TASK_REWARDS: Record<string, number> = {
   c4: 50,
 };
 
-function checkinReward(dayIndex: number) {
-  return CHECKIN_REWARDS[
+function checkinReward(dayIndex: number, vipLevel = 0) {
+  const base = CHECKIN_REWARDS[
     Math.max(0, Math.min(CHECKIN_REWARDS.length - 1, dayIndex - 1))
   ];
+  const bonus = VIP_CHECKIN_BONUS[Math.min(vipLevel, 4)] ?? 0.25;
+  return Math.round(base * (1 + bonus));
 }
 
 function todayStart() {
@@ -67,8 +78,11 @@ export const pointsRouter = createTRPCRouter({
         lastCheckin.checkedAt < todayStart();
       const wasToday = lastCheckin.checkedAt >= todayStart();
       if (wasToday) nextDayIndex = lastCheckin.dayIndex;
-      else if (wasYesterday)
-        nextDayIndex = Math.min(4, lastCheckin.dayIndex + 1);
+      else if (wasYesterday) {
+        nextDayIndex = lastCheckin.dayIndex >= CHECKIN_CYCLE
+          ? 1
+          : lastCheckin.dayIndex + 1;
+      }
     }
 
     const currentPoints = user?.points ?? 0;
@@ -80,6 +94,9 @@ export const pointsRouter = createTRPCRouter({
       vipLevel: currentVip,
       vipPointsPerLevel: VIP_POINTS_PER_LEVEL,
       vipMaxLevel: VIP_MAX_LEVEL,
+      checkinCycle: CHECKIN_CYCLE,
+      checkinRewards: CHECKIN_REWARDS,
+      vipCheckinBonus: VIP_CHECKIN_BONUS,
       nextLevelPoints,
       checkedInToday: !!todayCheckin,
       nextDayIndex,
@@ -108,10 +125,18 @@ export const pointsRouter = createTRPCRouter({
         const wasYesterday =
           lastCheckin.checkedAt >= yesterdayStart() &&
           lastCheckin.checkedAt < todayStart();
-        if (wasYesterday) dayIndex = Math.min(4, lastCheckin.dayIndex + 1);
+        if (wasYesterday) {
+          dayIndex = lastCheckin.dayIndex >= CHECKIN_CYCLE
+            ? 1
+            : lastCheckin.dayIndex + 1;
+        }
       }
 
-      const reward = checkinReward(dayIndex);
+      const currentUser = await tx.user.findUnique({
+        where: { id: ctx.user.id },
+        select: { vipLevel: true, points: true },
+      });
+      const reward = checkinReward(dayIndex, currentUser?.vipLevel ?? 0);
 
       await tx.checkin.create({
         data: { userId: ctx.user.id, dayIndex, reward },
@@ -122,12 +147,12 @@ export const pointsRouter = createTRPCRouter({
         data: {
           points: { increment: reward },
           vipLevel: {
-            set: computeVipLevel(ctx.user.points + reward),
+            set: computeVipLevel((currentUser?.points ?? 0) + reward),
           },
         },
       });
 
-      return { dayIndex, reward, points: user.points };
+      return { dayIndex, reward, points: user.points, cycle: CHECKIN_CYCLE };
     });
   }),
 

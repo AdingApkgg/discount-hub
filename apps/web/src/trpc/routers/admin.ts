@@ -151,6 +151,46 @@ export const adminRouter = createTRPCRouter({
     return result;
   }),
 
+  getIncentiveConfig: adminProcedure.query(async ({ ctx }) => {
+    const config = await ctx.prisma.incentiveConfig.findFirst({
+      where: { isActive: true },
+      orderBy: { updatedAt: "desc" },
+    });
+    return config ?? {
+      id: null,
+      newUserBonusPoints: 500,
+      newUserBonusDays: 7,
+      newUserCheckinMulti: 2.0,
+      oldUserCheckinMulti: 1.0,
+      referralReward: 1000,
+      refereeReward: 500,
+      isActive: true,
+    };
+  }),
+
+  updateIncentiveConfig: adminProcedure
+    .input(z.object({
+      newUserBonusPoints: z.number().int().min(0).max(50000),
+      newUserBonusDays: z.number().int().min(1).max(90),
+      newUserCheckinMulti: z.number().min(1).max(10),
+      oldUserCheckinMulti: z.number().min(0.5).max(5),
+      referralReward: z.number().int().min(0).max(50000),
+      refereeReward: z.number().int().min(0).max(50000),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      await ctx.prisma.incentiveConfig.updateMany({
+        where: { isActive: true },
+        data: { isActive: false },
+      });
+
+      return ctx.prisma.incentiveConfig.create({
+        data: {
+          ...input,
+          isActive: true,
+        },
+      });
+    }),
+
   listCoupons: merchantProcedure
     .input(
       z.object({

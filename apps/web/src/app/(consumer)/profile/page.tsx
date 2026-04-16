@@ -233,7 +233,7 @@ export default function ProfilePage() {
 
         <StaggerList className="grid grid-cols-3 gap-3 xl:grid-cols-1">
           <AnimatedItem><StatCard label="累计邀请" value={profile?._count.referrals ?? 0} /></AnimatedItem>
-          <AnimatedItem><StatCard label="累计订单" value={profile?._count.orders ?? 0} /></AnimatedItem>
+          <AnimatedItem><StatCard label="累计节省" value={`${((profile as { totalSavingsPoints?: number } | undefined)?.totalSavingsPoints ?? 0).toLocaleString("zh-CN")} 积分`} hint="通过订单节省的积分总额" /></AnimatedItem>
           <AnimatedItem><StatCard label="我的券包" value={profile?._count.coupons ?? 0} /></AnimatedItem>
         </StaggerList>
       </section>
@@ -316,33 +316,32 @@ export default function ProfilePage() {
       </AnimatedSection>
 
       <AnimatedSection>
-        <Card className={appCardClassName}>
-          <CardContent className="p-5 md:p-6">
-            <SectionHeading
-              title="邀请好友"
-              subtitle={`已邀请 ${referrals.length} 位好友`}
-              action={<Gift className="h-5 w-5 text-muted-foreground" />}
-            />
-            <div className="mt-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-              <div className="flex flex-wrap gap-2">
-                {inviteBenefits.map((benefit) => (
-                  <Badge key={benefit} variant="outline" className="rounded-full border-border bg-background text-muted-foreground">
-                    {benefit}
-                  </Badge>
-                ))}
+        <HoverScale scale={1.01}>
+          <Card className={`${appCardClassName} cursor-pointer`} onClick={() => router.push("/invite")}>
+            <CardContent className="p-5 md:p-6">
+              <SectionHeading
+                title="邀请好友"
+                subtitle={`已邀请 ${referrals.length} 位好友 · 点击查看详情`}
+                action={<Gift className="h-5 w-5 text-muted-foreground" />}
+              />
+              <div className="mt-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                <div className="flex flex-wrap gap-2">
+                  {inviteBenefits.map((benefit) => (
+                    <Badge key={benefit} variant="outline" className="rounded-full border-border bg-background text-muted-foreground">
+                      {benefit}
+                    </Badge>
+                  ))}
+                </div>
+                <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
+                  <Button onClick={handleCopyInvite} className="rounded-full">
+                    <Copy className="h-4 w-4" />
+                    复制邀请码
+                  </Button>
+                </div>
               </div>
-              <div className="flex gap-2">
-                <Button variant="outline" onClick={() => router.push("/invite")} className="rounded-full">
-                  邀请详情
-                </Button>
-                <Button onClick={handleCopyInvite} className="rounded-full">
-                  <Copy className="h-4 w-4" />
-                  复制邀请码
-                </Button>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        </HoverScale>
       </AnimatedSection>
 
       <AnimatedSection className="grid gap-4 xl:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]">

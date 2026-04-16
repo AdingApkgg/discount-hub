@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Loader2, Save, Store, Bell, Shield, Palette, Sun, Moon, Monitor } from "lucide-react";
+import { Loader2, Save, Store, Bell, Shield, Palette, Sun, Moon, Monitor, Zap } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTheme } from "next-themes";
 import { toast } from "sonner";
@@ -49,6 +49,153 @@ const themeOptions = [
     description: "自动跟随操作系统设置",
   },
 ] as const;
+
+function IncentiveTab() {
+  const trpc = useTRPC();
+  const queryClient = useQueryClient();
+  const { data: config, isLoading } = useQuery(trpc.admin.getIncentiveConfig.queryOptions());
+  const saveMutation = useMutation(trpc.admin.updateIncentiveConfig.mutationOptions());
+
+  const [form, setForm] = useState({
+    newUserBonusPoints: 500,
+    newUserBonusDays: 7,
+    newUserCheckinMulti: 2.0,
+    oldUserCheckinMulti: 1.0,
+    referralReward: 1000,
+    refereeReward: 500,
+  });
+  const [dirty, setDirty] = useState(false);
+
+  useEffect(() => {
+    if (config) {
+      setForm({
+        newUserBonusPoints: config.newUserBonusPoints,
+        newUserBonusDays: config.newUserBonusDays,
+        newUserCheckinMulti: config.newUserCheckinMulti,
+        oldUserCheckinMulti: config.oldUserCheckinMulti,
+        referralReward: config.referralReward,
+        refereeReward: config.refereeReward,
+      });
+    }
+  }, [config]);
+
+  function update<K extends keyof typeof form>(key: K, value: (typeof form)[K]) {
+    setForm((prev) => ({ ...prev, [key]: value }));
+    setDirty(true);
+  }
+
+  async function handleSave() {
+    try {
+      await saveMutation.mutateAsync(form);
+      await queryClient.invalidateQueries();
+      setDirty(false);
+      toast.success("激励策略已更新");
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "保存失败");
+    }
+  }
+
+  if (isLoading) {
+    return (
+      <Card className="border-border">
+        <CardContent className="p-6 flex justify-center">
+          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <Card className="border-border">
+      <CardContent className="p-6 space-y-6">
+        <div>
+          <h3 className="text-sm font-medium text-foreground">新用户激励</h3>
+          <p className="mt-1 text-xs text-muted-foreground">配置新注册用户的专属激励策略</p>
+        </div>
+
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="space-y-2">
+            <Label>新用户注册赠送积分</Label>
+            <Input
+              type="number"
+              value={form.newUserBonusPoints}
+              onChange={(e) => update("newUserBonusPoints", Number(e.target.value))}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>新用户优惠有效天数</Label>
+            <Input
+              type="number"
+              value={form.newUserBonusDays}
+              onChange={(e) => update("newUserBonusDays", Number(e.target.value))}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>新用户签到倍率</Label>
+            <Input
+              type="number"
+              step="0.1"
+              value={form.newUserCheckinMulti}
+              onChange={(e) => update("newUserCheckinMulti", Number(e.target.value))}
+            />
+            <p className="text-xs text-muted-foreground">新用户期间签到奖励 × 此倍率</p>
+          </div>
+          <div className="space-y-2">
+            <Label>老用户签到倍率</Label>
+            <Input
+              type="number"
+              step="0.1"
+              value={form.oldUserCheckinMulti}
+              onChange={(e) => update("oldUserCheckinMulti", Number(e.target.value))}
+            />
+            <p className="text-xs text-muted-foreground">超过新用户期后的签到奖励倍率</p>
+          </div>
+        </div>
+
+        <Separator />
+
+        <div>
+          <h3 className="text-sm font-medium text-foreground">邀请奖励</h3>
+          <p className="mt-1 text-xs text-muted-foreground">配置邀请人和被邀请人的积分奖励</p>
+        </div>
+
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="space-y-2">
+            <Label>邀请人获得积分</Label>
+            <Input
+              type="number"
+              value={form.referralReward}
+              onChange={(e) => update("referralReward", Number(e.target.value))}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>被邀请人获得积分</Label>
+            <Input
+              type="number"
+              value={form.refereeReward}
+              onChange={(e) => update("refereeReward", Number(e.target.value))}
+            />
+          </div>
+        </div>
+
+        <div className="flex justify-end">
+          <Button
+            onClick={handleSave}
+            disabled={!dirty || saveMutation.isPending}
+            className="gap-2"
+          >
+            {saveMutation.isPending ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Save className="h-4 w-4" />
+            )}
+            保存策略
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
 
 function AppearanceTab() {
   const { theme, setTheme } = useTheme();
@@ -240,6 +387,10 @@ export default function SettingsPage() {
             <Store className="h-4 w-4" />
             个人信息
           </TabsTrigger>
+          <TabsTrigger value="incentive" className="gap-2">
+            <Zap className="h-4 w-4" />
+            激励策略
+          </TabsTrigger>
           <TabsTrigger value="notification" className="gap-2">
             <Bell className="h-4 w-4" />
             通知
@@ -316,6 +467,10 @@ export default function SettingsPage() {
               </div>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="incentive">
+          <IncentiveTab />
         </TabsContent>
 
         <TabsContent value="notification">

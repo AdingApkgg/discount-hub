@@ -1,8 +1,8 @@
 "use client";
 
-import { useMemo } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Copy, Crown, Gift } from "lucide-react";
+import { ArrowLeft, Copy, Crown, Download, Gift, Image, Link2, ShoppingCart } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { useSession } from "@/lib/auth-client";
@@ -44,6 +44,8 @@ export default function InvitePage() {
   const router = useRouter();
   const trpc = useTRPC();
   const { data: session } = useSession();
+  const [shareMode, setShareMode] = useState<"link" | "image">("link");
+  const shareCardRef = useRef<HTMLDivElement>(null);
 
   const { data: profile } = useQuery({
     ...trpc.user.me.queryOptions(),
@@ -61,12 +63,44 @@ export default function InvitePage() {
     return `${window.location.origin}/login?inviteCode=${encodeURIComponent(inviteCode)}`;
   }, [inviteCode]);
 
-  const handleCopy = async () => {
+  const handleCopyLink = useCallback(async () => {
     try {
       await navigator.clipboard.writeText(inviteLink || inviteCode);
       toast.success("邀请链接已复制");
     } catch { toast.error("复制失败"); }
-  };
+  }, [inviteLink, inviteCode]);
+
+  const handleShareImage = useCallback(async () => {
+    const el = shareCardRef.current;
+    if (!el) return;
+    try {
+      const { default: html2canvas } = await import("html2canvas");
+      const canvas = await html2canvas(el, { useCORS: true, scale: 2, backgroundColor: null });
+      const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/png"));
+      if (!blob) { toast.error("生成图片失败"); return; }
+
+      if (navigator.share && navigator.canShare?.({ files: [new File([blob], "invite.png", { type: "image/png" })] })) {
+        await navigator.share({
+          title: "邀请好友加入",
+          text: `使用我的邀请码 ${inviteCode} 注册，双方均可获得丰厚积分奖励！`,
+          files: [new File([blob], "invite.png", { type: "image/png" })],
+        });
+        toast.success("分享成功");
+      } else {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `invite-${inviteCode}.png`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        toast.success("图片已保存，请手动发送给好友");
+      }
+    } catch {
+      toast.error("生成分享图片失败，请尝试复制链接");
+    }
+  }, [inviteCode]);
 
   return (
     <PageTransition>
@@ -80,7 +114,7 @@ export default function InvitePage() {
 
         <AnimatedItem>
           <PageHeading label="Invite Friends" title="邀请好友" action={<Gift className="h-5 w-5 text-muted-foreground" />} />
-          <p className="mt-2 text-sm text-muted-foreground">您将获得以下奖励</p>
+          <p className="mt-2 text-sm text-muted-foreground">邀请好友注册并下单，双方均可获得丰厚奖励</p>
         </AnimatedItem>
 
         <AnimatedSection>
@@ -116,9 +150,9 @@ export default function InvitePage() {
               </div>
               <Separator className="my-5" />
               <div className="space-y-2 text-xs leading-5 text-muted-foreground">
-                <p>1. 购买方式：在 X-Pass 平台操作充值</p>
-                <p>2. 进入平台充值页面 — 绑定手机号进行充值操作</p>
-                <p>3. 每人限购一张</p>
+                <p>1. 分享邀请链接或图片给好友</p>
+                <p>2. 好友通过您的邀请码注册并完成首单</p>
+                <p>3. 双方各获得对应积分和优惠券奖励</p>
               </div>
             </CardContent>
           </Card>
@@ -127,31 +161,79 @@ export default function InvitePage() {
         <AnimatedItem>
           <Card className={appCardClassName}>
             <CardContent className="p-5 md:p-6">
-              <div className="grid gap-3 md:grid-cols-2">
-                <Card className="gap-0 rounded-[22px] border-border bg-secondary/50 py-0">
-                  <CardContent className="p-4">
-                    <div className="text-xs text-muted-foreground">邀请码</div>
-                    <div className="mt-2 font-mono text-sm text-foreground">{inviteCode}</div>
-                  </CardContent>
-                </Card>
-                <Card className="gap-0 rounded-[22px] border-border bg-secondary/50 py-0">
-                  <CardContent className="p-4">
-                    <div className="text-xs text-muted-foreground">邀请链接</div>
-                    <div className="mt-2 break-all font-mono text-xs leading-5 text-foreground">
-                      {inviteLink || "请先登录"}
+              {/* 分享模式切换 */}
+              <div className="mb-4 flex gap-2">
+                <Button
+                  variant={shareMode === "link" ? "default" : "outline"}
+                  size="sm"
+                  className="rounded-full"
+                  onClick={() => setShareMode("link")}
+                >
+                  <Link2 className="h-4 w-4" />
+                  链接分享
+                </Button>
+                <Button
+                  variant={shareMode === "image" ? "default" : "outline"}
+                  size="sm"
+                  className="rounded-full"
+                  onClick={() => setShareMode("image")}
+                >
+                  <Image className="h-4 w-4" />
+                  图片分享
+                </Button>
+              </div>
+
+              {shareMode === "link" ? (
+                <>
+                  <div className="grid gap-3 md:grid-cols-2">
+                    <Card className="gap-0 rounded-[22px] border-border bg-secondary/50 py-0">
+                      <CardContent className="p-4">
+                        <div className="text-xs text-muted-foreground">邀请码</div>
+                        <div className="mt-2 font-mono text-sm text-foreground">{inviteCode}</div>
+                      </CardContent>
+                    </Card>
+                    <Card className="gap-0 rounded-[22px] border-border bg-secondary/50 py-0">
+                      <CardContent className="p-4">
+                        <div className="text-xs text-muted-foreground">邀请链接</div>
+                        <div className="mt-2 break-all font-mono text-xs leading-5 text-foreground">
+                          {inviteLink || "请先登录"}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </div>
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    {inviteBenefits.map((b) => (
+                      <Badge key={b} variant="outline" className="rounded-full border-border bg-background text-muted-foreground">{b}</Badge>
+                    ))}
+                  </div>
+                  <Button onClick={handleCopyLink} className="mt-5 w-full rounded-full">
+                    <Copy className="h-4 w-4" />
+                    复制邀请码 & 分享链接
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <div
+                    ref={shareCardRef}
+                    className="overflow-hidden rounded-[22px] border border-border bg-gradient-to-br from-primary/5 via-background to-accent/5 p-6 text-center"
+                  >
+                    <Gift className="mx-auto h-10 w-10 text-primary" />
+                    <div className="mt-3 text-lg font-bold text-foreground">邀请好友，一起省</div>
+                    <div className="mt-2 text-sm text-muted-foreground">使用邀请码注册，双方各得丰厚积分</div>
+                    <div className="mx-auto mt-4 rounded-2xl bg-secondary/80 px-6 py-3">
+                      <div className="text-xs text-muted-foreground">邀请码</div>
+                      <div className="mt-1 text-xl font-bold tracking-wider text-primary">{inviteCode}</div>
                     </div>
-                  </CardContent>
-                </Card>
-              </div>
-              <div className="mt-4 flex flex-wrap gap-2">
-                {inviteBenefits.map((b) => (
-                  <Badge key={b} variant="outline" className="rounded-full border-border bg-background text-muted-foreground">{b}</Badge>
-                ))}
-              </div>
-              <Button onClick={handleCopy} className="mt-5 w-full rounded-full">
-                <Copy className="h-4 w-4" />
-                复制邀请码 & 分享链接
-              </Button>
+                    <div className="mt-3 text-xs text-muted-foreground">
+                      {typeof window !== "undefined" ? window.location.origin : ""}
+                    </div>
+                  </div>
+                  <Button onClick={handleShareImage} className="mt-5 w-full rounded-full">
+                    <Download className="h-4 w-4" />
+                    保存分享图片
+                  </Button>
+                </>
+              )}
             </CardContent>
           </Card>
         </AnimatedItem>
@@ -159,7 +241,13 @@ export default function InvitePage() {
         <AnimatedSection>
           <Card className={appCardClassName}>
             <CardContent className="p-5 md:p-6">
-              <div className="mb-4 text-sm font-semibold text-foreground">邀请记录</div>
+              <div className="mb-4 flex items-center justify-between">
+                <div className="text-sm font-semibold text-foreground">邀请记录</div>
+                <Button variant="link" size="sm" onClick={() => router.push("/my-orders")} className="text-xs text-muted-foreground">
+                  <ShoppingCart className="mr-1 h-3.5 w-3.5" />
+                  查看订单 →
+                </Button>
+              </div>
               {!referrals || (referrals as unknown[]).length === 0 ? (
                 <EmptyStateDashed text="还没有邀请记录" />
               ) : (

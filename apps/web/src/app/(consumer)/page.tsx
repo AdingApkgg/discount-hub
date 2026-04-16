@@ -346,21 +346,24 @@ export default function HomePage() {
                   {
                     label: "会员等级",
                     value: getVipLabel(profile as UserProfile | undefined),
+                    highlight: false,
                   },
                   {
                     label: "可用积分",
                     value: (
                       (profile as UserProfile | undefined)?.points ?? 0
                     ).toLocaleString("zh-CN"),
+                    highlight: true,
                   },
                   {
-                    label: "我的券包",
-                    value: `${(profile as UserProfile | undefined)?._count.coupons ?? 0} 张`,
+                    label: "累计节省",
+                    value: `${((profile as UserProfile & { totalSavingsPoints?: number } | undefined)?.totalSavingsPoints ?? 0).toLocaleString("zh-CN")} 分`,
+                    highlight: false,
                   },
                 ].map((stat, i) => (
                   <motion.div
                     key={stat.label}
-                    className="rounded-2xl bg-white/10 p-3 backdrop-blur"
+                    className={`rounded-2xl p-3 backdrop-blur ${stat.highlight ? "bg-white/18 ring-1 ring-white/20" : "bg-white/10"}`}
                     initial={{ opacity: 0, y: 12 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 0.3 + i * 0.08, type: "spring", stiffness: 260, damping: 24 }}
@@ -368,7 +371,7 @@ export default function HomePage() {
                     <div className="text-[11px] text-white/60">
                       {stat.label}
                     </div>
-                    <div className="mt-2 text-base font-semibold">
+                    <div className={`mt-2 text-base font-semibold ${stat.highlight ? "text-white" : ""}`}>
                       {stat.value}
                     </div>
                   </motion.div>
@@ -422,7 +425,7 @@ export default function HomePage() {
               icon={Gift}
               title="邀请有礼"
               subtitle="复制邀请码，持续拉新赚奖励"
-              onClick={() => router.push("/profile")}
+              onClick={() => router.push("/invite")}
             />
             </AnimatedItem>
             <AnimatedItem>

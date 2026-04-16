@@ -4,7 +4,7 @@ import { createTRPCRouter, protectedProcedure, merchantProcedure } from "../init
 
 export const userRouter = createTRPCRouter({
   me: protectedProcedure.query(async ({ ctx }) => {
-    return ctx.prisma.user.findUnique({
+    const user = await ctx.prisma.user.findUnique({
       where: { id: ctx.user.id },
       select: {
         id: true,
@@ -21,6 +21,17 @@ export const userRouter = createTRPCRouter({
         _count: { select: { referrals: true, orders: true, coupons: true } },
       },
     });
+    if (!user) return null;
+
+    const savings = await ctx.prisma.order.aggregate({
+      where: { userId: ctx.user.id, status: "PAID" },
+      _sum: { pointsPaid: true },
+    });
+
+    return {
+      ...user,
+      totalSavingsPoints: savings._sum.pointsPaid ?? 0,
+    };
   }),
 
   updateProfile: protectedProcedure
