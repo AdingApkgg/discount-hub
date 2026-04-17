@@ -53,22 +53,22 @@
   --sidebar-border: 214 20% 88%;
   --sidebar-ring: 346 100% 59%;
 
-  --app-shell-bg: #ececec;
-  --app-shell-surface: #f7f7f7;
+  --app-shell-bg: #f5f5f7;
+  --app-shell-surface: #ffffff;
   --app-card: #ffffff;
-  --app-card-border: rgba(148, 163, 184, 0.28);
-  --app-card-shadow: 0 12px 36px rgba(15, 23, 42, 0.06);
-  --app-frame-shadow: 0 20px 60px rgba(15, 23, 42, 0.08);
+  --app-card-border: rgba(148, 163, 184, 0.22);
+  --app-card-shadow: 0 8px 24px rgba(15, 23, 42, 0.04);
+  --app-frame-shadow: 0 20px 60px rgba(15, 23, 42, 0.06);
   --app-soft: #f8fafc;
   --app-soft-strong: #f1f5f9;
   --app-heading: #0f172a;
   --app-strong: #334155;
   --app-text-muted: #64748b;
   --app-nav-bg: rgba(255, 255, 255, 0.95);
-  --app-nav-active-bg: #0f172a;
+  --app-nav-active-bg: #FE2C55;
   --app-nav-active-text: #ffffff;
   --app-nav-text: #64748b;
-  --app-nav-hover: #f1f5f9;
+  --app-nav-hover: #FFF1F3;
   --app-hero-bg: #111827;
   --app-hero-border: #111827;
   --app-hero-shadow: 0 18px 50px rgba(15, 23, 42, 0.22);
@@ -80,6 +80,27 @@
   --app-danger-text: #ef4444;
   --app-danger-hover: rgba(239, 68, 68, 0.06);
   --app-input-bg: #f8fafc;
+
+  /* Brand colors — 抖音钱包 + 拼多多百亿补贴融合 */
+  --brand-red: #FE2C55;        /* 抖音红 */
+  --brand-red-hover: #E0254B;
+  --brand-red-soft: #FFF1F3;
+  --brand-orange: #FF6E37;     /* 补贴橙 */
+  --brand-orange-soft: #FFF3EC;
+  --brand-gold: #F5B800;        /* VIP 金 */
+  --brand-gold-soft: #FFF8DD;
+  --brand-pink: #FF4D8D;
+  --brand-purple: #8A2BE2;
+
+  /* 百亿补贴通栏 */
+  --banner-subsidy: linear-gradient(90deg, #FE2C55 0%, #FF4D8D 50%, #FF6E37 100%);
+  --banner-vip: linear-gradient(135deg, #1C1C24 0%, #2A1F3D 55%, #FE2C55 120%);
+  --banner-gold: linear-gradient(135deg, #F5B800 0%, #FF6E37 100%);
+
+  /* 价格角标 */
+  --price-red: #FE2C55;
+  --price-line: #9CA3AF;
+  --save-badge-bg: linear-gradient(90deg, #FE2C55 0%, #FF6E37 100%);
 }
 
 .dark {
@@ -137,6 +158,24 @@
   --app-danger-text: #fca5a5;
   --app-danger-hover: rgba(248, 113, 113, 0.08);
   --app-input-bg: #1f2128;
+
+  --brand-red: #FE2C55;
+  --brand-red-hover: #FF4D6E;
+  --brand-red-soft: rgba(254, 44, 85, 0.12);
+  --brand-orange: #FF6E37;
+  --brand-orange-soft: rgba(255, 110, 55, 0.12);
+  --brand-gold: #F5B800;
+  --brand-gold-soft: rgba(245, 184, 0, 0.12);
+  --brand-pink: #FF4D8D;
+  --brand-purple: #A855F7;
+
+  --banner-subsidy: linear-gradient(90deg, #FE2C55 0%, #FF4D8D 50%, #FF6E37 100%);
+  --banner-vip: linear-gradient(135deg, #1C1C24 0%, #2A1F3D 55%, #FE2C55 120%);
+  --banner-gold: linear-gradient(135deg, #F5B800 0%, #FF6E37 100%);
+
+  --price-red: #FF4D6E;
+  --price-line: #71717A;
+  --save-badge-bg: linear-gradient(90deg, #FE2C55 0%, #FF6E37 100%);
 }
 
 @theme inline {

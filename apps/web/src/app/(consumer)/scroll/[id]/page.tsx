@@ -2,32 +2,29 @@
 
 import { use, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Clock, Minus, Plus, Sparkles } from "lucide-react";
+import { ArrowLeft, Minus, Plus } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { useTRPC } from "@/trpc/client";
 import type { RouterOutputs } from "@/trpc/types";
 import PurchaseFlowDialog from "@/components/PurchaseFlowDialog";
-import Countdown from "@/components/Countdown";
-import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
+import { cn } from "@/lib/utils";
 
 type ProductDetail = RouterOutputs["product"]["byId"];
 
 function DetailSkeleton() {
   return (
-    <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6">
-      <Skeleton className="h-10 w-28 rounded-lg" />
-      <div className="mt-6 grid gap-6 lg:grid-cols-2">
+    <div className="space-y-4 px-4 py-4 md:px-6 md:py-5">
+      <Skeleton className="h-9 w-24 rounded-full" />
+      <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
         <Skeleton className="aspect-square rounded-xl" />
-        <div className="space-y-4">
-          <Skeleton className="h-6 w-20" />
-          <Skeleton className="h-10 w-3/4" />
+        <div className="space-y-3">
+          <Skeleton className="h-6 w-3/5" />
           <Skeleton className="h-5 w-1/2" />
-          <Skeleton className="h-32 rounded-xl" />
-          <Skeleton className="h-12 w-40" />
+          <Skeleton className="h-24 rounded-xl" />
+          <Skeleton className="h-12 w-40 rounded-full" />
         </div>
       </div>
     </div>
@@ -44,7 +41,6 @@ export default function ScrollDetailPage({
   const trpc = useTRPC();
   const [openBuy, setOpenBuy] = useState(false);
   const [qty, setQty] = useState(1);
-  const [targetAt] = useState(() => Date.now() + 6 * 60 * 60 * 1000);
 
   const { data: product, isLoading } = useQuery(
     trpc.product.byId.queryOptions({ id }),
@@ -55,11 +51,11 @@ export default function ScrollDetailPage({
 
   if (!item) {
     return (
-      <div className="mx-auto max-w-6xl px-4 py-6 text-center sm:px-6">
+      <div className="mx-auto max-w-6xl px-4 py-10 text-center sm:px-6">
         <div className="text-lg text-muted-foreground">商品不存在</div>
         <Button
           variant="outline"
-          className="mt-4"
+          className="mt-4 rounded-full"
           onClick={() => router.push("/")}
         >
           返回首页
@@ -69,6 +65,10 @@ export default function ScrollDetailPage({
   }
 
   const price = Number(item.cashPrice);
+  const original =
+    item.originalCashPrice != null ? Number(item.originalCashPrice) : null;
+  const saved = original ? Math.max(0, original - price) : 0;
+
   const expiresAtStr =
     item.expiresAt instanceof Date
       ? item.expiresAt.toLocaleDateString("zh-CN")
@@ -83,158 +83,203 @@ export default function ScrollDetailPage({
     imageUrl: item.imageUrl,
     pointsPrice: item.pointsPrice,
     cashPrice: price,
-    originalCashPrice:
-      item.originalCashPrice != null ? Number(item.originalCashPrice) : undefined,
+    originalCashPrice: original ?? undefined,
     expiresAt: expiresAtStr,
     availableCountText: `剩余 ${item.stock} 件`,
     tags: item.tags,
   };
 
+  const canBuy = item.stock > 0 && item.status === "ACTIVE";
+  const maxQty = Math.min(10, item.stock);
+
   return (
-    <div className="min-h-[calc(100vh-56px)]">
-      <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6">
-        <div className="flex items-center justify-between gap-3">
-          <Button
-            variant="outline"
-            onClick={() => router.push("/")}
-            className="gap-2"
+    <div className="pb-28 md:pb-6">
+      <div className="space-y-4 px-4 py-4 md:px-6 md:py-5">
+        {/* 顶部返回 */}
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={() => router.back()}
+            className="flex h-9 w-9 items-center justify-center rounded-full border border-[var(--app-card-border)] bg-white text-foreground transition-colors hover:bg-secondary"
           >
             <ArrowLeft className="h-4 w-4" />
-            返回首页
-          </Button>
-          <div className="hidden items-center gap-2 text-xs text-muted-foreground sm:flex">
-            <Clock className="h-4 w-4" />
-            <span>限时活动 · 以页面倒计时为准</span>
-          </div>
+          </button>
+          <div className="text-base font-semibold text-foreground">商品详情</div>
         </div>
 
-        <div className="mt-6 grid gap-6 lg:grid-cols-2">
-          <Card className="overflow-hidden border-border">
-            <div className="relative aspect-square bg-[radial-gradient(circle_at_20%_30%,rgba(255,45,85,0.35),transparent_60%),radial-gradient(circle_at_70%_70%,rgba(138,43,226,0.35),transparent_55%)]">
-              {item.imageUrl && (
+        <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+          {/* 左：商品图 */}
+          <Card className="gap-0 overflow-hidden rounded-xl border border-[var(--app-card-border)] bg-white p-0 shadow-none">
+            <div className="relative aspect-square overflow-hidden bg-secondary">
+              {item.imageUrl ? (
                 <img
                   src={item.imageUrl}
                   alt={item.title}
                   className="absolute inset-0 h-full w-full object-cover"
                 />
-              )}
-            </div>
-            <CardContent className="p-5">
-              <div className="flex flex-wrap gap-2">
-                {item.tags.map((t: string) => (
-                  <Badge key={t} variant="outline" className="border-border">
-                    {t}
-                  </Badge>
-                ))}
-              </div>
-              <Separator className="my-4" />
-              <div className="text-sm leading-relaxed text-muted-foreground">
-                {item.description}
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="border-border">
-            <CardContent className="p-6">
-              <div className="flex items-start justify-between gap-4">
-                <div className="min-w-0">
-                  <Badge variant="secondary">{item.app}</Badge>
-                  <h1 className="mt-3 truncate text-2xl font-semibold text-foreground sm:text-3xl">
-                    {item.title}
-                  </h1>
-                  <div className="mt-2 text-sm text-muted-foreground">
-                    {item.subtitle}
-                  </div>
-                </div>
-                <Badge
-                  variant="outline"
-                  className="shrink-0 gap-2 border-border"
-                >
-                  <Sparkles className="h-3.5 w-3.5 text-primary" />
-                  剩余 {item.stock} 件
-                </Badge>
-              </div>
-
-              <div className="mt-4 rounded-2xl bg-red-500/10 px-4 py-3">
-                <div className="text-xs font-medium text-red-500">限时倒计时</div>
-                <div className="mt-1 text-2xl font-bold text-red-500">
-                  <Countdown targetAt={targetAt} />
-                </div>
-              </div>
-
-              <Card className="mt-5 border-border bg-secondary/30">
-                <CardContent className="p-4">
-                  <div className="text-sm font-semibold text-foreground">
-                    权益要点
-                  </div>
-                  <div className="mt-3 grid gap-2 text-sm text-muted-foreground">
-                    {[
-                      "优惠可叠加，效果更明显。",
-                      "成功后生成券码与二维码，可用于核销。",
-                      "限购一张，先到先得。",
-                    ].map((text, i) => (
-                      <div key={i} className="flex gap-2">
-                        <span className="text-primary">•</span>
-                        <span>{text}</span>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Separator className="my-6" />
-
-              <div>
-                <div className="text-xs text-muted-foreground">兑换价格</div>
-                <div className="mt-1 flex items-baseline gap-2">
-                  <span className="text-xl font-semibold text-foreground">
-                    {item.pointsPrice} 积分 + ¥{price.toFixed(2)}
+              ) : (
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <span className="text-xl font-semibold text-muted-foreground">
+                    {item.app}
                   </span>
-                  {scrollItem.originalCashPrice != null && scrollItem.originalCashPrice > price && (
-                    <span className="text-sm text-muted-foreground line-through">
-                      ¥{scrollItem.originalCashPrice.toFixed(2)}
-                    </span>
-                  )}
+                </div>
+              )}
+              <div className="absolute left-2 top-2 rounded bg-black/55 px-2 py-0.5 text-[11px] text-white backdrop-blur-sm">
+                {item.app}
+              </div>
+            </div>
+          </Card>
+
+          <div className="space-y-3">
+            {/* 标题区 */}
+            <Card className="gap-0 rounded-xl border border-[var(--app-card-border)] bg-white p-4 shadow-none">
+              <h1 className="text-lg font-bold leading-tight text-foreground md:text-xl">
+                {item.title}
+              </h1>
+              {item.subtitle && (
+                <p className="mt-1.5 text-sm leading-5 text-muted-foreground">
+                  {item.subtitle}
+                </p>
+              )}
+              {original && original > price && (
+                <div className="mt-3 flex items-baseline gap-2">
+                  <span className="rounded bg-[var(--brand-red-soft)] px-2 py-0.5 text-xs font-semibold text-[var(--brand-red)]">
+                    省 ¥{saved.toFixed(0)}
+                  </span>
+                  <span className="text-xs text-muted-foreground">
+                    原价 <span className="line-through">¥{original}</span>
+                  </span>
+                </div>
+              )}
+            </Card>
+
+            {/* 购买明细 */}
+            <Card className="gap-0 rounded-xl border border-[var(--app-card-border)] bg-white p-4 shadow-none">
+              {/* 购买数量 */}
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-foreground">购买数量</span>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setQty((q) => Math.max(1, q - 1))}
+                    disabled={qty <= 1}
+                    className="flex h-7 w-7 items-center justify-center rounded-full border border-[var(--app-card-border)] text-foreground transition-colors hover:bg-secondary disabled:opacity-40"
+                  >
+                    <Minus className="h-3 w-3" />
+                  </button>
+                  <span className="min-w-[2ch] text-center text-sm font-semibold text-foreground">
+                    ×{qty}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setQty((q) => Math.min(maxQty, q + 1))}
+                    disabled={qty >= maxQty}
+                    className="flex h-7 w-7 items-center justify-center rounded-full border border-[var(--app-card-border)] text-foreground transition-colors hover:bg-secondary disabled:opacity-40"
+                  >
+                    <Plus className="h-3 w-3" />
+                  </button>
                 </div>
               </div>
 
-              <div className="mt-4 text-xs text-muted-foreground">
-                失效时间：{expiresAtStr}
+              <div className="mt-3 h-px bg-[var(--app-card-border)]" />
+
+              {/* 订单价格 */}
+              {price > 0 && (
+                <div className="mt-3 flex items-center justify-between">
+                  <span className="text-sm text-muted-foreground">订单价格</span>
+                  <span className="text-sm font-semibold text-foreground">
+                    ¥{(price * qty).toFixed(0)}
+                  </span>
+                </div>
+              )}
+              {/* 消耗积分 */}
+              {item.pointsPrice > 0 && (
+                <div className="mt-2 flex items-center justify-between">
+                  <span className="text-sm text-muted-foreground">消耗积分</span>
+                  <span className="text-sm font-semibold text-foreground">
+                    {item.pointsPrice * qty}
+                  </span>
+                </div>
+              )}
+              {/* 库存 */}
+              <div className="mt-2 flex items-center justify-between">
+                <span className="text-sm text-muted-foreground">剩余库存</span>
+                <span className="text-sm text-foreground">
+                  {item.stock} 件
+                </span>
               </div>
-            </CardContent>
-          </Card>
+              {/* 失效时间 */}
+              <div className="mt-2 flex items-center justify-between">
+                <span className="text-sm text-muted-foreground">失效时间</span>
+                <span className="text-sm text-foreground">{expiresAtStr}</span>
+              </div>
+            </Card>
+          </div>
         </div>
+
+        {/* 规则说明 */}
+        <Card className="gap-0 rounded-xl border border-[var(--app-card-border)] bg-white p-4 shadow-none">
+          <div className="text-sm font-bold text-foreground">规则说明</div>
+          <ol className="mt-3 space-y-2 text-sm leading-6 text-muted-foreground">
+            <li>
+              <span className="mr-1 font-semibold text-foreground">1.</span>
+              购买方式：在 x-pass 平台选择你想购买的商品类型、数量、单个价格、季节、年卡点券等，添加到购物车后提交订单。
+            </li>
+            <li>
+              <span className="mr-1 font-semibold text-foreground">2.</span>
+              进入个人中心后台查看，导出对应的平台券码，核验成功后发货。
+            </li>
+            <li>
+              <span className="mr-1 font-semibold text-foreground">3.</span>
+              每张限购一张，先到先得；积分与现金可组合抵扣。
+            </li>
+          </ol>
+        </Card>
+
+        {/* 商品介绍 */}
+        {item.description && (
+          <Card className="gap-0 rounded-xl border border-[var(--app-card-border)] bg-white p-4 shadow-none">
+            <div className="text-sm font-bold text-foreground">商品介绍</div>
+            <p className="mt-2 text-sm leading-6 text-muted-foreground">
+              {item.description}
+            </p>
+          </Card>
+        )}
       </div>
 
-      <div className="h-20" />
-
-      <div className="fixed inset-x-0 bottom-0 z-20 border-t border-border bg-background/95 px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 backdrop-blur">
-        <div className="mx-auto flex max-w-6xl items-center justify-between gap-4">
-          <div className="flex items-baseline gap-2">
-            <span className="text-lg font-bold text-foreground">{item.pointsPrice} 积分 + ¥{price.toFixed(2)}</span>
-            {scrollItem.originalCashPrice != null && scrollItem.originalCashPrice > price && (
-              <span className="text-xs text-muted-foreground line-through">¥{scrollItem.originalCashPrice.toFixed(2)}</span>
-            )}
-          </div>
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-1.5 rounded-full border border-border bg-secondary/50 px-1">
-              <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full" onClick={() => setQty(Math.max(1, qty - 1))} disabled={qty <= 1}>
-                <Minus className="h-3.5 w-3.5" />
-              </Button>
-              <span className="w-6 text-center text-sm font-medium text-foreground">{qty}</span>
-              <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full" onClick={() => setQty(Math.min(item.stock, qty + 1))} disabled={qty >= item.stock}>
-                <Plus className="h-3.5 w-3.5" />
-              </Button>
+      {/* 底部浮动立即购买 */}
+      <div
+        className={cn(
+          "fixed inset-x-0 bottom-[calc(72px+env(safe-area-inset-bottom))] z-20 mx-4",
+          "md:static md:mx-6 md:mt-2",
+        )}
+      >
+        <div className="flex items-center gap-3 rounded-full border border-[var(--app-card-border)] bg-white p-2 shadow-[0_-4px_20px_rgba(15,23,42,0.08)] md:shadow-none">
+          <div className="ml-3 flex-1">
+            <div className="text-[11px] text-muted-foreground">到手价</div>
+            <div className="flex items-baseline gap-1">
+              {item.pointsPrice > 0 && (
+                <span className="text-sm font-bold text-[var(--brand-red)]">
+                  {item.pointsPrice * qty} 积分
+                </span>
+              )}
+              {item.pointsPrice > 0 && price > 0 && (
+                <span className="text-xs text-muted-foreground">+</span>
+              )}
+              {price > 0 && (
+                <span className="text-sm font-bold text-[var(--brand-red)]">
+                  ¥{(price * qty).toFixed(0)}
+                </span>
+              )}
             </div>
-            <Button
-              onClick={() => setOpenBuy(true)}
-              disabled={item.stock <= 0 || item.status !== "ACTIVE"}
-              className="rounded-full bg-[var(--gradient-primary)] px-6 text-white hover:brightness-110"
-              style={{ boxShadow: "var(--shadow-glow)" }}
-            >
-              {item.stock > 0 && item.status === "ACTIVE" ? "立即兑换" : "暂不可兑换"}
-            </Button>
           </div>
+          <Button
+            onClick={() => setOpenBuy(true)}
+            disabled={!canBuy}
+            className="h-10 rounded-full bg-[var(--brand-red)] px-8 text-sm font-bold text-white hover:bg-[var(--brand-red-hover)]"
+          >
+            {canBuy ? "立即购买" : "暂不可兑换"}
+          </Button>
         </div>
       </div>
 
@@ -242,7 +287,7 @@ export default function ScrollDetailPage({
         open={openBuy}
         scroll={scrollItem}
         onOpenChange={setOpenBuy}
-        onGoMy={() => router.push("/coupons")}
+        onGoMy={() => router.push("/profile")}
       />
     </div>
   );
