@@ -227,12 +227,14 @@ function AccountInfoCard({ profile }: { profile: UserProfile | undefined }) {
 const SETTING_ITEMS = [
   { id: "account", icon: UserCog, label: "账户设置" },
   { id: "notify", icon: Bell, label: "消息通知" },
+  { id: "notices", icon: Bell, label: "公告中心", path: "/notices-center" },
   { id: "help", icon: HelpCircle, label: "帮助中心" },
   { id: "terms", icon: FileText, label: "服务条款" },
   { id: "about", icon: Info, label: "关于我们" },
 ] as const;
 
 function SettingsList({ onGo }: { onGo?: (id: string) => void }) {
+  const router = useRouter();
   return (
     <Card className="gap-0 overflow-hidden rounded-xl border border-[var(--app-card-border)] bg-[var(--app-card)] p-0 shadow-none">
       {SETTING_ITEMS.map((item, i) => {
@@ -241,7 +243,11 @@ function SettingsList({ onGo }: { onGo?: (id: string) => void }) {
           <button
             key={item.id}
             type="button"
-            onClick={() => onGo?.(item.id)}
+            onClick={() => {
+              const path = (item as { path?: string }).path;
+              if (path) router.push(path);
+              else onGo?.(item.id);
+            }}
             className={cn(
               "flex w-full items-center gap-3 px-4 py-3.5 text-left transition-colors hover:bg-secondary/60",
               i !== SETTING_ITEMS.length - 1 &&

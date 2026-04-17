@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { createTRPCRouter, adminProcedure, merchantProcedure } from "../init";
+import { writeAuditLog } from "@/lib/audit";
 
 function daysAgo(n: number) {
   const d = new Date();
@@ -78,18 +79,241 @@ export const adminRouter = createTRPCRouter({
 
       const target = await ctx.prisma.user.findUnique({
         where: { id: input.userId },
-        select: { id: true },
+        select: { id: true, role: true },
       });
 
       if (!target) {
         throw new TRPCError({ code: "NOT_FOUND", message: "用户不存在" });
       }
 
-      return ctx.prisma.user.update({
+      const updated = await ctx.prisma.user.update({
         where: { id: input.userId },
         data: { role: input.role },
         select: { id: true, role: true },
       });
+
+      await writeAuditLog({
+        actorId: ctx.user.id,
+        action: "user.role.update",
+        targetType: "User",
+        targetId: input.userId,
+        summary: `角色 ${target.role} → ${input.role}`,
+        metadata: { from: target.role, to: input.role },
+        headers: ctx.headers,
+      });
+
+      return updated;
+    }),
+
+  userDetail: adminProcedure
+    .input(z.object({ userId: z.string() }))
+    .query(async ({ ctx, input }) => {
+      const user = await ctx.prisma.user.findUnique({
+        where: { id: input.userId },
+        select: {
+          id: true,
+          email: true,
+          name: true,
+          phone: true,
+          role: true,
+          points: true,
+          vipLevel: true,
+          vipExpiresAt: true,
+          inviteCode: true,
+          invitedById: true,
+          isBanned: true,
+          banReason: true,
+          bannedAt: true,
+          createdAt: true,
+          updatedAt: true,
+          _count: {
+            select: {
+              orders: true,
+              coupons: true,
+              referrals: true,
+              posts: true,
+              comments: true,
+              favorites: true,
+              checkins: true,
+            },
+          },
+        },
+      });
+      if (!user) throw new TRPCError({ code: "NOT_FOUND", message: "用户不存在" });
+
+      const [recentOrders, recentCheckins, recentAudits] = await Promise.all([
+        ctx.prisma.order.findMany({
+          where: { userId: input.userId },
+          include: { product: { select: { id: true, title: true, app: true } } },
+          orderBy: { createdAt: "desc" },
+          take: 10,
+        }),
+        ctx.prisma.checkin.findMany({
+          where: { userId: input.userId },
+          orderBy: { checkedAt: "desc" },
+          take: 10,
+        }),
+        ctx.prisma.auditLog.findMany({
+          where: { targetType: "User", targetId: input.userId },
+          include: {
+            actor: { select: { id: true, name: true, email: true } },
+          },
+          orderBy: { createdAt: "desc" },
+          take: 20,
+        }),
+      ]);
+
+      return { user, recentOrders, recentCheckins, recentAudits };
+    }),
+
+  adjustUserPoints: adminProcedure
+    .input(
+      z.object({
+        userId: z.string(),
+        delta: z.number().int().min(-1_000_000).max(1_000_000),
+        reason: z.string().min(1).max(500),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const target = await ctx.prisma.user.findUnique({
+        where: { id: input.userId },
+        select: { id: true, points: true },
+      });
+      if (!target) throw new TRPCError({ code: "NOT_FOUND", message: "用户不存在" });
+
+      const nextPoints = Math.max(0, target.points + input.delta);
+      const effectiveDelta = nextPoints - target.points;
+
+      const user = await ctx.prisma.user.update({
+        where: { id: input.userId },
+        data: { points: nextPoints },
+        select: { id: true, points: true },
+      });
+
+      await writeAuditLog({
+        actorId: ctx.user.id,
+        action: "user.points.adjust",
+        targetType: "User",
+        targetId: input.userId,
+        summary: `${effectiveDelta >= 0 ? "+" : ""}${effectiveDelta} 积分 · ${input.reason}`,
+        metadata: {
+          requested: input.delta,
+          applied: effectiveDelta,
+          before: target.points,
+          after: nextPoints,
+          reason: input.reason,
+        },
+        headers: ctx.headers,
+      });
+
+      return user;
+    }),
+
+  setUserVip: adminProcedure
+    .input(
+      z.object({
+        userId: z.string(),
+        vipLevel: z.number().int().min(0).max(10),
+        vipExpiresAt: z.string().datetime().nullable().optional(),
+        reason: z.string().min(1).max(500),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const target = await ctx.prisma.user.findUnique({
+        where: { id: input.userId },
+        select: { id: true, vipLevel: true, vipExpiresAt: true },
+      });
+      if (!target) throw new TRPCError({ code: "NOT_FOUND", message: "用户不存在" });
+
+      const user = await ctx.prisma.user.update({
+        where: { id: input.userId },
+        data: {
+          vipLevel: input.vipLevel,
+          vipExpiresAt:
+            input.vipExpiresAt === undefined
+              ? target.vipExpiresAt
+              : input.vipExpiresAt === null
+                ? null
+                : new Date(input.vipExpiresAt),
+        },
+        select: { id: true, vipLevel: true, vipExpiresAt: true },
+      });
+
+      await writeAuditLog({
+        actorId: ctx.user.id,
+        action: "user.vip.set",
+        targetType: "User",
+        targetId: input.userId,
+        summary: `VIP Lv.${target.vipLevel} → Lv.${input.vipLevel}`,
+        metadata: {
+          reason: input.reason,
+          fromLevel: target.vipLevel,
+          toLevel: input.vipLevel,
+          fromExpiry: target.vipExpiresAt,
+          toExpiry: user.vipExpiresAt,
+        },
+        headers: ctx.headers,
+      });
+
+      return user;
+    }),
+
+  setUserBanned: adminProcedure
+    .input(
+      z.object({
+        userId: z.string(),
+        banned: z.boolean(),
+        reason: z.string().max(500).optional(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      if (input.userId === ctx.user.id) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "不能封禁自己",
+        });
+      }
+
+      const target = await ctx.prisma.user.findUnique({
+        where: { id: input.userId },
+        select: { id: true, isBanned: true, role: true },
+      });
+      if (!target) throw new TRPCError({ code: "NOT_FOUND", message: "用户不存在" });
+
+      if (target.role === "ADMIN" && input.banned) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "无法封禁管理员，请先撤销角色",
+        });
+      }
+
+      const user = await ctx.prisma.$transaction(async (tx) => {
+        const updated = await tx.user.update({
+          where: { id: input.userId },
+          data: {
+            isBanned: input.banned,
+            banReason: input.banned ? (input.reason ?? null) : null,
+            bannedAt: input.banned ? new Date() : null,
+          },
+          select: { id: true, isBanned: true, banReason: true, bannedAt: true },
+        });
+        if (input.banned) {
+          await tx.session.deleteMany({ where: { userId: input.userId } });
+        }
+        return updated;
+      });
+
+      await writeAuditLog({
+        actorId: ctx.user.id,
+        action: input.banned ? "user.ban" : "user.unban",
+        targetType: "User",
+        targetId: input.userId,
+        summary: input.banned ? `封禁用户` : `解除封禁`,
+        metadata: { reason: input.reason },
+        headers: ctx.headers,
+      });
+
+      return user;
     }),
 
   platformStats: adminProcedure.query(async ({ ctx }) => {
@@ -434,4 +658,163 @@ export const adminRouter = createTRPCRouter({
       ],
     };
   }),
+
+  // ── Audit logs ──
+
+  listAuditLogs: adminProcedure
+    .input(
+      z
+        .object({
+          page: z.number().int().min(1).default(1),
+          pageSize: z.number().int().min(1).max(100).default(30),
+          action: z.string().optional(),
+          targetType: z.string().optional(),
+          actorId: z.string().optional(),
+          search: z.string().trim().optional(),
+        })
+        .optional(),
+    )
+    .query(async ({ ctx, input }) => {
+      const page = input?.page ?? 1;
+      const pageSize = input?.pageSize ?? 30;
+      const where: Record<string, unknown> = {};
+      if (input?.action) where.action = input.action;
+      if (input?.targetType) where.targetType = input.targetType;
+      if (input?.actorId) where.actorId = input.actorId;
+      if (input?.search?.trim()) {
+        const k = input.search.trim();
+        where.OR = [
+          { summary: { contains: k, mode: "insensitive" } },
+          { targetId: { contains: k } },
+          { actor: { email: { contains: k, mode: "insensitive" } } },
+          { actor: { name: { contains: k, mode: "insensitive" } } },
+        ];
+      }
+
+      const [logs, total, distinctActions] = await Promise.all([
+        ctx.prisma.auditLog.findMany({
+          where,
+          include: {
+            actor: { select: { id: true, name: true, email: true, role: true } },
+          },
+          orderBy: { createdAt: "desc" },
+          take: pageSize,
+          skip: (page - 1) * pageSize,
+        }),
+        ctx.prisma.auditLog.count({ where }),
+        ctx.prisma.auditLog.findMany({
+          distinct: ["action"],
+          select: { action: true },
+          orderBy: { action: "asc" },
+        }),
+      ]);
+
+      return {
+        logs,
+        total,
+        page,
+        pageSize,
+        actions: distinctActions.map((a) => a.action),
+      };
+    }),
+
+  // ── System notices (公告) CRUD ──
+
+  listNotices: adminProcedure
+    .input(
+      z
+        .object({
+          page: z.number().int().min(1).default(1),
+          pageSize: z.number().int().min(1).max(100).default(20),
+          includeInactive: z.boolean().default(true),
+        })
+        .optional(),
+    )
+    .query(async ({ ctx, input }) => {
+      const page = input?.page ?? 1;
+      const pageSize = input?.pageSize ?? 20;
+      const where: Record<string, unknown> = {};
+      if (input && !input.includeInactive) where.isActive = true;
+
+      const [notices, total] = await Promise.all([
+        ctx.prisma.systemNotice.findMany({
+          where,
+          include: { _count: { select: { reads: true } } },
+          orderBy: [{ pinned: "desc" }, { createdAt: "desc" }],
+          take: pageSize,
+          skip: (page - 1) * pageSize,
+        }),
+        ctx.prisma.systemNotice.count({ where }),
+      ]);
+
+      return { notices, total, page, pageSize };
+    }),
+
+  upsertNotice: adminProcedure
+    .input(
+      z.object({
+        id: z.string().optional(),
+        title: z.string().min(1).max(120),
+        content: z.string().min(1).max(5000),
+        level: z.enum(["INFO", "WARNING", "SUCCESS", "CRITICAL"]).default("INFO"),
+        audience: z
+          .enum(["ALL", "CONSUMER", "MERCHANT", "AGENT", "ADMIN"])
+          .default("ALL"),
+        pinned: z.boolean().default(false),
+        isActive: z.boolean().default(true),
+        startAt: z.string().datetime().nullable().optional(),
+        endAt: z.string().datetime().nullable().optional(),
+        linkUrl: z.string().url().nullable().optional(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const { id, startAt, endAt, linkUrl, ...rest } = input;
+      const data = {
+        ...rest,
+        startAt: startAt ? new Date(startAt) : null,
+        endAt: endAt ? new Date(endAt) : null,
+        linkUrl: linkUrl ?? null,
+      };
+
+      let saved;
+      if (id) {
+        saved = await ctx.prisma.systemNotice.update({ where: { id }, data });
+        await writeAuditLog({
+          actorId: ctx.user.id,
+          action: "notice.update",
+          targetType: "SystemNotice",
+          targetId: id,
+          summary: `更新公告「${input.title}」`,
+          headers: ctx.headers,
+        });
+      } else {
+        saved = await ctx.prisma.systemNotice.create({
+          data: { ...data, createdBy: ctx.user.id },
+        });
+        await writeAuditLog({
+          actorId: ctx.user.id,
+          action: "notice.create",
+          targetType: "SystemNotice",
+          targetId: saved.id,
+          summary: `创建公告「${input.title}」`,
+          headers: ctx.headers,
+        });
+      }
+      return saved;
+    }),
+
+  deleteNotice: adminProcedure
+    .input(z.object({ id: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      await ctx.prisma.systemNotice.delete({ where: { id: input.id } });
+      await writeAuditLog({
+        actorId: ctx.user.id,
+        action: "notice.delete",
+        targetType: "SystemNotice",
+        targetId: input.id,
+        summary: "删除公告",
+        headers: ctx.headers,
+      });
+      return { success: true };
+    }),
 });

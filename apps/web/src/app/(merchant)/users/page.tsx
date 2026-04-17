@@ -46,6 +46,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { UserDetailSheet } from "@/components/admin/user-detail-sheet";
 
 type UsersPayload = RouterOutputs["admin"]["listUsers"];
 type UserItem = UsersPayload["users"][number];
@@ -102,6 +103,7 @@ export default function UsersPage() {
     user: UserItem;
     newRole: Role;
   } | null>(null);
+  const [detailUserId, setDetailUserId] = useState<string | null>(null);
   const pageSize = 20;
 
   const { data, isLoading } = useQuery(
@@ -270,17 +272,23 @@ export default function UsersPage() {
                   {users.map((u) => (
                     <TableRow key={u.id} className="border-border">
                       <TableCell className="min-w-[200px]">
-                        <div className="font-medium text-foreground">
-                          {u.name ?? "—"}
-                        </div>
-                        <div className="text-xs text-muted-foreground">
-                          {u.email}
-                        </div>
-                        {u.phone && (
-                          <div className="text-xs text-muted-foreground">
-                            {u.phone}
+                        <button
+                          type="button"
+                          onClick={() => setDetailUserId(u.id)}
+                          className="text-left transition-colors hover:text-primary"
+                        >
+                          <div className="font-medium text-foreground">
+                            {u.name ?? "—"}
                           </div>
-                        )}
+                          <div className="text-xs text-muted-foreground">
+                            {u.email}
+                          </div>
+                          {u.phone && (
+                            <div className="text-xs text-muted-foreground">
+                              {u.phone}
+                            </div>
+                          )}
+                        </button>
                       </TableCell>
                       <TableCell>{roleBadge(u.role)}</TableCell>
                       <TableCell className="text-right text-foreground">
@@ -353,6 +361,11 @@ export default function UsersPage() {
           </div>
         </CardContent>
       </Card>
+
+      <UserDetailSheet
+        userId={detailUserId}
+        onClose={() => setDetailUserId(null)}
+      />
 
       <AlertDialog
         open={!!roleChangeTarget}

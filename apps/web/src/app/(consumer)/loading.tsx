@@ -15,7 +15,7 @@ export default function ConsumerLoading() {
         animate={{ rotate: 360 }}
         transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
       >
-        <Loader2 className="h-8 w-8 text-slate-400" />
+        <Loader2 className="h-8 w-8 text-muted-foreground" />
       </motion.div>
     </motion.div>
   );

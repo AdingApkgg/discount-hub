@@ -1,6 +1,12 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
-import { createTRPCRouter, publicProcedure, protectedProcedure } from "../init";
+import {
+  createTRPCRouter,
+  publicProcedure,
+  protectedProcedure,
+  adminProcedure,
+} from "../init";
+import { writeAuditLog } from "@/lib/audit";
 
 export const postRouter = createTRPCRouter({
   list: publicProcedure
@@ -87,5 +93,103 @@ export const postRouter = createTRPCRouter({
         data: { postId: input.postId, userId: ctx.user.id, content: input.content },
         include: { user: { select: { id: true, name: true, image: true } } },
       });
+    }),
+
+  // ── Admin moderation ──
+
+  adminList: adminProcedure
+    .input(
+      z
+        .object({
+          page: z.number().int().min(1).default(1),
+          pageSize: z.number().int().min(1).max(100).default(20),
+          search: z.string().trim().optional(),
+        })
+        .optional(),
+    )
+    .query(async ({ ctx, input }) => {
+      const page = input?.page ?? 1;
+      const pageSize = input?.pageSize ?? 20;
+      const where: Record<string, unknown> = {};
+      if (input?.search?.trim()) {
+        const k = input.search.trim();
+        where.OR = [
+          { title: { contains: k, mode: "insensitive" } },
+          { content: { contains: k, mode: "insensitive" } },
+          { user: { name: { contains: k, mode: "insensitive" } } },
+          { user: { email: { contains: k, mode: "insensitive" } } },
+        ];
+      }
+      const [posts, total] = await Promise.all([
+        ctx.prisma.post.findMany({
+          where,
+          include: {
+            user: { select: { id: true, name: true, email: true, image: true } },
+            _count: { select: { comments: true } },
+          },
+          orderBy: { createdAt: "desc" },
+          take: pageSize,
+          skip: (page - 1) * pageSize,
+        }),
+        ctx.prisma.post.count({ where }),
+      ]);
+      return { posts, total, page, pageSize };
+    }),
+
+  adminDeletePost: adminProcedure
+    .input(z.object({ id: z.string(), reason: z.string().max(500).optional() }))
+    .mutation(async ({ ctx, input }) => {
+      const post = await ctx.prisma.post.findUnique({
+        where: { id: input.id },
+        select: { id: true, userId: true, title: true },
+      });
+      if (!post) throw new TRPCError({ code: "NOT_FOUND", message: "帖子不存在" });
+
+      await ctx.prisma.$transaction([
+        ctx.prisma.comment.deleteMany({ where: { postId: input.id } }),
+        ctx.prisma.post.delete({ where: { id: input.id } }),
+      ]);
+
+      await writeAuditLog({
+        actorId: ctx.user.id,
+        action: "post.delete",
+        targetType: "Post",
+        targetId: post.id,
+        summary: `删除帖子「${post.title}」`,
+        metadata: { authorId: post.userId, reason: input.reason },
+        headers: ctx.headers,
+      });
+
+      return { success: true };
+    }),
+
+  adminDeleteComment: adminProcedure
+    .input(z.object({ id: z.string(), reason: z.string().max(500).optional() }))
+    .mutation(async ({ ctx, input }) => {
+      const comment = await ctx.prisma.comment.findUnique({
+        where: { id: input.id },
+        select: { id: true, postId: true, userId: true, content: true },
+      });
+      if (!comment)
+        throw new TRPCError({ code: "NOT_FOUND", message: "评论不存在" });
+
+      await ctx.prisma.comment.delete({ where: { id: input.id } });
+
+      await writeAuditLog({
+        actorId: ctx.user.id,
+        action: "comment.delete",
+        targetType: "Comment",
+        targetId: comment.id,
+        summary: `删除评论`,
+        metadata: {
+          postId: comment.postId,
+          authorId: comment.userId,
+          reason: input.reason,
+          preview: comment.content.slice(0, 80),
+        },
+        headers: ctx.headers,
+      });
+
+      return { success: true };
     }),
 });

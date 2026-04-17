@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   CheckCircle2,
+  ChevronDown,
   Copy,
   CreditCard,
   Loader2,
@@ -18,8 +19,6 @@ import {
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import FakeQr from "./FakeQr";
 import { toast } from "sonner";
@@ -41,6 +40,25 @@ type PurchasePayload = RouterOutputs["order"]["purchase"];
 type CompletePaymentPayload = RouterOutputs["order"]["completePayment"];
 type PaymentPayload = PurchasePayload | CompletePaymentPayload;
 
+const PRIMARY_PAY_METHODS: PayMethod[] = [
+  "alipay",
+  "wechat",
+  "unionpay",
+  "paypal",
+];
+
+const PAY_METHOD_VISUAL: Record<
+  PayMethod,
+  { glyph: string; bg: string; fg: string }
+> = {
+  alipay:    { glyph: "支", bg: "#1677FF", fg: "#FFFFFF" },
+  wechat:    { glyph: "微", bg: "#09BB07", fg: "#FFFFFF" },
+  unionpay:  { glyph: "银", bg: "#E23D3D", fg: "#FFFFFF" },
+  paypal:    { glyph: "P",  bg: "#003087", fg: "#FFB800" },
+  visa:      { glyph: "V",  bg: "#1A1F71", fg: "#F5B800" },
+  usdt_trc20:{ glyph: "T",  bg: "#26A17B", fg: "#FFFFFF" },
+};
+
 export default function PurchaseFlowDialog({
   open,
   scroll,
@@ -55,6 +73,7 @@ export default function PurchaseFlowDialog({
   const [step, setStep] = useState<Step>("offer");
   const [qty, setQty] = useState(1);
   const [method, setMethod] = useState<PayMethod>("alipay");
+  const [showMoreMethods, setShowMoreMethods] = useState(false);
   const [paying, setPaying] = useState(false);
   const [confirming, setConfirming] = useState(false);
   const [pendingOrderId, setPendingOrderId] = useState<string | null>(null);
@@ -71,6 +90,7 @@ export default function PurchaseFlowDialog({
     setStep("offer");
     setQty(1);
     setMethod("alipay");
+    setShowMoreMethods(false);
     setPaying(false);
     setConfirming(false);
     setPendingOrderId(null);
@@ -279,28 +299,121 @@ export default function PurchaseFlowDialog({
               <Card className="border-border">
                 <CardContent className="p-4">
                   <div className="mb-3 flex items-center justify-between">
-                    <div className="text-sm font-semibold text-foreground">选择支付方式</div>
-                    <div className="text-xs text-muted-foreground">共 {PAY_METHODS.length} 种</div>
+                    <div className="text-sm font-semibold text-foreground">
+                      选择支付方式
+                    </div>
                   </div>
-                  <RadioGroup value={method} onValueChange={(v) => setMethod(v as PayMethod)} className="grid gap-2 sm:grid-cols-2">
-                    {PAY_METHODS.map((m) => (
-                      <Label
-                        key={m.id}
-                        htmlFor={`pay-${m.id}`}
-                        className={cn(
-                          "flex cursor-pointer items-center gap-3 rounded-xl border border-border p-3 transition",
-                          method === m.id ? "border-primary bg-primary/5 ring-2 ring-primary/30" : "hover:bg-secondary/50",
-                        )}
-                      >
-                        <RadioGroupItem value={m.id} id={`pay-${m.id}`} />
-                        <div className="min-w-0 flex-1">
-                          <div className="text-sm font-semibold text-foreground">{m.name}</div>
-                          <div className="mt-0.5 text-[11px] text-muted-foreground">{m.providerLabel}</div>
-                        </div>
-                        <Badge variant="outline" className="border-border text-[11px]">{m.hint}</Badge>
-                      </Label>
-                    ))}
-                  </RadioGroup>
+                  <div className="grid grid-cols-2 gap-2.5">
+                    {PRIMARY_PAY_METHODS.map((id) => {
+                      const m = PAY_METHODS.find((x) => x.id === id);
+                      if (!m) return null;
+                      const v = PAY_METHOD_VISUAL[m.id];
+                      const active = method === m.id;
+                      return (
+                        <button
+                          key={m.id}
+                          type="button"
+                          onClick={() => setMethod(m.id)}
+                          className={cn(
+                            "relative flex items-center gap-3 rounded-xl border p-3 text-left transition-all",
+                            active
+                              ? "border-[var(--brand-red)] bg-[var(--brand-red-soft)] ring-2 ring-[var(--brand-red)]/20"
+                              : "border-border bg-[var(--app-card)] hover:border-[var(--brand-red)]/40",
+                          )}
+                          aria-pressed={active}
+                        >
+                          <span
+                            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-sm font-black"
+                            style={{ background: v.bg, color: v.fg }}
+                            aria-hidden
+                          >
+                            {v.glyph}
+                          </span>
+                          <span className="min-w-0 flex-1">
+                            <span className="block truncate text-sm font-semibold text-foreground">
+                              {m.name}
+                            </span>
+                            <span className="mt-0.5 block truncate text-[11px] text-muted-foreground">
+                              {m.hint}
+                            </span>
+                          </span>
+                          <span
+                            className={cn(
+                              "flex h-4 w-4 shrink-0 items-center justify-center rounded-full border-2",
+                              active
+                                ? "border-[var(--brand-red)]"
+                                : "border-muted-foreground/40",
+                            )}
+                          >
+                            {active && (
+                              <span className="h-2 w-2 rounded-full bg-[var(--brand-red)]" />
+                            )}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => setShowMoreMethods((v) => !v)}
+                    className="mt-3 flex w-full items-center justify-center gap-1 rounded-lg py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
+                  >
+                    {showMoreMethods ? "收起" : "更多支付方式"}
+                    <ChevronDown
+                      className={cn(
+                        "h-3.5 w-3.5 transition-transform",
+                        showMoreMethods && "rotate-180",
+                      )}
+                    />
+                  </button>
+
+                  {showMoreMethods && (
+                    <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                      {PAY_METHODS.filter(
+                        (m) => !PRIMARY_PAY_METHODS.includes(m.id),
+                      ).map((m) => {
+                        const v = PAY_METHOD_VISUAL[m.id];
+                        const active = method === m.id;
+                        return (
+                          <button
+                            key={m.id}
+                            type="button"
+                            onClick={() => setMethod(m.id)}
+                            className={cn(
+                              "flex items-center gap-3 rounded-xl border p-3 text-left transition-all",
+                              active
+                                ? "border-[var(--brand-red)] bg-[var(--brand-red-soft)] ring-2 ring-[var(--brand-red)]/20"
+                                : "border-border bg-[var(--app-card)] hover:border-[var(--brand-red)]/40",
+                            )}
+                            aria-pressed={active}
+                          >
+                            <span
+                              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-xs font-black"
+                              style={{ background: v.bg, color: v.fg }}
+                              aria-hidden
+                            >
+                              {v.glyph}
+                            </span>
+                            <span className="min-w-0 flex-1">
+                              <span className="block truncate text-sm font-semibold text-foreground">
+                                {m.name}
+                              </span>
+                              <span className="mt-0.5 block truncate text-[11px] text-muted-foreground">
+                                {m.providerLabel}
+                              </span>
+                            </span>
+                            <Badge
+                              variant="outline"
+                              className="border-border text-[11px]"
+                            >
+                              {m.hint}
+                            </Badge>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             </div>

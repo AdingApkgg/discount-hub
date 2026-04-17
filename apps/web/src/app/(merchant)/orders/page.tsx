@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Loader2, Receipt, Search, Undo2 } from "lucide-react";
+import { Download, Loader2, Receipt, Search, Undo2 } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { useTRPC } from "@/trpc/client";
@@ -171,11 +171,26 @@ export default function OrdersPage() {
 
   return (
     <div className="p-6 max-w-6xl mx-auto space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold text-foreground">订单管理</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          查看订单、券码状态和交易收入，支持退款操作。
-        </p>
+      <div className="flex items-end justify-between gap-4 flex-wrap">
+        <div>
+          <h1 className="text-2xl font-semibold text-foreground">订单管理</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            查看订单、券码状态和交易收入，支持退款操作。
+          </p>
+        </div>
+        <Button
+          variant="outline"
+          className="gap-2"
+          onClick={() => {
+            const params = new URLSearchParams();
+            if (statusFilter !== "all") params.set("status", statusFilter);
+            const url = `/api/export/orders${params.size ? `?${params.toString()}` : ""}`;
+            window.location.href = url;
+          }}
+        >
+          <Download className="h-4 w-4" />
+          导出 CSV
+        </Button>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">

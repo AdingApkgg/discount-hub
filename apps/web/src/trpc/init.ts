@@ -54,6 +54,12 @@ export const protectedProcedure = t.procedure.use(async ({ ctx, next }) => {
   if (!ctx.user) {
     throw new TRPCError({ code: "UNAUTHORIZED", message: "请先登录" });
   }
+  if ((ctx.user as { isBanned?: boolean }).isBanned) {
+    throw new TRPCError({
+      code: "FORBIDDEN",
+      message: "账号已被封禁，如有疑问请联系管理员",
+    });
+  }
   await checkRateLimit(`user:${ctx.user.id}`, { max: 30, windowSec: 60 });
   return next({ ctx: { ...ctx, user: ctx.user } });
 });

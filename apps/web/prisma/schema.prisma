@@ -24,22 +24,28 @@ model User {
   invitedById   String?
   invitedBy     User?     @relation("Referral", fields: [invitedById], references: [id])
   referrals     User[]    @relation("Referral")
+  isBanned      Boolean   @default(false)
+  banReason     String?
+  bannedAt      DateTime?
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
-  sessions           Session[]
-  accounts           Account[]
-  orders             Order[]
-  coupons            Coupon[]
-  checkins           Checkin[]
-  taskCompletions    TaskCompletion[]
-  verifications      VerificationRecord[] @relation("VerifiedBy")
-  posts              Post[]
-  comments           Comment[]
-  favorites          Favorite[]
-  footprints         Footprint[]
-  agentApplication   AgentApplication?
+  sessions         Session[]
+  accounts         Account[]
+  orders           Order[]
+  coupons          Coupon[]
+  checkins         Checkin[]
+  taskCompletions  TaskCompletion[]
+  verifications    VerificationRecord[] @relation("VerifiedBy")
+  posts            Post[]
+  comments         Comment[]
+  favorites        Favorite[]
+  footprints       Footprint[]
+  agentApplication AgentApplication?
+  auditLogs        AuditLog[]           @relation("AuditActor")
+  noticeReads      NoticeRead[]
 
+  @@index([role, isBanned])
   @@map("users")
 }
 
@@ -100,29 +106,29 @@ enum Role {
 // ─── Products / Scrolls ─────────────────────────────
 
 model Product {
-  id                String   @id @default(cuid())
+  id                String        @id @default(cuid())
   app               String
   title             String
-  subtitle          String   @default("")
-  description       String   @default("")
-  category          String   @default("today")
+  subtitle          String        @default("")
+  description       String        @default("")
+  category          String        @default("today")
   imageUrl          String?
   coverImage        String?
-  pointsPrice       Int      @default(0)
-  cashPrice         Decimal  @default(0) @db.Decimal(10, 2)
-  originalCashPrice Decimal? @db.Decimal(10, 2)
-  stock             Int      @default(0)
-  minAmount         Decimal? @db.Decimal(10, 2)
+  pointsPrice       Int           @default(0)
+  cashPrice         Decimal       @default(0) @db.Decimal(10, 2)
+  originalCashPrice Decimal?      @db.Decimal(10, 2)
+  stock             Int           @default(0)
+  minAmount         Decimal?      @db.Decimal(10, 2)
   minQuantity       Int?
-  purchaseNotes     String[] @default([])
+  purchaseNotes     String[]      @default([])
   usageNotes        String?
-  agentPrice        Decimal? @db.Decimal(10, 2)
+  agentPrice        Decimal?      @db.Decimal(10, 2)
   agentMinQty       Int?
   expiresAt         DateTime
-  tags              String[] @default([])
+  tags              String[]      @default([])
   status            ProductStatus @default(ACTIVE)
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
 
   orders     Order[]
   coupons    Coupon[]
@@ -182,21 +188,21 @@ enum OrderStatus {
 // ─── Coupons ────────────────────────────────────────
 
 model Coupon {
-  id           String       @id @default(cuid())
-  code         String       @unique
-  userId       String
-  productId    String
-  orderId      String       @unique
-  bulkOrderId  String?
-  status       CouponStatus @default(ACTIVE)
-  expiresAt    DateTime
-  usedAt       DateTime?
-  createdAt    DateTime     @default(now())
+  id          String       @id @default(cuid())
+  code        String       @unique
+  userId      String
+  productId   String
+  orderId     String       @unique
+  bulkOrderId String?
+  status      CouponStatus @default(ACTIVE)
+  expiresAt   DateTime
+  usedAt      DateTime?
+  createdAt   DateTime     @default(now())
 
-  user      User    @relation(fields: [userId], references: [id])
-  product   Product @relation(fields: [productId], references: [id])
-  order     Order   @relation(fields: [orderId], references: [id])
-  bulkOrder Order?  @relation("BulkCoupons", fields: [bulkOrderId], references: [id])
+  user                User                 @relation(fields: [userId], references: [id])
+  product             Product              @relation(fields: [productId], references: [id])
+  order               Order                @relation(fields: [orderId], references: [id])
+  bulkOrder           Order?               @relation("BulkCoupons", fields: [bulkOrderId], references: [id])
   verificationRecords VerificationRecord[]
 
   @@index([userId, status])
@@ -248,11 +254,11 @@ model Checkin {
 // ─── Task Completion / 任务 ─────────────────────────
 
 model TaskCompletion {
-  id        String   @id @default(cuid())
-  userId    String
-  taskId    String
-  reward    Int      @default(0)
-  doneAt    DateTime @default(now())
+  id     String   @id @default(cuid())
+  userId String
+  taskId String
+  reward Int      @default(0)
+  doneAt DateTime @default(now())
 
   user User @relation(fields: [userId], references: [id])
 
@@ -375,18 +381,18 @@ model IncentiveConfig {
 // ─── Task Template / 任务模板 ───────────────────────
 
 model TaskTemplate {
-  id          String       @id @default(cuid())
-  taskId      String       @unique
+  id          String   @id @default(cuid())
+  taskId      String   @unique
   title       String
-  description String       @default("")
-  type        TaskType     @default(BASIC)
-  targetCount Int          @default(1)
-  reward      Int          @default(0)
-  icon        String       @default("star")
-  isActive    Boolean      @default(true)
-  sortOrder   Int          @default(0)
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
+  description String   @default("")
+  type        TaskType @default(BASIC)
+  targetCount Int      @default(1)
+  reward      Int      @default(0)
+  icon        String   @default("star")
+  isActive    Boolean  @default(true)
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
   @@index([isActive, sortOrder])
   @@map("task_templates")
@@ -400,18 +406,92 @@ enum TaskType {
 // ─── Ad Slot / 广告位 ───────────────────────────────
 
 model AdSlot {
-  id          String   @id @default(cuid())
-  name        String
-  placement   String
-  imageUrls   Json     @default("{}")
-  linkUrl     String   @default("")
-  isActive    Boolean  @default(true)
-  sortOrder   Int      @default(0)
-  startAt     DateTime?
-  endAt       DateTime?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id        String    @id @default(cuid())
+  name      String
+  placement String
+  imageUrls Json      @default("{}")
+  linkUrl   String    @default("")
+  isActive  Boolean   @default(true)
+  sortOrder Int       @default(0)
+  startAt   DateTime?
+  endAt     DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
 
   @@index([isActive, placement])
   @@map("ad_slots")
+}
+
+// ─── Audit Log / 操作审计 ──────────────────────────
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  actorId    String
+  action     String
+  targetType String
+  targetId   String?
+  summary    String   @default("")
+  metadata   Json?
+  ip         String?
+  userAgent  String?
+  createdAt  DateTime @default(now())
+
+  actor User @relation("AuditActor", fields: [actorId], references: [id])
+
+  @@index([actorId, createdAt])
+  @@index([targetType, targetId])
+  @@index([action, createdAt])
+  @@map("audit_logs")
+}
+
+// ─── System Notice / 站内公告 ──────────────────────
+
+enum NoticeLevel {
+  INFO
+  WARNING
+  SUCCESS
+  CRITICAL
+}
+
+enum NoticeAudience {
+  ALL
+  CONSUMER
+  MERCHANT
+  AGENT
+  ADMIN
+}
+
+model SystemNotice {
+  id        String         @id @default(cuid())
+  title     String
+  content   String         @db.Text
+  level     NoticeLevel    @default(INFO)
+  audience  NoticeAudience @default(ALL)
+  pinned    Boolean        @default(false)
+  isActive  Boolean        @default(true)
+  startAt   DateTime?
+  endAt     DateTime?
+  linkUrl   String?
+  createdBy String
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+
+  reads NoticeRead[]
+
+  @@index([isActive, audience, startAt, endAt])
+  @@map("system_notices")
+}
+
+model NoticeRead {
+  id       String   @id @default(cuid())
+  userId   String
+  noticeId String
+  readAt   DateTime @default(now())
+
+  user   User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  notice SystemNotice @relation(fields: [noticeId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, noticeId])
+  @@index([userId, readAt])
+  @@map("notice_reads")
 }

@@ -15,12 +15,16 @@ const MERCHANT_PREFIXES = [
   "/merchant",
   "/dashboard",
   "/verify",
+  "/verifications",
   "/products",
   "/orders",
   "/settings",
   "/coupon-manage",
   "/users",
   "/agent-review",
+  "/posts-manage",
+  "/notices",
+  "/audit-logs",
 ];
 
 function matchesPrefix(pathname: string, prefixes: string[]) {

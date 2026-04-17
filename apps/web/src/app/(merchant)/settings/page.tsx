@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ClipboardList, Image, Loader2, Plus, Save, Store, Bell, Shield, Palette, Sun, Moon, Monitor, Trash2, Zap } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTheme } from "next-themes";
@@ -56,28 +56,25 @@ function IncentiveTab() {
   const { data: config, isLoading } = useQuery(trpc.admin.getIncentiveConfig.queryOptions());
   const saveMutation = useMutation(trpc.admin.updateIncentiveConfig.mutationOptions());
 
-  const [form, setForm] = useState({
-    newUserBonusPoints: 500,
-    newUserBonusDays: 7,
-    newUserCheckinMulti: 2.0,
-    oldUserCheckinMulti: 1.0,
-    referralReward: 1000,
-    refereeReward: 500,
-  });
+  const initialForm = useMemo(
+    () => ({
+      newUserBonusPoints: config?.newUserBonusPoints ?? 500,
+      newUserBonusDays: config?.newUserBonusDays ?? 7,
+      newUserCheckinMulti: config?.newUserCheckinMulti ?? 2.0,
+      oldUserCheckinMulti: config?.oldUserCheckinMulti ?? 1.0,
+      referralReward: config?.referralReward ?? 1000,
+      refereeReward: config?.refereeReward ?? 500,
+    }),
+    [config],
+  );
+  const [form, setForm] = useState(initialForm);
   const [dirty, setDirty] = useState(false);
-
-  useEffect(() => {
-    if (config) {
-      setForm({
-        newUserBonusPoints: config.newUserBonusPoints,
-        newUserBonusDays: config.newUserBonusDays,
-        newUserCheckinMulti: config.newUserCheckinMulti,
-        oldUserCheckinMulti: config.oldUserCheckinMulti,
-        referralReward: config.referralReward,
-        refereeReward: config.refereeReward,
-      });
-    }
-  }, [config]);
+  const configId = config && "id" in config ? config.id : null;
+  const lastSyncedRef = useRef<string | null>(null);
+  if (configId !== lastSyncedRef.current) {
+    lastSyncedRef.current = configId;
+    if (!dirty) setForm(initialForm);
+  }
 
   function update<K extends keyof typeof form>(key: K, value: (typeof form)[K]) {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -422,7 +419,7 @@ function TaskTemplateTab() {
           ))}
           {(!templates || templates.length === 0) && (
             <div className="rounded-lg border border-dashed border-border bg-secondary/30 p-8 text-center text-sm text-muted-foreground">
-              暂无任务模板，点击上方"新建"按钮添加
+              暂无任务模板，点击上方「新建」按钮添加
             </div>
           )}
         </div>
@@ -618,7 +615,7 @@ function AdSlotTab() {
           ))}
           {(!slots || slots.length === 0) && (
             <div className="rounded-lg border border-dashed border-border bg-secondary/30 p-8 text-center text-sm text-muted-foreground">
-              暂无广告位，点击上方"新建"按钮添加
+              暂无广告位，点击上方「新建」按钮添加
             </div>
           )}
         </div>

@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Loader2, Search, Ticket } from "lucide-react";
+import { Download, Loader2, Search, Ticket } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { useTRPC } from "@/trpc/client";
 import type { RouterOutputs } from "@/trpc/types";
@@ -20,7 +20,6 @@ import {
 } from "@/components/ui/table";
 
 type CouponsPayload = RouterOutputs["admin"]["listCoupons"];
-type _CouponItem = CouponsPayload["coupons"][number];
 type CouponStatusFilter = "all" | "ACTIVE" | "USED" | "EXPIRED";
 
 function couponStatusBadge(status: string) {
@@ -85,11 +84,26 @@ export default function CouponsPage() {
 
   return (
     <div className="p-6 max-w-6xl mx-auto space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold text-foreground">券码管理</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          查看所有发放的券码及使用状态
-        </p>
+      <div className="flex items-end justify-between gap-4 flex-wrap">
+        <div>
+          <h1 className="text-2xl font-semibold text-foreground">券码管理</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            查看所有发放的券码及使用状态
+          </p>
+        </div>
+        <Button
+          variant="outline"
+          className="gap-2"
+          onClick={() => {
+            const params = new URLSearchParams();
+            if (statusFilter !== "all") params.set("status", statusFilter);
+            const url = `/api/export/coupons${params.size ? `?${params.toString()}` : ""}`;
+            window.location.href = url;
+          }}
+        >
+          <Download className="h-4 w-4" />
+          导出 CSV
+        </Button>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">

@@ -12,6 +12,10 @@ import {
   Ticket,
   Users,
   UserCheck,
+  Megaphone,
+  History,
+  MessageSquare,
+  ScrollText,
 } from "lucide-react";
 import { useSession } from "@/lib/auth-client";
 import { Button } from "@/components/ui/button";
@@ -35,11 +39,15 @@ type NavItem = {
 const allNavItems: NavItem[] = [
   { href: "/dashboard", icon: LayoutDashboard, label: "数据看板" },
   { href: "/verify", icon: QrCode, label: "扫码核销" },
+  { href: "/verifications", icon: History, label: "核销记录" },
   { href: "/products", icon: Package, label: "商品管理" },
   { href: "/orders", icon: ClipboardList, label: "订单管理" },
   { href: "/coupon-manage", icon: Ticket, label: "券码管理" },
   { href: "/users", icon: Users, label: "用户管理", adminOnly: true },
   { href: "/agent-review", icon: UserCheck, label: "代理审核", adminOnly: true },
+  { href: "/posts-manage", icon: MessageSquare, label: "内容审核", adminOnly: true },
+  { href: "/notices", icon: Megaphone, label: "公告管理", adminOnly: true },
+  { href: "/audit-logs", icon: ScrollText, label: "操作审计", adminOnly: true },
   { href: "/settings", icon: Settings, label: "设置" },
 ];
 
