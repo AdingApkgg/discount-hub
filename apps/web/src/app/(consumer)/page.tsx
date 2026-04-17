@@ -14,7 +14,6 @@ import {
   Phone,
   Play,
   Search,
-  ShieldCheck,
   ShoppingBag,
   Sparkles,
   Star,
@@ -98,8 +97,61 @@ function TopBar({
         className="flex h-10 w-full items-center gap-2 rounded-full border border-[var(--app-card-border)] bg-secondary/60 px-4 text-sm text-muted-foreground transition-colors hover:bg-secondary"
       >
         <Search className="h-4 w-4" />
-        <span className="flex-1 text-left">搜一搜</span>
+        <span className="flex-1 text-left">🔍 搜好物!</span>
       </button>
+    </div>
+  );
+}
+
+/* ---------- 顶部热卖跑马灯 ---------- */
+const HOT_MARQUEE_LINE =
+  "🔥 刚刚有人兑成功!  ·  ⚡ 券量不多手慢无!  ·  💰 积分当钱花!  ·  🎁 0元也能兑!  ·  ⭐ 官方渠道放心!  ·  ";
+
+function HotMarquee() {
+  return (
+    <div className="overflow-hidden rounded-xl bg-gradient-to-r from-[#FE2C55] to-[#FF6E37] py-2 text-[11px] font-bold text-white shadow-sm">
+      <div className="consumer-marquee-track">
+        <span className="shrink-0 whitespace-nowrap px-4">{HOT_MARQUEE_LINE}</span>
+        <span className="shrink-0 whitespace-nowrap px-4">{HOT_MARQUEE_LINE}</span>
+      </div>
+    </div>
+  );
+}
+
+/* ---------- Banner 下秒杀倒计时 ---------- */
+function useEndOfTodayMs() {
+  return useMemo(() => {
+    const d = new Date();
+    d.setHours(23, 59, 59, 999);
+    return d.getTime();
+  }, []);
+}
+
+function FlashCountdownStrip() {
+  const targetAt = useEndOfTodayMs();
+  const [now, setNow] = useState(() => Date.now());
+
+  useEffect(() => {
+    const id = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(id);
+  }, []);
+
+  const diff = Math.max(0, targetAt - now);
+  const h = Math.floor(diff / 3600000);
+  const m = Math.floor((diff % 3600000) / 60000);
+  const s = Math.floor((diff % 60000) / 1000);
+  const pad = (n: number) => String(n).padStart(2, "0");
+
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-gradient-to-r from-[#FE2C55] via-[#FF4D6A] to-[#FF6E37] px-3 py-2.5 text-white shadow-[0_6px_20px_rgba(254,44,85,0.22)]">
+      <span className="text-xs font-black tracking-tight">⚡ 今日秒杀!</span>
+      <span className="inline-flex items-center gap-1 font-mono text-sm font-black tabular-nums">
+        <span className="rounded-md bg-white/20 px-2 py-0.5">{pad(h)}</span>
+        <span className="opacity-80">:</span>
+        <span className="rounded-md bg-white/20 px-2 py-0.5">{pad(m)}</span>
+        <span className="opacity-80">:</span>
+        <span className="rounded-md bg-white/20 px-2 py-0.5">{pad(s)}</span>
+      </span>
     </div>
   );
 }
@@ -185,12 +237,10 @@ function DoubleBanners({
         >
           <div className="absolute -right-2 -top-2 h-16 w-16 rounded-full bg-white/15 blur-xl" />
           <div className="relative">
-            <div className="text-[10px] font-medium text-white/85">限时放量</div>
-            <div className="text-base font-extrabold leading-tight">
-              限时神券
-            </div>
+            <div className="text-[10px] font-bold text-white/90">⚡ 错过后悔!</div>
+            <div className="text-base font-extrabold leading-tight">限时神券!</div>
             <div className="mt-0.5 inline-flex items-center rounded-full bg-white px-2 py-0.5 text-[10px] font-semibold text-[var(--brand-red)]">
-              领取
+              领!
             </div>
           </div>
           <div className="relative text-3xl">⚡</div>
@@ -204,14 +254,10 @@ function DoubleBanners({
         >
           <div className="absolute -right-2 -top-2 h-16 w-16 rounded-full bg-white/15 blur-xl" />
           <div className="relative">
-            <div className="text-[10px] font-medium text-white/90">
-              积分直兑
-            </div>
-            <div className="text-base font-extrabold leading-tight">
-              0 元兑专区
-            </div>
+            <div className="text-[10px] font-bold text-white/90">💎 兑到手软!</div>
+            <div className="text-base font-extrabold leading-tight">0元专区!</div>
             <div className="mt-0.5 inline-flex items-center rounded-full bg-white px-2 py-0.5 text-[10px] font-semibold text-[var(--brand-orange)]">
-              立即兑
+              冲!
             </div>
           </div>
           <div className="relative text-3xl">💎</div>
@@ -273,9 +319,9 @@ function ShortcutGrid({ onSelect }: { onSelect: (id: string) => void }) {
 
 /* ---------- 一级分类 Tab ---------- */
 const CATEGORY_TABS = [
-  { id: "limited", label: "限时神券" },
-  { id: "today", label: "今日值得买" },
-  { id: "zero", label: "可换领类" },
+  { id: "limited", label: "⚡ 限时神券!" },
+  { id: "today", label: "🔥 今日必抢!" },
+  { id: "zero", label: "💸 0元冲!" },
 ] as const;
 
 type CategoryId = (typeof CATEGORY_TABS)[number]["id"];
@@ -320,10 +366,10 @@ function CategoryTabs({
 
 /* ---------- 二级胶囊筛选 ---------- */
 const FILTER_CHIPS = [
-  { id: "recommend", label: "推荐" },
-  { id: "hot", label: "最热" },
-  { id: "new", label: "上新" },
-  { id: "price-asc", label: "低价优先" },
+  { id: "recommend", label: "✨ 推荐!" },
+  { id: "hot", label: "🔥 最热!" },
+  { id: "new", label: "🆕 上新!" },
+  { id: "price-asc", label: "💰 低价!" },
 ] as const;
 
 type FilterId = (typeof FILTER_CHIPS)[number]["id"];
@@ -359,7 +405,9 @@ function FilterChips({
   );
 }
 
-/* ---------- 商品卡（社证增强版） ---------- */
+const GRAB_AVATAR_SEEDS = ["张", "李", "王", "赵"] as const;
+
+/* ---------- 商品卡（券形 + 社证 + 抢购感） ---------- */
 function MinimalProductCard({
   item,
   onClick,
@@ -383,75 +431,158 @@ function MinimalProductCard({
     return (4.6 + (h % 4) * 0.1).toFixed(1);
   }, [item.id]);
 
+  const grabbing = useMemo(() => {
+    let h = 0;
+    for (let i = 0; i < item.id.length; i++) h += item.id.charCodeAt(i);
+    return 120 + (h % 980);
+  }, [item.id]);
+
+  const saveYuan = useMemo(() => {
+    if (original != null && original > price) {
+      return Math.max(1, Math.round(original - price));
+    }
+    let h = 0;
+    for (let i = 0; i < item.id.length; i++) h += item.id.charCodeAt(i);
+    return 3 + (h % 36);
+  }, [item.id, original, price]);
+
+  const ctaLabel = useMemo(() => {
+    if (price > 0) {
+      const dec = Number.isInteger(price) ? 0 : 2;
+      return `¥${price.toFixed(dec)}抢!`;
+    }
+    if (item.pointsPrice > 0) return `${item.pointsPrice}积分抢!`;
+    return "免费冲!";
+  }, [item.pointsPrice, price]);
+
   return (
     <HoverScale scale={1.015}>
       <Card
-        className="group flex h-full cursor-pointer flex-col gap-0 overflow-hidden rounded-xl border border-[var(--app-card-border)] bg-white p-0 shadow-none transition-colors hover:border-[var(--brand-red)]/40"
+        className="group relative flex h-full min-h-0 cursor-pointer flex-row gap-0 overflow-hidden rounded-xl border border-[var(--app-card-border)] bg-white p-0 shadow-none transition-colors hover:border-[var(--brand-red)]/45 lg:flex-col"
         onClick={onClick}
       >
-        <div className="relative aspect-square overflow-hidden bg-secondary">
-          {item.imageUrl ? (
-            <img
-              src={item.imageUrl}
-              alt={item.title}
-              className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+        {saveYuan > 0 && (
+          <div className="pointer-events-none absolute right-0 top-0 z-20 h-[52px] w-[52px] overflow-hidden">
+            <div className="absolute right-[-28px] top-[10px] w-[120px] rotate-45 bg-[var(--brand-red)] py-0.5 text-center text-[9px] font-black tracking-wide text-white shadow-md">
+              立省¥{saveYuan}
+            </div>
+          </div>
+        )}
+
+        <div className="flex min-h-[104px] min-w-0 flex-1 flex-row md:min-h-0 md:flex-col">
+          <div className="relative h-[104px] w-[104px] shrink-0 overflow-hidden border-r border-dashed border-[var(--app-card-border)] bg-secondary md:h-auto md:w-full md:border-r-0 md:aspect-square">
+            {item.imageUrl ? (
+              <img
+                src={item.imageUrl}
+                alt={item.title}
+                className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+              />
+            ) : (
+              <div className="absolute inset-0 flex items-center justify-center">
+                <span className="text-sm font-semibold text-muted-foreground">
+                  {item.app}
+                </span>
+              </div>
+            )}
+            <div className="absolute left-1 top-1 rounded bg-black/55 px-1.5 py-0.5 text-[10px] font-medium text-white backdrop-blur-sm">
+              {item.app}
+            </div>
+            <div className="absolute right-1 top-1 rounded border border-white/40 bg-[var(--brand-red)]/90 px-1.5 py-0.5 text-[10px] font-bold text-white backdrop-blur-sm">
+              官方
+            </div>
+          </div>
+
+          {/* 券撕边（仅宽屏多列时） */}
+          <div className="relative hidden h-2.5 shrink-0 items-center bg-white px-2 lg:flex">
+            <div
+              className="absolute left-[-6px] top-1/2 z-[1] h-3 w-3 -translate-y-1/2 rounded-full border border-[var(--app-card-border)] bg-[var(--app-shell-bg)]"
+              aria-hidden
             />
-          ) : (
-            <div className="absolute inset-0 flex items-center justify-center">
-              <span className="text-sm font-semibold text-muted-foreground">
-                {item.app}
+            <div className="mx-2 h-0 flex-1 border-t border-dashed border-[var(--app-card-border)]" />
+            <div
+              className="absolute right-[-6px] top-1/2 z-[1] h-3 w-3 -translate-y-1/2 rounded-full border border-[var(--app-card-border)] bg-[var(--app-shell-bg)]"
+              aria-hidden
+            />
+          </div>
+
+          <div className="flex min-w-0 flex-1 flex-col bg-white px-2.5 py-2 lg:px-3 lg:pb-3 lg:pt-0.5">
+            <div className="line-clamp-2 text-[13px] font-semibold leading-[18px] text-foreground lg:min-h-[36px]">
+              {item.title}
+            </div>
+
+            <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[10px] text-muted-foreground md:mt-1.5">
+              <span className="flex items-center gap-0.5">
+                <Star className="h-2.5 w-2.5 fill-[var(--brand-orange)] text-[var(--brand-orange)]" />
+                <span className="font-semibold text-foreground">{rating}</span>
+              </span>
+              <span className="hidden sm:inline">·</span>
+              <span>已售 {sold}</span>
+            </div>
+
+            <div className="mt-1.5 flex items-center gap-2 lg:mt-2">
+              <div className="flex -space-x-2">
+                {GRAB_AVATAR_SEEDS.map((ch, i) => (
+                  <div
+                    key={i}
+                    className="relative flex h-5 w-5 items-center justify-center rounded-full border-2 border-white bg-gradient-to-br from-[#FE2C55] to-[#FF6E37] text-[8px] font-black text-white first:ml-0 lg:h-6 lg:w-6 lg:text-[9px]"
+                    style={{ zIndex: GRAB_AVATAR_SEEDS.length - i }}
+                  >
+                    {ch}
+                  </div>
+                ))}
+              </div>
+              <span className="line-clamp-1 text-[10px] font-semibold text-[var(--brand-red)]">
+                {grabbing}人正在抢!
               </span>
             </div>
-          )}
-          <div className="absolute left-1.5 top-1.5 rounded bg-black/55 px-1.5 py-0.5 text-[10px] font-medium text-white backdrop-blur-sm">
-            {item.app}
-          </div>
-          <div className="absolute right-1.5 top-1.5 rounded border border-white/40 bg-[var(--brand-red)]/90 px-1.5 py-0.5 text-[10px] font-bold text-white backdrop-blur-sm">
-            官方
-          </div>
-        </div>
 
-        <div className="flex flex-1 flex-col p-3">
-          <div className="line-clamp-2 min-h-[36px] text-[13px] font-semibold leading-[18px] text-foreground">
-            {item.title}
-          </div>
-
-          {/* 社证：评分 + 已售 */}
-          <div className="mt-1.5 flex items-center gap-2 text-[10px] text-muted-foreground">
-            <span className="flex items-center gap-0.5">
-              <Star className="h-2.5 w-2.5 fill-[var(--brand-orange)] text-[var(--brand-orange)]" />
-              <span className="font-semibold text-foreground">{rating}</span>
-            </span>
-            <span>·</span>
-            <span>已售 {sold}</span>
-          </div>
-
-          <div className="mt-auto pt-2">
-            <div className="flex items-end gap-1.5">
-              <div className="text-[13px] font-bold text-[var(--brand-red)]">
-                {item.pointsPrice > 0 && <span>{item.pointsPrice} 积分</span>}
-                {item.pointsPrice > 0 && price > 0 && (
-                  <span className="mx-0.5 text-foreground">+</span>
-                )}
-                {price > 0 && <span>¥{price.toFixed(0)}</span>}
-                {item.pointsPrice === 0 && price === 0 && <span>免费</span>}
+            <div className="mt-auto flex flex-col gap-2 pt-2 md:pt-2">
+              <div className="flex flex-wrap items-end justify-between gap-2 md:block">
+                <div className="min-w-0 flex flex-wrap items-end gap-1.5">
+                  <div className="text-xl font-black leading-none tracking-tight text-[var(--brand-red)] md:text-2xl">
+                    {item.pointsPrice > 0 && (
+                      <span className="text-base md:text-lg">
+                        {item.pointsPrice}积分
+                      </span>
+                    )}
+                    {item.pointsPrice > 0 && price > 0 && (
+                      <span className="mx-0.5 text-sm font-black text-foreground md:text-base">
+                        +
+                      </span>
+                    )}
+                    {price > 0 && (
+                      <span>
+                        ¥
+                        {Number.isInteger(price)
+                          ? price.toFixed(0)
+                          : price.toFixed(2)}
+                      </span>
+                    )}
+                    {item.pointsPrice === 0 && price === 0 && (
+                      <span className="text-lg lg:text-xl">免费!</span>
+                    )}
+                  </div>
+                  {original != null && original > price && (
+                    <span className="pb-0.5 text-[10px] text-muted-foreground line-through">
+                      ¥
+                      {Number.isInteger(original)
+                        ? original.toFixed(0)
+                        : original.toFixed(2)}
+                    </span>
+                  )}
+                </div>
+                <Button
+                  size="sm"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onClick();
+                  }}
+                  className="h-8 shrink-0 rounded-full bg-[var(--brand-red)] px-4 text-xs font-black text-white hover:bg-[var(--brand-red-hover)] lg:mt-2 lg:h-9 lg:w-full lg:text-sm"
+                >
+                  {ctaLabel}
+                </Button>
               </div>
-              {original && original > price && (
-                <span className="text-[10px] text-muted-foreground line-through">
-                  ¥{original}
-                </span>
-              )}
             </div>
-            <Button
-              size="sm"
-              onClick={(e) => {
-                e.stopPropagation();
-                onClick();
-              }}
-              className="mt-2 h-8 w-full rounded-full bg-[var(--brand-red)] text-xs font-semibold text-white hover:bg-[var(--brand-red-hover)]"
-            >
-              去兑换
-            </Button>
           </div>
         </div>
       </Card>
@@ -462,15 +593,18 @@ function MinimalProductCard({
 /* ---------- Skeletons ---------- */
 function ProductGridSkeleton({ count = 4 }: { count?: number }) {
   return (
-    <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4">
+    <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
       {Array.from({ length: count }).map((_, i) => (
-        <Card key={i} className="gap-0 overflow-hidden rounded-xl border border-[var(--app-card-border)] p-0">
-          <Skeleton className="aspect-square w-full" />
-          <div className="space-y-2 p-3">
+        <Card
+          key={i}
+          className="flex flex-row gap-0 overflow-hidden rounded-xl border border-[var(--app-card-border)] p-0 md:flex-col"
+        >
+          <Skeleton className="h-[104px] w-[104px] shrink-0 rounded-none md:aspect-square md:h-auto md:w-full" />
+          <div className="flex min-w-0 flex-1 flex-col justify-center space-y-2 p-3">
             <Skeleton className="h-4 w-full" />
             <Skeleton className="h-3 w-2/5" />
-            <Skeleton className="h-4 w-3/5" />
-            <Skeleton className="h-8 w-full rounded-full" />
+            <Skeleton className="h-4 w-4/5" />
+            <Skeleton className="h-8 w-24 shrink-0 rounded-full md:w-full" />
           </div>
         </Card>
       ))}
@@ -508,6 +642,24 @@ function EarnContentCard({
         </div>
       </Card>
     </HoverScale>
+  );
+}
+
+const TRUST_MARQUEE_LINE =
+  "🛡 官方授权!  ·  ⚡ 极速到账!  ·  ✨ 7天售后!  ·  💰 积分抵现!  ·  ";
+
+function TrustMarquee() {
+  return (
+    <div className="overflow-hidden rounded-xl bg-[var(--brand-red)] py-2.5 text-[11px] font-bold text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.12)]">
+      <div className="consumer-marquee-track">
+        <span className="shrink-0 whitespace-nowrap px-5">
+          {TRUST_MARQUEE_LINE}
+        </span>
+        <span className="shrink-0 whitespace-nowrap px-5">
+          {TRUST_MARQUEE_LINE}
+        </span>
+      </div>
+    </div>
   );
 }
 
@@ -564,11 +716,19 @@ export default function HomePage() {
         </AnimatedItem>
 
         <AnimatedItem>
+          <HotMarquee />
+        </AnimatedItem>
+
+        <AnimatedItem>
           <ShortcutGrid onSelect={() => router.push("/member")} />
         </AnimatedItem>
 
         <AnimatedItem>
           <BannerCarousel onOpen={openScroll} />
+        </AnimatedItem>
+
+        <AnimatedItem>
+          <FlashCountdownStrip />
         </AnimatedItem>
 
         <AnimatedItem>
@@ -591,10 +751,10 @@ export default function HomePage() {
             <ProductGridSkeleton count={4} />
           ) : products.length === 0 ? (
             <div className="rounded-xl border border-dashed border-border bg-secondary/40 p-8 text-center text-xs text-muted-foreground">
-              暂无商品
+              😅 暂无!
             </div>
           ) : (
-            <StaggerList className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4">
+            <StaggerList className="grid grid-cols-1 gap-3 lg:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
               {products.map((item) => (
                 <AnimatedItem key={item.id}>
                   <MinimalProductCard
@@ -610,13 +770,13 @@ export default function HomePage() {
         {/* 看内容赚积分 */}
         <AnimatedSection className="space-y-3">
           <div className="flex items-center justify-between">
-            <h2 className="text-base font-bold text-foreground">看内容赚积分</h2>
+            <h2 className="text-base font-bold text-foreground">📺 刷积分!</h2>
             <button
               type="button"
               onClick={() => router.push("/member")}
               className="flex items-center text-xs font-medium text-muted-foreground hover:text-[var(--brand-red)]"
             >
-              更多
+              更多!
               <ChevronRight className="h-3 w-3" />
             </button>
           </div>
@@ -638,9 +798,9 @@ export default function HomePage() {
         {/* 福利攻略 */}
         <AnimatedSection className="space-y-3">
           <div className="flex items-center justify-between">
-            <h2 className="text-base font-bold text-foreground">福利攻略</h2>
+            <h2 className="text-base font-bold text-foreground">📣 薅攻略!</h2>
             <span className="rounded-full bg-[var(--brand-red-soft)] px-2 py-0.5 text-[10px] font-semibold text-[var(--brand-red)]">
-              官方
+              官方!
             </span>
           </div>
           <Card className="gap-0 overflow-hidden rounded-xl border border-[var(--app-card-border)] bg-white p-0 shadow-none">
@@ -683,20 +843,9 @@ export default function HomePage() {
           </Card>
         </AnimatedSection>
 
-        {/* 信任底栏 */}
+        {/* 信任底栏（红底跑马灯） */}
         <AnimatedSection>
-          <div className="flex items-center justify-center gap-4 rounded-xl bg-secondary/40 px-4 py-3 text-[11px] text-muted-foreground">
-            <span className="flex items-center gap-1">
-              <ShieldCheck className="h-3 w-3 text-[var(--brand-red)]" />
-              官方授权
-            </span>
-            <span className="text-border">|</span>
-            <span>极速到账</span>
-            <span className="text-border">|</span>
-            <span>7 天售后</span>
-            <span className="text-border">|</span>
-            <span>积分抵现</span>
-          </div>
+          <TrustMarquee />
         </AnimatedSection>
       </div>
     </PageTransition>

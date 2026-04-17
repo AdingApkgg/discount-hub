@@ -13,6 +13,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { PageTransition, AnimatedItem } from "@/components/motion";
+import { cn } from "@/lib/utils";
 
 const mockPostDetail = {
   id: "mp1",
@@ -72,7 +73,7 @@ export default function PostDetailPage({ params }: { params: Promise<{ id: strin
 
   return (
     <PageTransition>
-      <div className="mx-auto max-w-2xl px-4 py-4 md:py-6">
+      <div className="mx-auto max-w-2xl px-4 py-4 pb-32 max-md:pb-44 md:py-6 md:pb-8">
         <AnimatedItem>
           <Button variant="outline" onClick={() => router.back()} className="gap-2 rounded-full">
             <ArrowLeft className="h-4 w-4" />
@@ -138,7 +139,13 @@ export default function PostDetailPage({ params }: { params: Promise<{ id: strin
           </Card>
         </AnimatedItem>
 
-        <div className="fixed inset-x-0 bottom-0 z-20 border-t border-border bg-background/95 px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 backdrop-blur">
+        <div
+          className={cn(
+            "fixed inset-x-0 z-20 border-t border-border bg-background/95 px-4 pt-3 backdrop-blur",
+            "max-md:bottom-[calc(54px+env(safe-area-inset-bottom))] max-md:pb-3",
+            "md:bottom-0 md:pb-[max(0.75rem,env(safe-area-inset-bottom))]",
+          )}
+        >
           <div className="mx-auto flex max-w-2xl items-center gap-3">
             <Input
               value={commentText}
@@ -151,8 +158,6 @@ export default function PostDetailPage({ params }: { params: Promise<{ id: strin
             <Button size="icon" variant="ghost" className="shrink-0"><MessageCircle className="h-4 w-4" /></Button>
           </div>
         </div>
-
-        <div className="h-16" />
       </div>
     </PageTransition>
   );

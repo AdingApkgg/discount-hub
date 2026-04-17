@@ -16,7 +16,7 @@ export default function FavoritesPage() {
   const trpc = useTRPC();
   const { data: session } = useSession();
 
-  const { data: favorites } = useQuery({
+  const { data: favorites, isLoading } = useQuery({
     ...trpc.user.myFavorites.queryOptions(),
     enabled: !!session?.user,
     retry: false,
@@ -32,12 +32,31 @@ export default function FavoritesPage() {
             <ArrowLeft className="h-4 w-4" /> 返回
           </Button>
         </AnimatedItem>
-        <AnimatedItem><PageHeading label="Favorites" title="我的收藏" action={<Star className="h-5 w-5 text-muted-foreground" />} /></AnimatedItem>
+        <AnimatedItem><PageHeading label="收藏" title="我的收藏" action={<Star className="h-5 w-5 text-muted-foreground" />} /></AnimatedItem>
         <AnimatedSection>
-          {items.length === 0 ? (
+          {!session?.user ? (
+            <div className="rounded-xl border border-dashed border-border bg-secondary/40 px-6 py-10 text-center">
+              <p className="text-sm text-muted-foreground">登录后查看与同步收藏</p>
+              <Button className="mt-4 rounded-full bg-[var(--brand-red)] text-white hover:bg-[var(--brand-red-hover)]" onClick={() => router.push("/login")}>
+                去登录
+              </Button>
+            </div>
+          ) : isLoading ? (
+            <div className="grid grid-cols-1 gap-3 lg:grid-cols-2 xl:grid-cols-3">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <Card key={i} className={`${appCardClassName} animate-pulse`}>
+                  <CardContent className="space-y-3 p-4">
+                    <div className="h-4 w-3/4 rounded bg-muted" />
+                    <div className="h-5 w-16 rounded bg-muted" />
+                    <div className="h-3 w-1/2 rounded bg-muted" />
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          ) : items.length === 0 ? (
             <EmptyStateDashed text="还没有收藏任何商品" />
           ) : (
-            <StaggerList className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            <StaggerList className="grid grid-cols-1 gap-3 lg:grid-cols-2 xl:grid-cols-3">
               {items.map((fav) => (
                 <AnimatedItem key={fav.id}>
                   <HoverScale>

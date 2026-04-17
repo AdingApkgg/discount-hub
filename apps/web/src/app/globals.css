@@ -303,3 +303,25 @@ body {
   background-clip: text;
   color: transparent;
 }
+
+@keyframes consumer-marquee {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
+}
+
+.consumer-marquee-track {
+  display: flex;
+  width: max-content;
+  animation: consumer-marquee 28s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .consumer-marquee-track {
+    animation: none;
+    transform: none;
+  }
+}
