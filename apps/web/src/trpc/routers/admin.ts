@@ -235,4 +235,203 @@ export const adminRouter = createTRPCRouter({
 
       return { coupons, total, page, pageSize };
     }),
+
+  listTaskTemplates: merchantProcedure.query(async ({ ctx }) => {
+    return ctx.prisma.taskTemplate.findMany({
+      orderBy: { sortOrder: "asc" },
+    });
+  }),
+
+  upsertTaskTemplate: adminProcedure
+    .input(z.object({
+      id: z.string().optional(),
+      taskId: z.string().min(1),
+      title: z.string().min(1),
+      description: z.string().default(""),
+      type: z.enum(["BASIC", "CUMULATIVE"]),
+      targetCount: z.number().int().min(1).max(100),
+      reward: z.number().int().min(0).max(50000),
+      icon: z.string().default("star"),
+      isActive: z.boolean().default(true),
+      sortOrder: z.number().int().default(0),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const { id, ...data } = input;
+      if (id) {
+        return ctx.prisma.taskTemplate.update({ where: { id }, data });
+      }
+      return ctx.prisma.taskTemplate.create({ data });
+    }),
+
+  deleteTaskTemplate: adminProcedure
+    .input(z.object({ id: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      return ctx.prisma.taskTemplate.delete({ where: { id: input.id } });
+    }),
+
+  listAdSlots: merchantProcedure.query(async ({ ctx }) => {
+    return ctx.prisma.adSlot.findMany({
+      orderBy: { sortOrder: "asc" },
+    });
+  }),
+
+  upsertAdSlot: adminProcedure
+    .input(z.object({
+      id: z.string().optional(),
+      name: z.string().min(1),
+      placement: z.string().min(1),
+      imageUrls: z.record(z.string(), z.string()),
+      linkUrl: z.string().default(""),
+      isActive: z.boolean().default(true),
+      sortOrder: z.number().int().default(0),
+      startAt: z.string().nullable().optional(),
+      endAt: z.string().nullable().optional(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const { id, startAt, endAt, ...rest } = input;
+      const data = {
+        ...rest,
+        startAt: startAt ? new Date(startAt) : null,
+        endAt: endAt ? new Date(endAt) : null,
+      };
+      if (id) {
+        return ctx.prisma.adSlot.update({ where: { id }, data });
+      }
+      return ctx.prisma.adSlot.create({ data });
+    }),
+
+  deleteAdSlot: adminProcedure
+    .input(z.object({ id: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      return ctx.prisma.adSlot.delete({ where: { id: input.id } });
+    }),
+
+  retentionStats: merchantProcedure.query(async ({ ctx }) => {
+    const days = 14;
+    const daily: {
+      date: string;
+      newUsers: number;
+      activeUsers: number;
+      d1: number;
+      d3: number;
+      d7: number;
+    }[] = [];
+
+    for (let i = days - 1; i >= 0; i--) {
+      const start = daysAgo(i);
+      const end = daysAgo(i - 1);
+
+      const newUsers = await ctx.prisma.user.count({
+        where: { createdAt: { gte: start, lt: end } },
+      });
+
+      const activeUsers = await ctx.prisma.session.groupBy({
+        by: ["userId"],
+        where: { updatedAt: { gte: start, lt: end } },
+      });
+
+      let d1 = 0;
+      let d3 = 0;
+      let d7 = 0;
+
+      if (i >= 1) {
+        const d1Start = daysAgo(i - 1);
+        const d1End = daysAgo(i - 2);
+        const cohort = await ctx.prisma.user.findMany({
+          where: { createdAt: { gte: start, lt: end } },
+          select: { id: true },
+        });
+        const cohortIds = cohort.map((u) => u.id);
+
+        if (cohortIds.length > 0) {
+          const d1Active = await ctx.prisma.session.groupBy({
+            by: ["userId"],
+            where: { userId: { in: cohortIds }, updatedAt: { gte: d1Start, lt: d1End } },
+          });
+          d1 = cohortIds.length > 0 ? Math.round((d1Active.length / cohortIds.length) * 100) : 0;
+        }
+      }
+
+      if (i >= 3) {
+        const d3Start = daysAgo(i - 3);
+        const d3End = daysAgo(i - 4);
+        const cohort = await ctx.prisma.user.findMany({
+          where: { createdAt: { gte: start, lt: end } },
+          select: { id: true },
+        });
+        const cohortIds = cohort.map((u) => u.id);
+
+        if (cohortIds.length > 0) {
+          const d3Active = await ctx.prisma.session.groupBy({
+            by: ["userId"],
+            where: { userId: { in: cohortIds }, updatedAt: { gte: d3Start, lt: d3End } },
+          });
+          d3 = cohortIds.length > 0 ? Math.round((d3Active.length / cohortIds.length) * 100) : 0;
+        }
+      }
+
+      if (i >= 7) {
+        const d7Start = daysAgo(i - 7);
+        const d7End = daysAgo(i - 8);
+        const cohort = await ctx.prisma.user.findMany({
+          where: { createdAt: { gte: start, lt: end } },
+          select: { id: true },
+        });
+        const cohortIds = cohort.map((u) => u.id);
+
+        if (cohortIds.length > 0) {
+          const d7Active = await ctx.prisma.session.groupBy({
+            by: ["userId"],
+            where: { userId: { in: cohortIds }, updatedAt: { gte: d7Start, lt: d7End } },
+          });
+          d7 = cohortIds.length > 0 ? Math.round((d7Active.length / cohortIds.length) * 100) : 0;
+        }
+      }
+
+      daily.push({
+        date: start.toISOString().slice(0, 10),
+        newUsers,
+        activeUsers: activeUsers.length,
+        d1,
+        d3,
+        d7,
+      });
+    }
+
+    return daily;
+  }),
+
+  inviteFunnel: merchantProcedure.query(async ({ ctx }) => {
+    const totalUsers = await ctx.prisma.user.count();
+    const usersWithCode = await ctx.prisma.user.count({
+      where: { inviteCode: { not: null } },
+    });
+    const usersWhoInvited = await ctx.prisma.user.count({
+      where: { referrals: { some: {} } },
+    });
+    const invitedUsers = await ctx.prisma.user.count({
+      where: { invitedById: { not: null } },
+    });
+    const invitedWithOrders = await ctx.prisma.user.count({
+      where: {
+        invitedById: { not: null },
+        orders: { some: { status: "PAID" } },
+      },
+    });
+
+    return {
+      totalUsers,
+      usersWithCode,
+      usersWhoInvited,
+      invitedUsers,
+      invitedWithOrders,
+      steps: [
+        { label: "总用户", value: totalUsers },
+        { label: "生成邀请码", value: usersWithCode },
+        { label: "成功邀请", value: usersWhoInvited },
+        { label: "被邀请注册", value: invitedUsers },
+        { label: "被邀请下单", value: invitedWithOrders },
+      ],
+    };
+  }),
 });

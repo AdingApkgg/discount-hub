@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Loader2, Save, Store, Bell, Shield, Palette, Sun, Moon, Monitor, Zap } from "lucide-react";
+import { ClipboardList, Image, Loader2, Plus, Save, Store, Bell, Shield, Palette, Sun, Moon, Monitor, Trash2, Zap } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTheme } from "next-themes";
 import { toast } from "sonner";
@@ -279,6 +279,354 @@ function AppearanceTab() {
   );
 }
 
+function TaskTemplateTab() {
+  const trpc = useTRPC();
+  const queryClient = useQueryClient();
+  const { data: templates, isLoading } = useQuery(trpc.admin.listTaskTemplates.queryOptions());
+  const upsertMutation = useMutation(trpc.admin.upsertTaskTemplate.mutationOptions());
+  const deleteMutation = useMutation(trpc.admin.deleteTaskTemplate.mutationOptions());
+
+  const [editing, setEditing] = useState<string | null>(null);
+  const [form, setForm] = useState({
+    taskId: "", title: "", description: "", type: "BASIC" as "BASIC" | "CUMULATIVE",
+    targetCount: 1, reward: 100, icon: "star", isActive: true, sortOrder: 0,
+  });
+
+  function startEdit(t?: typeof templates extends (infer U)[] | undefined ? U : never) {
+    if (t) {
+      setEditing(t.id);
+      setForm({ taskId: t.taskId, title: t.title, description: t.description, type: t.type, targetCount: t.targetCount, reward: t.reward, icon: t.icon, isActive: t.isActive, sortOrder: t.sortOrder });
+    } else {
+      setEditing("new");
+      setForm({ taskId: "", title: "", description: "", type: "BASIC", targetCount: 1, reward: 100, icon: "star", isActive: true, sortOrder: (templates?.length ?? 0) * 10 });
+    }
+  }
+
+  async function handleSave() {
+    try {
+      await upsertMutation.mutateAsync({ ...form, id: editing === "new" ? undefined : editing! });
+      await queryClient.invalidateQueries();
+      setEditing(null);
+      toast.success("任务模板已保存");
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "保存失败");
+    }
+  }
+
+  async function handleDelete(id: string) {
+    try {
+      await deleteMutation.mutateAsync({ id });
+      await queryClient.invalidateQueries();
+      toast.success("已删除");
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "删除失败");
+    }
+  }
+
+  if (isLoading) return <Card className="border-border"><CardContent className="p-6"><Loader2 className="h-5 w-5 animate-spin mx-auto" /></CardContent></Card>;
+
+  return (
+    <Card className="border-border">
+      <CardContent className="p-6 space-y-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="text-sm font-medium text-foreground">任务模板库</h3>
+            <p className="text-xs text-muted-foreground mt-1">配置前端显示的日常任务，支持基础任务和累积任务</p>
+          </div>
+          <Button size="sm" variant="outline" onClick={() => startEdit()}>
+            <Plus className="h-4 w-4 mr-1" />新建
+          </Button>
+        </div>
+
+        {editing && (
+          <div className="rounded-lg border border-border bg-secondary/30 p-4 space-y-3">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label className="text-xs">任务 ID</Label>
+                <Input value={form.taskId} onChange={(e) => setForm({ ...form, taskId: e.target.value })} placeholder="如 browse, purchase" />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">标题</Label>
+                <Input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="浏览商品" />
+              </div>
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">描述</Label>
+              <Input value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="每日浏览 3 件商品" />
+            </div>
+            <div className="grid grid-cols-4 gap-3">
+              <div className="space-y-1">
+                <Label className="text-xs">类型</Label>
+                <select
+                  className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm"
+                  value={form.type}
+                  onChange={(e) => setForm({ ...form, type: e.target.value as "BASIC" | "CUMULATIVE" })}
+                >
+                  <option value="BASIC">基础</option>
+                  <option value="CUMULATIVE">累积</option>
+                </select>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">目标数</Label>
+                <Input type="number" min={1} value={form.targetCount} onChange={(e) => setForm({ ...form, targetCount: Number(e.target.value) })} />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">积分奖励</Label>
+                <Input type="number" min={0} value={form.reward} onChange={(e) => setForm({ ...form, reward: Number(e.target.value) })} />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">排序</Label>
+                <Input type="number" value={form.sortOrder} onChange={(e) => setForm({ ...form, sortOrder: Number(e.target.value) })} />
+              </div>
+            </div>
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2">
+                <Switch checked={form.isActive} onCheckedChange={(v) => setForm({ ...form, isActive: v })} />
+                <Label className="text-xs">启用</Label>
+              </div>
+              <div className="ml-auto flex gap-2">
+                <Button size="sm" variant="ghost" onClick={() => setEditing(null)}>取消</Button>
+                <Button size="sm" onClick={handleSave} disabled={upsertMutation.isPending || !form.taskId || !form.title}>
+                  {upsertMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                  保存
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        <div className="space-y-2">
+          {templates?.map((t) => (
+            <div key={t.id} className="flex items-center justify-between rounded-lg border border-border p-3">
+              <div className="min-w-0">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium text-foreground">{t.title}</span>
+                  <span className={cn("text-[10px] px-1.5 py-0.5 rounded", t.type === "CUMULATIVE" ? "bg-blue-500/10 text-blue-500" : "bg-emerald-500/10 text-emerald-500")}>
+                    {t.type === "CUMULATIVE" ? "累积" : "基础"}
+                  </span>
+                  {!t.isActive && <span className="text-[10px] px-1.5 py-0.5 rounded bg-secondary text-muted-foreground">停用</span>}
+                </div>
+                <div className="mt-0.5 text-xs text-muted-foreground">
+                  {t.taskId} · 目标 {t.targetCount} · +{t.reward} 积分
+                </div>
+              </div>
+              <div className="flex gap-1">
+                <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={() => startEdit(t)}>
+                  <Save className="h-3.5 w-3.5" />
+                </Button>
+                <Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-destructive hover:text-destructive" onClick={() => handleDelete(t.id)}>
+                  <Trash2 className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+            </div>
+          ))}
+          {(!templates || templates.length === 0) && (
+            <div className="rounded-lg border border-dashed border-border bg-secondary/30 p-8 text-center text-sm text-muted-foreground">
+              暂无任务模板，点击上方"新建"按钮添加
+            </div>
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function AdSlotTab() {
+  const trpc = useTRPC();
+  const queryClient = useQueryClient();
+  const { data: slots, isLoading } = useQuery(trpc.admin.listAdSlots.queryOptions());
+  const upsertMutation = useMutation(trpc.admin.upsertAdSlot.mutationOptions());
+  const deleteMutation = useMutation(trpc.admin.deleteAdSlot.mutationOptions());
+
+  const [editing, setEditing] = useState<string | null>(null);
+  const [form, setForm] = useState({
+    name: "", placement: "banner", imageUrls: {} as Record<string, string>,
+    linkUrl: "", isActive: true, sortOrder: 0, startAt: "", endAt: "",
+  });
+  const [newSizeKey, setNewSizeKey] = useState("");
+  const [newSizeUrl, setNewSizeUrl] = useState("");
+
+  const PLACEMENTS = [
+    { value: "banner", label: "首页横幅" },
+    { value: "sidebar", label: "侧边栏" },
+    { value: "popup", label: "弹窗" },
+    { value: "inline", label: "信息流" },
+  ];
+
+  function startEditSlot(s?: typeof slots extends (infer U)[] | undefined ? U : never) {
+    if (s) {
+      setEditing(s.id);
+      setForm({
+        name: s.name, placement: s.placement,
+        imageUrls: (s.imageUrls ?? {}) as Record<string, string>,
+        linkUrl: s.linkUrl, isActive: s.isActive, sortOrder: s.sortOrder,
+        startAt: s.startAt ? new Date(s.startAt).toISOString().slice(0, 16) : "",
+        endAt: s.endAt ? new Date(s.endAt).toISOString().slice(0, 16) : "",
+      });
+    } else {
+      setEditing("new");
+      setForm({ name: "", placement: "banner", imageUrls: {}, linkUrl: "", isActive: true, sortOrder: (slots?.length ?? 0) * 10, startAt: "", endAt: "" });
+    }
+  }
+
+  function addSize() {
+    if (!newSizeKey || !newSizeUrl) return;
+    setForm({ ...form, imageUrls: { ...form.imageUrls, [newSizeKey]: newSizeUrl } });
+    setNewSizeKey("");
+    setNewSizeUrl("");
+  }
+
+  function removeSize(key: string) {
+    const next = { ...form.imageUrls };
+    delete next[key];
+    setForm({ ...form, imageUrls: next });
+  }
+
+  async function handleSave() {
+    try {
+      await upsertMutation.mutateAsync({
+        ...form, id: editing === "new" ? undefined : editing!,
+        startAt: form.startAt || null, endAt: form.endAt || null,
+      });
+      await queryClient.invalidateQueries();
+      setEditing(null);
+      toast.success("广告位已保存");
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "保存失败");
+    }
+  }
+
+  async function handleDelete(id: string) {
+    try {
+      await deleteMutation.mutateAsync({ id });
+      await queryClient.invalidateQueries();
+      toast.success("已删除");
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "删除失败");
+    }
+  }
+
+  if (isLoading) return <Card className="border-border"><CardContent className="p-6"><Loader2 className="h-5 w-5 animate-spin mx-auto" /></CardContent></Card>;
+
+  return (
+    <Card className="border-border">
+      <CardContent className="p-6 space-y-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="text-sm font-medium text-foreground">广告位管理</h3>
+            <p className="text-xs text-muted-foreground mt-1">为每个广告配置多种尺寸图片，前端自动适配投放</p>
+          </div>
+          <Button size="sm" variant="outline" onClick={() => startEditSlot()}>
+            <Plus className="h-4 w-4 mr-1" />新建
+          </Button>
+        </div>
+
+        {editing && (
+          <div className="rounded-lg border border-border bg-secondary/30 p-4 space-y-3">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label className="text-xs">广告名称</Label>
+                <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="春季促销" />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">投放位置</Label>
+                <select
+                  className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm"
+                  value={form.placement}
+                  onChange={(e) => setForm({ ...form, placement: e.target.value })}
+                >
+                  {PLACEMENTS.map((p) => <option key={p.value} value={p.value}>{p.label}</option>)}
+                </select>
+              </div>
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">跳转链接</Label>
+              <Input value={form.linkUrl} onChange={(e) => setForm({ ...form, linkUrl: e.target.value })} placeholder="https://..." />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label className="text-xs">开始时间</Label>
+                <Input type="datetime-local" value={form.startAt} onChange={(e) => setForm({ ...form, startAt: e.target.value })} />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">结束时间</Label>
+                <Input type="datetime-local" value={form.endAt} onChange={(e) => setForm({ ...form, endAt: e.target.value })} />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label className="text-xs">多尺寸图片</Label>
+              {Object.entries(form.imageUrls).map(([size, url]) => (
+                <div key={size} className="flex items-center gap-2">
+                  <span className="text-xs font-mono bg-secondary px-2 py-1 rounded min-w-[80px] text-center">{size}</span>
+                  <span className="text-xs text-muted-foreground truncate flex-1">{url}</span>
+                  <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-destructive" onClick={() => removeSize(size)}>
+                    <Trash2 className="h-3 w-3" />
+                  </Button>
+                </div>
+              ))}
+              <div className="flex gap-2">
+                <Input className="w-28" value={newSizeKey} onChange={(e) => setNewSizeKey(e.target.value)} placeholder="尺寸 (如 720x280)" />
+                <Input className="flex-1" value={newSizeUrl} onChange={(e) => setNewSizeUrl(e.target.value)} placeholder="图片 URL" />
+                <Button size="sm" variant="outline" onClick={addSize} disabled={!newSizeKey || !newSizeUrl}>
+                  <Plus className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2">
+                <Switch checked={form.isActive} onCheckedChange={(v) => setForm({ ...form, isActive: v })} />
+                <Label className="text-xs">启用</Label>
+              </div>
+              <div className="ml-auto flex gap-2">
+                <Button size="sm" variant="ghost" onClick={() => setEditing(null)}>取消</Button>
+                <Button size="sm" onClick={handleSave} disabled={upsertMutation.isPending || !form.name}>
+                  {upsertMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                  保存
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        <div className="space-y-2">
+          {slots?.map((s) => (
+            <div key={s.id} className="flex items-center justify-between rounded-lg border border-border p-3">
+              <div className="min-w-0">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium text-foreground">{s.name}</span>
+                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-secondary text-muted-foreground">
+                    {PLACEMENTS.find((p) => p.value === s.placement)?.label ?? s.placement}
+                  </span>
+                  {!s.isActive && <span className="text-[10px] px-1.5 py-0.5 rounded bg-destructive/10 text-destructive">停用</span>}
+                </div>
+                <div className="mt-0.5 text-xs text-muted-foreground">
+                  {Object.keys(s.imageUrls as Record<string, string>).length} 种尺寸
+                  {s.linkUrl && <span> · {s.linkUrl.slice(0, 40)}</span>}
+                </div>
+              </div>
+              <div className="flex gap-1">
+                <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={() => startEditSlot(s)}>
+                  <Save className="h-3.5 w-3.5" />
+                </Button>
+                <Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-destructive hover:text-destructive" onClick={() => handleDelete(s.id)}>
+                  <Trash2 className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+            </div>
+          ))}
+          {(!slots || slots.length === 0) && (
+            <div className="rounded-lg border border-dashed border-border bg-secondary/30 p-8 text-center text-sm text-muted-foreground">
+              暂无广告位，点击上方"新建"按钮添加
+            </div>
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 export default function SettingsPage() {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
@@ -398,6 +746,14 @@ export default function SettingsPage() {
           <TabsTrigger value="security" className="gap-2">
             <Shield className="h-4 w-4" />
             安全
+          </TabsTrigger>
+          <TabsTrigger value="tasks" className="gap-2">
+            <ClipboardList className="h-4 w-4" />
+            任务模板
+          </TabsTrigger>
+          <TabsTrigger value="ads" className="gap-2">
+            <Image className="h-4 w-4" />
+            广告位
           </TabsTrigger>
           <TabsTrigger value="appearance" className="gap-2">
             <Palette className="h-4 w-4" />
@@ -581,6 +937,14 @@ export default function SettingsPage() {
               </div>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="tasks">
+          <TaskTemplateTab />
+        </TabsContent>
+
+        <TabsContent value="ads">
+          <AdSlotTab />
         </TabsContent>
 
         <TabsContent value="appearance">

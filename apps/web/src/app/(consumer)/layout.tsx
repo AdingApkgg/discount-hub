@@ -1,6 +1,7 @@
 import Link from "next/link";
 import ConsumerNav from "@/components/ConsumerNav";
 import AndroidAppBanner from "@/components/AndroidAppBanner";
+import CheckinPrompt from "@/components/CheckinPrompt";
 
 function ConsumerFooter() {
   return (
@@ -36,6 +37,7 @@ export default function ConsumerLayout({
         <main className="flex-1 pb-[calc(88px+env(safe-area-inset-bottom))] md:pb-0">
           {children}
         </main>
+        <CheckinPrompt />
         <ConsumerFooter />
       </div>
     </div>

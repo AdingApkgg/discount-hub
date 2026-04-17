@@ -142,17 +142,26 @@ export const pointsRouter = createTRPCRouter({
         data: { userId: ctx.user.id, dayIndex, reward },
       });
 
+      const newPoints = (currentUser?.points ?? 0) + reward;
+      let newVipLevel = computeVipLevel(newPoints);
+
+      const STREAK_BONUS_THRESHOLD = 3;
+      if (dayIndex >= STREAK_BONUS_THRESHOLD) {
+        const streakBonus = Math.floor(dayIndex / STREAK_BONUS_THRESHOLD);
+        newVipLevel = Math.min(VIP_MAX_LEVEL, Math.max(newVipLevel, (currentUser?.vipLevel ?? 0) + streakBonus));
+      }
+
       const user = await tx.user.update({
         where: { id: ctx.user.id },
         data: {
           points: { increment: reward },
-          vipLevel: {
-            set: computeVipLevel((currentUser?.points ?? 0) + reward),
-          },
+          vipLevel: { set: newVipLevel },
         },
       });
 
-      return { dayIndex, reward, points: user.points, cycle: CHECKIN_CYCLE };
+      const leveledUp = newVipLevel > (currentUser?.vipLevel ?? 0);
+
+      return { dayIndex, reward, points: user.points, cycle: CHECKIN_CYCLE, leveledUp, newVipLevel };
     });
   }),
 

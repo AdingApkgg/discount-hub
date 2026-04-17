@@ -4,6 +4,8 @@ import { useMemo } from "react";
 import {
   CheckCircle2,
   DollarSign,
+  Filter,
+  UserPlus,
   Users,
   Package,
   TrendingUp,
@@ -56,6 +58,10 @@ export default function DashboardPage() {
   );
 
   const { data: trend } = useQuery(trpc.admin.trendStats.queryOptions());
+
+  const { data: retention } = useQuery(trpc.admin.retentionStats.queryOptions());
+
+  const { data: funnel } = useQuery(trpc.admin.inviteFunnel.queryOptions());
 
   const trendCharts = useMemo(() => {
     if (!trend) return null;
@@ -215,6 +221,111 @@ export default function DashboardPage() {
               </div>
             </CardContent>
           </Card>
+        </div>
+      )}
+
+      {/* 注册/日活/留存数据 */}
+      {retention && retention.length > 0 && (
+        <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
+          <Card className="border-border">
+            <CardContent className="p-5">
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <div className="text-lg font-semibold text-foreground">注册 / 日活 / 留存</div>
+                  <div className="mt-1 text-xs text-muted-foreground">近 14 日用户数据</div>
+                </div>
+                <Badge variant="outline" className="border-border gap-1">
+                  <UserPlus className="h-3 w-3" />
+                  增长分析
+                </Badge>
+              </div>
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="border-border hover:bg-transparent">
+                      <TableHead>日期</TableHead>
+                      <TableHead className="text-right">新增注册</TableHead>
+                      <TableHead className="text-right">日活</TableHead>
+                      <TableHead className="text-right">次留</TableHead>
+                      <TableHead className="text-right">3 留</TableHead>
+                      <TableHead className="text-right">7 留</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {retention.map((r) => (
+                      <TableRow key={r.date} className="border-border">
+                        <TableCell className="text-xs">{r.date.slice(5)}</TableCell>
+                        <TableCell className="text-right font-medium">{r.newUsers}</TableCell>
+                        <TableCell className="text-right">{r.activeUsers}</TableCell>
+                        <TableCell className="text-right">
+                          {r.d1 > 0 ? (
+                            <span className={r.d1 >= 30 ? "text-emerald-500" : r.d1 >= 15 ? "text-amber-500" : "text-red-400"}>
+                              {r.d1}%
+                            </span>
+                          ) : <span className="text-muted-foreground">—</span>}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {r.d3 > 0 ? (
+                            <span className={r.d3 >= 20 ? "text-emerald-500" : r.d3 >= 10 ? "text-amber-500" : "text-red-400"}>
+                              {r.d3}%
+                            </span>
+                          ) : <span className="text-muted-foreground">—</span>}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {r.d7 > 0 ? (
+                            <span className={r.d7 >= 15 ? "text-emerald-500" : r.d7 >= 8 ? "text-amber-500" : "text-red-400"}>
+                              {r.d7}%
+                            </span>
+                          ) : <span className="text-muted-foreground">—</span>}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* 邀请漏斗 */}
+          {funnel && (
+            <Card className="border-border">
+              <CardContent className="p-5">
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <div className="text-lg font-semibold text-foreground">邀请漏斗</div>
+                    <div className="mt-1 text-xs text-muted-foreground">用户邀请转化链路</div>
+                  </div>
+                  <Filter className="h-4 w-4 text-muted-foreground" />
+                </div>
+                <div className="space-y-3">
+                  {funnel.steps.map((step, i) => {
+                    const maxVal = Math.max(...funnel.steps.map((s) => s.value), 1);
+                    const pct = Math.round((step.value / maxVal) * 100);
+                    const convRate = i > 0 && funnel.steps[i - 1].value > 0
+                      ? Math.round((step.value / funnel.steps[i - 1].value) * 100)
+                      : 100;
+                    return (
+                      <div key={step.label}>
+                        <div className="flex items-center justify-between text-xs mb-1">
+                          <span className="text-foreground font-medium">{step.label}</span>
+                          <span className="text-muted-foreground">
+                            {step.value}
+                            {i > 0 && <span className="ml-1 text-[10px]">({convRate}%)</span>}
+                          </span>
+                        </div>
+                        <div className="h-6 w-full rounded bg-secondary/50 overflow-hidden">
+                          <div
+                            className="h-full rounded bg-primary/70 transition-all"
+                            style={{ width: `${pct}%` }}
+                          />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </div>
       )}
 

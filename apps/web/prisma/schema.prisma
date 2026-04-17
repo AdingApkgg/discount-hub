@@ -371,3 +371,47 @@ model IncentiveConfig {
 
   @@map("incentive_configs")
 }
+
+// ─── Task Template / 任务模板 ───────────────────────
+
+model TaskTemplate {
+  id          String       @id @default(cuid())
+  taskId      String       @unique
+  title       String
+  description String       @default("")
+  type        TaskType     @default(BASIC)
+  targetCount Int          @default(1)
+  reward      Int          @default(0)
+  icon        String       @default("star")
+  isActive    Boolean      @default(true)
+  sortOrder   Int          @default(0)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  @@index([isActive, sortOrder])
+  @@map("task_templates")
+}
+
+enum TaskType {
+  BASIC
+  CUMULATIVE
+}
+
+// ─── Ad Slot / 广告位 ───────────────────────────────
+
+model AdSlot {
+  id          String   @id @default(cuid())
+  name        String
+  placement   String
+  imageUrls   Json     @default("{}")
+  linkUrl     String   @default("")
+  isActive    Boolean  @default(true)
+  sortOrder   Int      @default(0)
+  startAt     DateTime?
+  endAt       DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([isActive, placement])
+  @@map("ad_slots")
+}
