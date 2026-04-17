@@ -155,7 +155,13 @@ describe("product router", () => {
     const caller = makeCaller();
     const result = await caller.product.list({ category: "all" });
 
-    expect(result).toEqual(products);
+    expect(result).toEqual([
+      {
+        ...products[0],
+        cashPrice: 0,
+        originalCashPrice: null,
+      },
+    ]);
     expect(mockPrismaInstance.product.findMany).toHaveBeenCalled();
   });
 
@@ -195,7 +201,13 @@ describe("product router", () => {
 
     expect(mockRedis.set).toHaveBeenCalledWith(
       "products:list:all",
-      JSON.stringify(products),
+      JSON.stringify([
+        {
+          ...products[0],
+          cashPrice: 0,
+          originalCashPrice: null,
+        },
+      ]),
       "EX",
       60,
     );
@@ -217,7 +229,11 @@ describe("product router", () => {
     const caller = makeCaller();
     const result = await caller.product.byId({ id: "p1" });
 
-    expect(result).toEqual(product);
+    expect(result).toEqual({
+      ...product,
+      cashPrice: 0,
+      originalCashPrice: null,
+    });
   });
 
   it("byId returns cached product from Redis", async () => {
@@ -244,7 +260,10 @@ describe("product router", () => {
     const caller = makeCaller(mockMerchant);
     const result = await caller.product.manageList();
 
-    expect(result).toEqual(products);
+    expect(result).toEqual([
+      { id: "p1", cashPrice: 0, originalCashPrice: null },
+      { id: "p2", cashPrice: 0, originalCashPrice: null },
+    ]);
   });
 
   it("manageList filters by status", async () => {
@@ -869,7 +888,7 @@ describe("order router", () => {
   });
 
   it("myOrders returns user orders", async () => {
-    const orders = [{ id: "o1", userId: "user-1" }];
+    const orders = [{ id: "o1", userId: "user-1", cashPaid: 0 }];
     mockPrismaInstance.order.findMany.mockResolvedValue(orders);
 
     const caller = makeCaller(mockConsumer);
@@ -891,7 +910,7 @@ describe("order router", () => {
   });
 
   it("allOrders returns paginated results", async () => {
-    const orders = [{ id: "o1" }, { id: "o2" }];
+    const orders = [{ id: "o1", cashPaid: 0 }, { id: "o2", cashPaid: 0 }];
     mockPrismaInstance.order.findMany.mockResolvedValue(orders);
     mockPrismaInstance.order.count.mockResolvedValue(50);
 
@@ -1196,7 +1215,7 @@ describe("points router", () => {
     expect(result.nextDayIndex).toBe(1);
   });
 
-  it("getStatus caps nextDayIndex at 4", async () => {
+  it("getStatus advances nextDayIndex after yesterday streak (cycle > 4)", async () => {
     mockPrismaInstance.user.findUnique.mockResolvedValue({ points: 100, vipLevel: 0 });
     mockPrismaInstance.checkin.findFirst
       .mockResolvedValueOnce(null)
@@ -1205,7 +1224,7 @@ describe("points router", () => {
     const caller = makeCaller(mockConsumer);
     const result = await caller.points.getStatus();
 
-    expect(result.nextDayIndex).toBe(4);
+    expect(result.nextDayIndex).toBe(5);
   });
 
   it("getStatus returns today completed task IDs", async () => {
@@ -1285,7 +1304,7 @@ describe("points router", () => {
     expect(result.reward).toBe(200);
   });
 
-  it("checkin caps at day 4 and gives 500 points", async () => {
+  it("checkin continues streak to day 5 after day 4", async () => {
     mockPrismaInstance.checkin.findFirst
       .mockResolvedValueOnce(null) // existing today check
       .mockResolvedValueOnce({ id: "ch-prev", dayIndex: 4, checkedAt: yesterdayDate() });
@@ -1295,8 +1314,8 @@ describe("points router", () => {
     const caller = makeCaller(mockConsumer);
     const result = await caller.points.checkin();
 
-    expect(result.dayIndex).toBe(4);
-    expect(result.reward).toBe(500);
+    expect(result.dayIndex).toBe(5);
+    expect(result.reward).toBe(800);
   });
 
   it("checkin updates VIP level based on accumulated points", async () => {
@@ -1393,7 +1412,10 @@ describe("points router", () => {
 
     expect(mockPrismaInstance.user.update).toHaveBeenCalledWith(
       expect.objectContaining({
-        data: { points: { increment: 100 } },
+        data: expect.objectContaining({
+          points: { increment: 100 },
+          vipLevel: { set: expect.any(Number) },
+        }),
       }),
     );
   });
@@ -1422,11 +1444,17 @@ describe("user router", () => {
       _count: { referrals: 0, orders: 3, coupons: 2 },
     };
     mockPrismaInstance.user.findUnique.mockResolvedValue(profile);
+    mockPrismaInstance.order.aggregate.mockResolvedValue({
+      _sum: { pointsPaid: null },
+    });
 
     const caller = makeCaller(mockConsumer);
     const result = await caller.user.me();
 
-    expect(result).toEqual(profile);
+    expect(result).toEqual({
+      ...profile,
+      totalSavingsPoints: 0,
+    });
   });
 
   it("updateProfile requires authentication", async () => {
@@ -1515,7 +1543,7 @@ describe("user router", () => {
   it("dashboardStats returns aggregated stats", async () => {
     mockPrismaInstance.verificationRecord.count.mockResolvedValue(15);
     mockPrismaInstance.order.aggregate.mockResolvedValue({
-      _sum: { cashPaid: { toNumber: () => 1234.5 } },
+      _sum: { cashPaid: 1234.5 },
       _count: 42,
     });
     mockPrismaInstance.user.count.mockResolvedValue(300);

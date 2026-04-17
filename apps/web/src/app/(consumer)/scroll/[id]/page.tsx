@@ -100,7 +100,7 @@ export default function ScrollDetailPage({
           <button
             type="button"
             onClick={() => router.back()}
-            className="flex h-9 w-9 items-center justify-center rounded-full border border-[var(--app-card-border)] bg-white text-foreground transition-colors hover:bg-secondary"
+            className="flex h-9 w-9 items-center justify-center rounded-full border border-[var(--app-card-border)] bg-[var(--app-card)] text-foreground transition-colors hover:bg-secondary"
           >
             <ArrowLeft className="h-4 w-4" />
           </button>
@@ -109,7 +109,7 @@ export default function ScrollDetailPage({
 
         <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
           {/* 左：商品图 */}
-          <Card className="gap-0 overflow-hidden rounded-xl border border-[var(--app-card-border)] bg-white p-0 shadow-none">
+          <Card className="gap-0 overflow-hidden rounded-xl border border-[var(--app-card-border)] bg-[var(--app-card)] p-0 shadow-none">
             <div className="relative aspect-square overflow-hidden bg-secondary">
               {item.imageUrl ? (
                 <img
@@ -132,7 +132,7 @@ export default function ScrollDetailPage({
 
           <div className="space-y-3">
             {/* 标题区 */}
-            <Card className="gap-0 rounded-xl border border-[var(--app-card-border)] bg-white p-4 shadow-none">
+            <Card className="gap-0 rounded-xl border border-[var(--app-card-border)] bg-[var(--app-card)] p-4 shadow-none">
               <h1 className="text-lg font-bold leading-tight text-foreground md:text-xl">
                 {item.title}
               </h1>
@@ -154,7 +154,7 @@ export default function ScrollDetailPage({
             </Card>
 
             {/* 购买明细 */}
-            <Card className="gap-0 rounded-xl border border-[var(--app-card-border)] bg-white p-4 shadow-none">
+            <Card className="gap-0 rounded-xl border border-[var(--app-card-border)] bg-[var(--app-card)] p-4 shadow-none">
               {/* 购买数量 */}
               <div className="flex items-center justify-between">
                 <span className="text-sm text-foreground">购买数量</span>
@@ -218,7 +218,7 @@ export default function ScrollDetailPage({
         </div>
 
         {/* 规则说明 */}
-        <Card className="gap-0 rounded-xl border border-[var(--app-card-border)] bg-white p-4 shadow-none">
+        <Card className="gap-0 rounded-xl border border-[var(--app-card-border)] bg-[var(--app-card)] p-4 shadow-none">
           <div className="text-sm font-bold text-foreground">规则说明</div>
           <ol className="mt-3 space-y-2 text-sm leading-6 text-muted-foreground">
             <li>
@@ -238,7 +238,7 @@ export default function ScrollDetailPage({
 
         {/* 商品介绍 */}
         {item.description && (
-          <Card className="gap-0 rounded-xl border border-[var(--app-card-border)] bg-white p-4 shadow-none">
+          <Card className="gap-0 rounded-xl border border-[var(--app-card-border)] bg-[var(--app-card)] p-4 shadow-none">
             <div className="text-sm font-bold text-foreground">商品介绍</div>
             <p className="mt-2 text-sm leading-6 text-muted-foreground">
               {item.description}
@@ -254,7 +254,7 @@ export default function ScrollDetailPage({
           "md:static md:mx-6 md:mt-2",
         )}
       >
-        <div className="flex items-center gap-3 rounded-full border border-[var(--app-card-border)] bg-white p-2 shadow-[0_-4px_20px_rgba(15,23,42,0.08)] md:shadow-none">
+        <div className="flex items-center gap-3 rounded-full border border-[var(--app-card-border)] bg-[var(--app-card)] p-2 shadow-[0_-4px_20px_rgba(15,23,42,0.08)] md:shadow-none">
           <div className="ml-3 flex-1">
             <div className="text-[11px] text-muted-foreground">到手价</div>
             <div className="flex items-baseline gap-1">

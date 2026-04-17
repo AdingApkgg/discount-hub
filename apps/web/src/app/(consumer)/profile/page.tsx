@@ -75,7 +75,7 @@ function ProfileHeader({
     (profile?.vipLevel ?? 0) <= 0 ? "普通会员" : `VIP${profile?.vipLevel}`;
   const points = profile?.points ?? 0;
   return (
-    <Card className="gap-0 rounded-xl border border-[var(--app-card-border)] bg-white p-4 shadow-none">
+    <Card className="gap-0 rounded-xl border border-[var(--app-card-border)] bg-[var(--app-card)] p-4 shadow-none">
       <div className="flex items-center gap-3">
         <div className="flex h-12 w-12 items-center justify-center rounded-full bg-secondary text-base font-semibold text-foreground">
           {name.slice(0, 1)}
@@ -122,7 +122,7 @@ const QUICK_ACTIONS = [
 
 function QuickActionsGrid({ onGo }: { onGo: (path: string) => void }) {
   return (
-    <Card className="gap-0 rounded-xl border border-[var(--app-card-border)] bg-white p-3 shadow-none">
+    <Card className="gap-0 rounded-xl border border-[var(--app-card-border)] bg-[var(--app-card)] p-3 shadow-none">
       <div className="grid grid-cols-4 gap-1">
         {QUICK_ACTIONS.map((a, i) => {
           const Icon = a.icon;
@@ -204,7 +204,7 @@ function ApplyAgentBanner({
 /* ---------- 账户信息卡 ---------- */
 function AccountInfoCard({ profile }: { profile: UserProfile | undefined }) {
   return (
-    <Card className="gap-0 rounded-xl border border-[var(--app-card-border)] bg-white p-0 shadow-none">
+    <Card className="gap-0 rounded-xl border border-[var(--app-card-border)] bg-[var(--app-card)] p-0 shadow-none">
       <div className="flex items-center gap-3 px-4 py-3.5 border-b border-[var(--app-card-border)]">
         <Mail className="h-4 w-4 text-muted-foreground" />
         <span className="flex-1 text-sm text-muted-foreground">邮箱</span>
@@ -234,7 +234,7 @@ const SETTING_ITEMS = [
 
 function SettingsList({ onGo }: { onGo?: (id: string) => void }) {
   return (
-    <Card className="gap-0 overflow-hidden rounded-xl border border-[var(--app-card-border)] bg-white p-0 shadow-none">
+    <Card className="gap-0 overflow-hidden rounded-xl border border-[var(--app-card-border)] bg-[var(--app-card)] p-0 shadow-none">
       {SETTING_ITEMS.map((item, i) => {
         const Icon = item.icon;
         return (
@@ -333,7 +333,7 @@ export default function ProfilePage() {
             <AlertDialogTrigger asChild>
               <Button
                 variant="outline"
-                className="w-full rounded-xl border-[var(--app-danger-border)] bg-white py-5 text-sm font-semibold text-[var(--app-danger-text)] hover:bg-[var(--app-danger-hover)] hover:text-[var(--app-danger-text)]"
+                className="w-full rounded-xl border-[var(--app-danger-border)] bg-[var(--app-danger-bg)] py-5 text-sm font-semibold text-[var(--app-danger-text)] hover:bg-[var(--app-danger-hover)] hover:text-[var(--app-danger-text)]"
               >
                 <LogOut className="h-4 w-4" />
                 退出登录

@@ -311,7 +311,7 @@ export default function MemberPage() {
               })}
             </div>
 
-            <Card className="gap-0 rounded-xl border border-[var(--app-card-border)] bg-white p-4 shadow-none">
+            <Card className="gap-0 rounded-xl border border-[var(--app-card-border)] bg-[var(--app-card)] p-4 shadow-none">
               <div className="flex items-center justify-between">
                 <div>
                   <div className="text-xs text-muted-foreground">
@@ -347,7 +347,7 @@ export default function MemberPage() {
 
         {/* 签到日历 */}
         <AnimatedSection>
-          <Card className="gap-0 rounded-xl border border-[var(--app-card-border)] bg-white p-4 shadow-none">
+          <Card className="gap-0 rounded-xl border border-[var(--app-card-border)] bg-[var(--app-card)] p-4 shadow-none">
             <div className="flex items-center justify-between">
               <div>
                 <div className="text-sm font-bold text-foreground">连续签到</div>
@@ -388,7 +388,7 @@ export default function MemberPage() {
                       done
                         ? "border-[var(--brand-red)] bg-[var(--brand-red-soft)] text-[var(--brand-red)]"
                         : isSpecial
-                          ? "border-[var(--brand-red)]/40 bg-white text-foreground"
+                          ? "border-[var(--brand-red)]/40 bg-[var(--app-card)] text-foreground"
                           : "border-[var(--app-card-border)] bg-secondary/40 text-muted-foreground",
                     )}
                   >
@@ -413,7 +413,7 @@ export default function MemberPage() {
 
         {/* 任务列表 */}
         <AnimatedSection>
-          <Card className="gap-0 rounded-xl border border-[var(--app-card-border)] bg-white p-0 shadow-none">
+          <Card className="gap-0 rounded-xl border border-[var(--app-card-border)] bg-[var(--app-card)] p-0 shadow-none">
             <div className="flex items-center justify-between px-4 py-3">
               <div>
                 <div className="text-sm font-bold text-foreground">日常任务</div>
@@ -489,7 +489,7 @@ export default function MemberPage() {
                   <Card
                     onClick={() => handleEarn(content.id, content.app)}
                     className={cn(
-                      "flex h-full cursor-pointer gap-0 overflow-hidden rounded-xl border border-[var(--app-card-border)] bg-white p-0 shadow-none transition-colors",
+                      "flex h-full cursor-pointer gap-0 overflow-hidden rounded-xl border border-[var(--app-card-border)] bg-[var(--app-card)] p-0 shadow-none transition-colors",
                       done && "opacity-60",
                     )}
                   >
@@ -516,7 +516,7 @@ export default function MemberPage() {
 
         {/* 邀请好友 */}
         <AnimatedSection>
-          <Card className="gap-0 rounded-xl border border-[var(--app-card-border)] bg-white p-4 shadow-none">
+          <Card className="gap-0 rounded-xl border border-[var(--app-card-border)] bg-[var(--app-card)] p-4 shadow-none">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2.5">
                 <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[var(--brand-red-soft)]">
@@ -570,7 +570,7 @@ export default function MemberPage() {
         open={!!checkinResult}
         onOpenChange={(open) => !open && setCheckinResult(null)}
       >
-        <DialogContent className="max-w-xs rounded-2xl border-[var(--app-card-border)] bg-white p-0">
+        <DialogContent className="max-w-xs rounded-2xl border-[var(--app-card-border)] bg-[var(--app-card)] p-0">
           <div className="p-6 text-center">
             <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-[var(--brand-red-soft)]">
               <CalendarCheck className="h-7 w-7 text-[var(--brand-red)]" />

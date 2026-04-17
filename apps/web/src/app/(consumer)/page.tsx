@@ -394,7 +394,7 @@ function FilterChips({
               "shrink-0 rounded-full border px-3 py-1 text-xs transition-colors",
               isActive
                 ? "border-[var(--brand-red)] bg-[var(--brand-red-soft)] font-semibold text-[var(--brand-red)]"
-                : "border-[var(--app-card-border)] bg-white text-muted-foreground hover:text-foreground",
+                : "border-[var(--app-card-border)] bg-[var(--app-card)] text-muted-foreground hover:text-foreground",
             )}
           >
             {c.label}
@@ -450,7 +450,7 @@ function MobileProductRow({
   return (
     <HoverScale scale={1.005}>
       <Card
-        className="group relative flex w-full cursor-pointer flex-row items-stretch gap-0 overflow-hidden rounded-xl border border-[var(--app-card-border)] bg-white p-0 shadow-none transition-colors hover:border-[var(--brand-red)]/45"
+        className="group relative flex w-full cursor-pointer flex-row items-stretch gap-0 overflow-hidden rounded-xl border border-[var(--app-card-border)] bg-[var(--app-card)] p-0 shadow-none transition-colors hover:border-[var(--brand-red)]/45"
         onClick={onClick}
       >
         <div className="relative h-[120px] w-[120px] shrink-0 overflow-hidden bg-secondary">
@@ -566,7 +566,7 @@ function MinimalProductCard({
   return (
     <HoverScale scale={1.015}>
       <Card
-        className="group relative flex h-full cursor-pointer flex-col gap-0 overflow-hidden rounded-xl border border-[var(--app-card-border)] bg-white p-0 shadow-none transition-colors hover:border-[var(--brand-red)]/45"
+        className="group relative flex h-full cursor-pointer flex-col gap-0 overflow-hidden rounded-xl border border-[var(--app-card-border)] bg-[var(--app-card)] p-0 shadow-none transition-colors hover:border-[var(--brand-red)]/45"
         onClick={onClick}
       >
         {saveYuan > 0 && (
@@ -600,7 +600,7 @@ function MinimalProductCard({
         </div>
 
         {/* 券撕边 */}
-        <div className="relative flex h-2.5 shrink-0 items-center bg-white px-2">
+        <div className="relative flex h-2.5 shrink-0 items-center bg-[var(--app-card)] px-2">
           <div
             className="absolute left-[-6px] top-1/2 z-[1] h-3 w-3 -translate-y-1/2 rounded-full border border-[var(--app-card-border)] bg-[var(--app-shell-bg)]"
             aria-hidden
@@ -612,7 +612,7 @@ function MinimalProductCard({
           />
         </div>
 
-        <div className="flex flex-1 flex-col bg-white px-3 pb-3 pt-0.5">
+        <div className="flex flex-1 flex-col bg-[var(--app-card)] px-3 pb-3 pt-0.5">
           <div className="line-clamp-2 min-h-[36px] text-[13px] font-semibold leading-[18px] text-foreground">
             {item.title}
           </div>
@@ -631,7 +631,7 @@ function MinimalProductCard({
               {GRAB_AVATAR_SEEDS.map((ch, i) => (
                 <div
                   key={i}
-                  className="relative flex h-6 w-6 items-center justify-center rounded-full border-2 border-white bg-gradient-to-br from-[#FE2C55] to-[#FF6E37] text-[9px] font-black text-white first:ml-0"
+                  className="relative flex h-6 w-6 items-center justify-center rounded-full border-2 border-[var(--app-card)] bg-gradient-to-br from-[#FE2C55] to-[#FF6E37] text-[9px] font-black text-white first:ml-0"
                   style={{ zIndex: GRAB_AVATAR_SEEDS.length - i }}
                 >
                   {ch}
@@ -745,7 +745,7 @@ function EarnContentCard({
   return (
     <HoverScale scale={1.02}>
       <Card
-        className="flex h-full cursor-pointer gap-0 overflow-hidden rounded-xl border border-[var(--app-card-border)] bg-white p-0 shadow-none"
+        className="flex h-full cursor-pointer gap-0 overflow-hidden rounded-xl border border-[var(--app-card-border)] bg-[var(--app-card)] p-0 shadow-none"
         onClick={onClick}
       >
         <div className="relative flex aspect-square items-center justify-center overflow-hidden bg-secondary">
@@ -937,7 +937,7 @@ export default function HomePage() {
               官方!
             </span>
           </div>
-          <Card className="gap-0 overflow-hidden rounded-xl border border-[var(--app-card-border)] bg-white p-0 shadow-none">
+          <Card className="gap-0 overflow-hidden rounded-xl border border-[var(--app-card-border)] bg-[var(--app-card)] p-0 shadow-none">
             {hotPosts.map((post, i) => (
               <button
                 key={post.id}

@@ -91,7 +91,7 @@ export default function OrdersPage() {
             <button
               type="button"
               onClick={() => router.back()}
-              className="flex h-9 w-9 items-center justify-center rounded-full border border-[var(--app-card-border)] bg-white text-foreground transition-colors hover:bg-secondary"
+              className="flex h-9 w-9 items-center justify-center rounded-full border border-[var(--app-card-border)] bg-[var(--app-card)] text-foreground transition-colors hover:bg-secondary"
             >
               <ArrowLeft className="h-4 w-4" />
             </button>
@@ -132,7 +132,7 @@ export default function OrdersPage() {
         </AnimatedItem>
 
         <AnimatedItem>
-          <Card className="gap-0 overflow-hidden rounded-xl border border-[var(--app-card-border)] bg-white p-0 shadow-none">
+          <Card className="gap-0 overflow-hidden rounded-xl border border-[var(--app-card-border)] bg-[var(--app-card)] p-0 shadow-none">
             {isLoading ? (
               <div className="flex justify-center py-16">
                 <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
