@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
+import { TRPCError } from "@trpc/server";
 import { writeFile, mkdir } from "node:fs/promises";
 import path from "node:path";
 import { auth } from "@/lib/auth";
+import { checkRateLimit } from "@/lib/rate-limit";
+import { withSecurityHeaders } from "@/lib/security-headers";
 
 const UPLOAD_DIR = path.join(process.cwd(), "public", "uploads", "products");
 const MAX_SIZE = 5 * 1024 * 1024; // 5 MB
@@ -15,27 +18,51 @@ const ALLOWED_TYPES = new Set([
 export async function POST(req: NextRequest) {
   const session = await auth.api.getSession({ headers: req.headers });
   if (!session?.user) {
-    return NextResponse.json({ error: "请先登录" }, { status: 401 });
+    return withSecurityHeaders(
+      NextResponse.json({ error: "请先登录" }, { status: 401 }),
+    );
   }
   if (session.user.role !== "MERCHANT" && session.user.role !== "ADMIN") {
-    return NextResponse.json({ error: "仅商家可上传" }, { status: 403 });
+    return withSecurityHeaders(
+      NextResponse.json({ error: "仅商家可上传" }, { status: 403 }),
+    );
+  }
+
+  try {
+    await checkRateLimit(`upload:${session.user.id}`, {
+      max: 30,
+      windowSec: 60,
+    });
+  } catch (e) {
+    if (e instanceof TRPCError && e.code === "TOO_MANY_REQUESTS") {
+      return withSecurityHeaders(
+        NextResponse.json({ error: e.message }, { status: 429 }),
+      );
+    }
+    throw e;
   }
 
   const formData = await req.formData();
   const file = formData.get("file") as File | null;
   if (!file) {
-    return NextResponse.json({ error: "未选择文件" }, { status: 400 });
+    return withSecurityHeaders(
+      NextResponse.json({ error: "未选择文件" }, { status: 400 }),
+    );
   }
   if (!ALLOWED_TYPES.has(file.type)) {
-    return NextResponse.json(
-      { error: "仅支持 JPG / PNG / WebP / GIF 格式" },
-      { status: 400 },
+    return withSecurityHeaders(
+      NextResponse.json(
+        { error: "仅支持 JPG / PNG / WebP / GIF 格式" },
+        { status: 400 },
+      ),
     );
   }
   if (file.size > MAX_SIZE) {
-    return NextResponse.json(
-      { error: "文件大小不能超过 5MB" },
-      { status: 400 },
+    return withSecurityHeaders(
+      NextResponse.json(
+        { error: "文件大小不能超过 5MB" },
+        { status: 400 },
+      ),
     );
   }
 
@@ -47,5 +74,5 @@ export async function POST(req: NextRequest) {
   await writeFile(path.join(UPLOAD_DIR, filename), buffer);
 
   const url = `/uploads/products/${filename}`;
-  return NextResponse.json({ url });
+  return withSecurityHeaders(NextResponse.json({ url }));
 }

@@ -1,47 +1,46 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { auth } from "@/lib/auth";
+import { withSecurityHeaders } from "@/lib/security-headers";
 
-const PROTECTED_PREFIXES = ["/member", "/coupons", "/orders", "/my-orders"];
-const MERCHANT_PREFIXES = ["/merchant", "/dashboard", "/verify", "/products", "/orders", "/settings"];
+/** C 端需登录（会话级） */
+const PROTECTED_PREFIXES = [
+  "/member",
+  "/coupons",
+  "/orders",
+  "/my-orders",
+];
 
-const securityHeaders = {
-  "X-Frame-Options": "DENY",
-  "X-Content-Type-Options": "nosniff",
-  "Referrer-Policy": "strict-origin-when-cross-origin",
-  "Permissions-Policy":
-    "camera=(), microphone=(), geolocation=(), interest-cohort=()",
-  "X-DNS-Prefetch-Control": "on",
-};
-
-function addSecurityHeaders(response: NextResponse) {
-  for (const [key, value] of Object.entries(securityHeaders)) {
-    response.headers.set(key, value);
-  }
-  if (process.env.NODE_ENV === "production") {
-    response.headers.set(
-      "Strict-Transport-Security",
-      "max-age=63072000; includeSubDomains; preload",
-    );
-  }
-  return response;
-}
+/** B 端（商家 / 管理员） */
+const MERCHANT_PREFIXES = [
+  "/merchant",
+  "/dashboard",
+  "/verify",
+  "/products",
+  "/orders",
+  "/settings",
+  "/coupon-manage",
+  "/users",
+  "/agent-review",
+];
 
 function matchesPrefix(pathname: string, prefixes: string[]) {
   return prefixes.some(
-    (p) => pathname === p || pathname.startsWith(p + "/"),
+    (p) => pathname === p || pathname.startsWith(`${p}/`),
   );
 }
 
+/**
+ * Next.js 16+：使用 `proxy` 约定（Node 运行时），可安全调用 better-auth + Prisma。
+ */
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Skip static / API / _next assets
   if (
     pathname.startsWith("/_next") ||
     pathname.startsWith("/api/auth") ||
     pathname.match(/\.(?:ico|svg|png|jpg|jpeg|gif|webp|css|js|woff2?)$/)
   ) {
-    return addSecurityHeaders(NextResponse.next());
+    return withSecurityHeaders(NextResponse.next());
   }
 
   const needsAuth =
@@ -49,10 +48,9 @@ export async function proxy(request: NextRequest) {
     matchesPrefix(pathname, MERCHANT_PREFIXES);
 
   if (!needsAuth) {
-    return addSecurityHeaders(NextResponse.next());
+    return withSecurityHeaders(NextResponse.next());
   }
 
-  // Validate session server-side
   const session = await auth.api.getSession({
     headers: request.headers,
   });
@@ -60,27 +58,23 @@ export async function proxy(request: NextRequest) {
   if (!session) {
     const loginUrl = new URL("/login", request.url);
     loginUrl.searchParams.set("callbackUrl", pathname);
-    return addSecurityHeaders(NextResponse.redirect(loginUrl));
+    return withSecurityHeaders(NextResponse.redirect(loginUrl));
   }
 
-  // Merchant role gate
   if (matchesPrefix(pathname, MERCHANT_PREFIXES)) {
     const role = (session.user as { role?: string }).role;
     if (role !== "MERCHANT" && role !== "ADMIN") {
-      return addSecurityHeaders(NextResponse.redirect(new URL("/", request.url)));
+      return withSecurityHeaders(
+        NextResponse.redirect(new URL("/", request.url)),
+      );
     }
   }
 
-  return addSecurityHeaders(NextResponse.next());
+  return withSecurityHeaders(NextResponse.next());
 }
 
 export const config = {
   matcher: [
-    /*
-     * Match all request paths except:
-     * - _next/static, _next/image (Next.js internals)
-     * - favicon.ico, public assets
-     */
     "/((?!_next/static|_next/image|favicon\\.ico).*)",
   ],
 };

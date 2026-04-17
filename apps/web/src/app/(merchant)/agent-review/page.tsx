@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Check, Loader2, X } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -56,14 +56,24 @@ export default function AgentReviewPage() {
 
   const reviewMutation = useMutation(trpc.agent.reviewApplication.mutationOptions());
 
-  const applications = (applicationsData ?? []) as Application[];
+  const applications = useMemo(() => {
+    const list = (applicationsData ?? []) as Application[];
+    const rank = (s: string) =>
+      s === "PENDING" || s === "REVIEWING" ? 0 : s === "REJECTED" ? 1 : 2;
+    return [...list].sort((a, b) => {
+      const d = rank(a.status) - rank(b.status);
+      if (d !== 0) return d;
+      const ta = a.createdAt instanceof Date ? a.createdAt : new Date(a.createdAt);
+      const tb = b.createdAt instanceof Date ? b.createdAt : new Date(b.createdAt);
+      return tb.getTime() - ta.getTime();
+    });
+  }, [applicationsData]);
 
-  async function handleReview(approve: boolean) {
-    if (!reviewTarget) return;
+  async function handleReview(target: Application, approve: boolean) {
     setIsApproving(true);
     try {
       await reviewMutation.mutateAsync({
-        id: reviewTarget.id,
+        id: target.id,
         approve,
         note: approve ? undefined : rejectNote.trim() || undefined,
       });
@@ -142,7 +152,7 @@ export default function AgentReviewPage() {
                                 <Button
                                   size="sm"
                                   className="gap-1 rounded-full"
-                                  onClick={() => { setReviewTarget(app); handleReview(true); }}
+                                  onClick={() => void handleReview(app, true)}
                                   disabled={isApproving}
                                 >
                                   {isApproving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
@@ -179,7 +189,7 @@ export default function AgentReviewPage() {
               <Button variant="outline" onClick={() => setReviewTarget(null)} className="rounded-full">取消</Button>
               <Button
                 variant="destructive"
-                onClick={() => handleReview(false)}
+                onClick={() => reviewTarget && void handleReview(reviewTarget, false)}
                 disabled={reviewMutation.isPending}
                 className="rounded-full"
               >

@@ -718,6 +718,8 @@ export default function SettingsPage() {
     );
   }
 
+  const isAdmin = user?.role === "ADMIN";
+
   return (
     <div className="p-6 max-w-3xl mx-auto space-y-6">
       <div className="flex items-center justify-between gap-4">
@@ -735,10 +737,12 @@ export default function SettingsPage() {
             <Store className="h-4 w-4" />
             个人信息
           </TabsTrigger>
+          {isAdmin ? (
           <TabsTrigger value="incentive" className="gap-2">
             <Zap className="h-4 w-4" />
             激励策略
           </TabsTrigger>
+          ) : null}
           <TabsTrigger value="notification" className="gap-2">
             <Bell className="h-4 w-4" />
             通知
@@ -747,14 +751,18 @@ export default function SettingsPage() {
             <Shield className="h-4 w-4" />
             安全
           </TabsTrigger>
+          {isAdmin ? (
           <TabsTrigger value="tasks" className="gap-2">
             <ClipboardList className="h-4 w-4" />
             任务模板
           </TabsTrigger>
+          ) : null}
+          {isAdmin ? (
           <TabsTrigger value="ads" className="gap-2">
             <Image className="h-4 w-4" />
             广告位
           </TabsTrigger>
+          ) : null}
           <TabsTrigger value="appearance" className="gap-2">
             <Palette className="h-4 w-4" />
             外观
@@ -800,7 +808,15 @@ export default function SettingsPage() {
               <div className="space-y-2">
                 <Label>角色</Label>
                 <Input
-                  value={user?.role === "ADMIN" ? "管理员" : "商家"}
+                  value={
+                    user?.role === "ADMIN"
+                      ? "管理员"
+                      : user?.role === "MERCHANT"
+                        ? "商家"
+                        : user?.role === "AGENT"
+                          ? "代理商"
+                          : (user?.role ?? "—")
+                  }
                   disabled
                   className="opacity-60"
                 />
@@ -825,9 +841,11 @@ export default function SettingsPage() {
           </Card>
         </TabsContent>
 
+        {isAdmin ? (
         <TabsContent value="incentive">
           <IncentiveTab />
         </TabsContent>
+        ) : null}
 
         <TabsContent value="notification">
           <Card className="border-border">
@@ -939,13 +957,17 @@ export default function SettingsPage() {
           </Card>
         </TabsContent>
 
+        {isAdmin ? (
         <TabsContent value="tasks">
           <TaskTemplateTab />
         </TabsContent>
+        ) : null}
 
+        {isAdmin ? (
         <TabsContent value="ads">
           <AdSlotTab />
         </TabsContent>
+        ) : null}
 
         <TabsContent value="appearance">
           <AppearanceTab />

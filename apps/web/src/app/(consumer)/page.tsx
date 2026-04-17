@@ -407,7 +407,151 @@ function FilterChips({
 
 const GRAB_AVATAR_SEEDS = ["张", "李", "王", "赵"] as const;
 
-/* ---------- 商品卡（券形 + 社证 + 抢购感） ---------- */
+/* ---------- 商品信息 hash（社证稳定伪数据） ---------- */
+function useProductMeta(item: ProductItem) {
+  const price = Number(item.cashPrice);
+  const original =
+    item.originalCashPrice != null ? Number(item.originalCashPrice) : null;
+
+  return useMemo(() => {
+    let h = 0;
+    for (let i = 0; i < item.id.length; i++) h += item.id.charCodeAt(i);
+    const sold = 800 + (h % 8200);
+    const rating = (4.6 + (h % 4) * 0.1).toFixed(1);
+    const grabbing = 120 + (h % 980);
+    const saveYuan =
+      original != null && original > price
+        ? Math.max(1, Math.round(original - price))
+        : 3 + (h % 36);
+    return { price, original, sold, rating, grabbing, saveYuan };
+  }, [item.id, original, price]);
+}
+
+function getCtaLabel(price: number, pointsPrice: number) {
+  if (price > 0) {
+    const dec = Number.isInteger(price) ? 0 : 2;
+    return `¥${price.toFixed(dec)}抢!`;
+  }
+  if (pointsPrice > 0) return `${pointsPrice}积分抢!`;
+  return "免费冲!";
+}
+
+/* ---------- 移动端：一行一条的横向商品行 ---------- */
+function MobileProductRow({
+  item,
+  onClick,
+}: {
+  item: ProductItem;
+  onClick: () => void;
+}) {
+  const { price, original, sold, rating, grabbing, saveYuan } =
+    useProductMeta(item);
+
+  return (
+    <HoverScale scale={1.005}>
+      <Card
+        className="group relative flex w-full cursor-pointer flex-row items-stretch gap-0 overflow-hidden rounded-xl border border-[var(--app-card-border)] bg-white p-0 shadow-none transition-colors hover:border-[var(--brand-red)]/45"
+        onClick={onClick}
+      >
+        <div className="relative h-[120px] w-[120px] shrink-0 overflow-hidden bg-secondary">
+          {item.imageUrl ? (
+            <img
+              src={item.imageUrl}
+              alt={item.title}
+              className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+            />
+          ) : (
+            <div className="absolute inset-0 flex items-center justify-center">
+              <span className="text-sm font-semibold text-muted-foreground">
+                {item.app}
+              </span>
+            </div>
+          )}
+          <div className="absolute left-1.5 top-1.5 rounded bg-black/55 px-1.5 py-0.5 text-[10px] font-medium text-white backdrop-blur-sm">
+            {item.app}
+          </div>
+        </div>
+
+        <div className="flex min-w-0 flex-1 flex-col px-3 py-2.5">
+          <div className="flex items-start gap-1.5">
+            <span className="mt-0.5 shrink-0 rounded border border-[var(--brand-red)] bg-[var(--brand-red-soft)] px-1 py-0 text-[9px] font-bold leading-[14px] text-[var(--brand-red)]">
+              官方
+            </span>
+            <div className="line-clamp-2 flex-1 text-[13px] font-semibold leading-[18px] text-foreground">
+              {item.title}
+            </div>
+          </div>
+
+          <div className="mt-1 flex items-center gap-2 text-[10px] text-muted-foreground">
+            <span className="flex items-center gap-0.5">
+              <Star className="h-2.5 w-2.5 fill-[var(--brand-orange)] text-[var(--brand-orange)]" />
+              <span className="font-semibold text-foreground">{rating}</span>
+            </span>
+            <span>·</span>
+            <span>已售 {sold}</span>
+            <span>·</span>
+            <span className="font-semibold text-[var(--brand-red)]">
+              {grabbing}人抢!
+            </span>
+          </div>
+
+          <div className="mt-auto flex items-end justify-between gap-2 pt-1.5">
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-end gap-1.5">
+                <div className="text-xl font-black leading-none tracking-tight text-[var(--brand-red)]">
+                  {item.pointsPrice > 0 && (
+                    <span className="text-base">{item.pointsPrice}积分</span>
+                  )}
+                  {item.pointsPrice > 0 && price > 0 && (
+                    <span className="mx-0.5 text-sm font-black text-foreground">
+                      +
+                    </span>
+                  )}
+                  {price > 0 && (
+                    <span>
+                      ¥
+                      {Number.isInteger(price)
+                        ? price.toFixed(0)
+                        : price.toFixed(2)}
+                    </span>
+                  )}
+                  {item.pointsPrice === 0 && price === 0 && (
+                    <span className="text-lg">免费!</span>
+                  )}
+                </div>
+                {original != null && original > price && (
+                  <span className="pb-0.5 text-[10px] text-muted-foreground line-through">
+                    ¥
+                    {Number.isInteger(original)
+                      ? original.toFixed(0)
+                      : original.toFixed(2)}
+                  </span>
+                )}
+              </div>
+              {saveYuan > 0 && (
+                <span className="mt-1 inline-block rounded-sm bg-[var(--brand-red)] px-1.5 py-0.5 text-[10px] font-bold leading-none text-white">
+                  立省¥{saveYuan}
+                </span>
+              )}
+            </div>
+            <Button
+              size="sm"
+              onClick={(e) => {
+                e.stopPropagation();
+                onClick();
+              }}
+              className="h-8 shrink-0 rounded-full bg-[var(--brand-red)] px-4 text-xs font-black text-white shadow-sm hover:bg-[var(--brand-red-hover)]"
+            >
+              {getCtaLabel(price, item.pointsPrice)}
+            </Button>
+          </div>
+        </div>
+      </Card>
+    </HoverScale>
+  );
+}
+
+/* ---------- 宽屏：券形竖向卡片（多列网格） ---------- */
 function MinimalProductCard({
   item,
   onClick,
@@ -415,50 +559,14 @@ function MinimalProductCard({
   item: ProductItem;
   onClick: () => void;
 }) {
-  const price = Number(item.cashPrice);
-  const original =
-    item.originalCashPrice != null ? Number(item.originalCashPrice) : null;
-
-  const sold = useMemo(() => {
-    let h = 0;
-    for (let i = 0; i < item.id.length; i++) h += item.id.charCodeAt(i);
-    return 800 + (h % 8200);
-  }, [item.id]);
-
-  const rating = useMemo(() => {
-    let h = 0;
-    for (let i = 0; i < item.id.length; i++) h += item.id.charCodeAt(i);
-    return (4.6 + (h % 4) * 0.1).toFixed(1);
-  }, [item.id]);
-
-  const grabbing = useMemo(() => {
-    let h = 0;
-    for (let i = 0; i < item.id.length; i++) h += item.id.charCodeAt(i);
-    return 120 + (h % 980);
-  }, [item.id]);
-
-  const saveYuan = useMemo(() => {
-    if (original != null && original > price) {
-      return Math.max(1, Math.round(original - price));
-    }
-    let h = 0;
-    for (let i = 0; i < item.id.length; i++) h += item.id.charCodeAt(i);
-    return 3 + (h % 36);
-  }, [item.id, original, price]);
-
-  const ctaLabel = useMemo(() => {
-    if (price > 0) {
-      const dec = Number.isInteger(price) ? 0 : 2;
-      return `¥${price.toFixed(dec)}抢!`;
-    }
-    if (item.pointsPrice > 0) return `${item.pointsPrice}积分抢!`;
-    return "免费冲!";
-  }, [item.pointsPrice, price]);
+  const { price, original, sold, rating, grabbing, saveYuan } =
+    useProductMeta(item);
+  const ctaLabel = getCtaLabel(price, item.pointsPrice);
 
   return (
     <HoverScale scale={1.015}>
       <Card
-        className="group relative flex h-full min-h-0 cursor-pointer flex-row gap-0 overflow-hidden rounded-xl border border-[var(--app-card-border)] bg-white p-0 shadow-none transition-colors hover:border-[var(--brand-red)]/45 lg:flex-col"
+        className="group relative flex h-full cursor-pointer flex-col gap-0 overflow-hidden rounded-xl border border-[var(--app-card-border)] bg-white p-0 shadow-none transition-colors hover:border-[var(--brand-red)]/45"
         onClick={onClick}
       >
         {saveYuan > 0 && (
@@ -469,120 +577,114 @@ function MinimalProductCard({
           </div>
         )}
 
-        <div className="flex min-h-[104px] min-w-0 flex-1 flex-row md:min-h-0 md:flex-col">
-          <div className="relative h-[104px] w-[104px] shrink-0 overflow-hidden border-r border-dashed border-[var(--app-card-border)] bg-secondary md:h-auto md:w-full md:border-r-0 md:aspect-square">
-            {item.imageUrl ? (
-              <img
-                src={item.imageUrl}
-                alt={item.title}
-                className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
-              />
-            ) : (
-              <div className="absolute inset-0 flex items-center justify-center">
-                <span className="text-sm font-semibold text-muted-foreground">
-                  {item.app}
-                </span>
-              </div>
-            )}
-            <div className="absolute left-1 top-1 rounded bg-black/55 px-1.5 py-0.5 text-[10px] font-medium text-white backdrop-blur-sm">
-              {item.app}
-            </div>
-            <div className="absolute right-1 top-1 rounded border border-white/40 bg-[var(--brand-red)]/90 px-1.5 py-0.5 text-[10px] font-bold text-white backdrop-blur-sm">
-              官方
-            </div>
-          </div>
-
-          {/* 券撕边（仅宽屏多列时） */}
-          <div className="relative hidden h-2.5 shrink-0 items-center bg-white px-2 lg:flex">
-            <div
-              className="absolute left-[-6px] top-1/2 z-[1] h-3 w-3 -translate-y-1/2 rounded-full border border-[var(--app-card-border)] bg-[var(--app-shell-bg)]"
-              aria-hidden
+        <div className="relative aspect-square overflow-hidden bg-secondary">
+          {item.imageUrl ? (
+            <img
+              src={item.imageUrl}
+              alt={item.title}
+              className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
             />
-            <div className="mx-2 h-0 flex-1 border-t border-dashed border-[var(--app-card-border)]" />
-            <div
-              className="absolute right-[-6px] top-1/2 z-[1] h-3 w-3 -translate-y-1/2 rounded-full border border-[var(--app-card-border)] bg-[var(--app-shell-bg)]"
-              aria-hidden
-            />
-          </div>
-
-          <div className="flex min-w-0 flex-1 flex-col bg-white px-2.5 py-2 lg:px-3 lg:pb-3 lg:pt-0.5">
-            <div className="line-clamp-2 text-[13px] font-semibold leading-[18px] text-foreground lg:min-h-[36px]">
-              {item.title}
-            </div>
-
-            <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[10px] text-muted-foreground md:mt-1.5">
-              <span className="flex items-center gap-0.5">
-                <Star className="h-2.5 w-2.5 fill-[var(--brand-orange)] text-[var(--brand-orange)]" />
-                <span className="font-semibold text-foreground">{rating}</span>
-              </span>
-              <span className="hidden sm:inline">·</span>
-              <span>已售 {sold}</span>
-            </div>
-
-            <div className="mt-1.5 flex items-center gap-2 lg:mt-2">
-              <div className="flex -space-x-2">
-                {GRAB_AVATAR_SEEDS.map((ch, i) => (
-                  <div
-                    key={i}
-                    className="relative flex h-5 w-5 items-center justify-center rounded-full border-2 border-white bg-gradient-to-br from-[#FE2C55] to-[#FF6E37] text-[8px] font-black text-white first:ml-0 lg:h-6 lg:w-6 lg:text-[9px]"
-                    style={{ zIndex: GRAB_AVATAR_SEEDS.length - i }}
-                  >
-                    {ch}
-                  </div>
-                ))}
-              </div>
-              <span className="line-clamp-1 text-[10px] font-semibold text-[var(--brand-red)]">
-                {grabbing}人正在抢!
+          ) : (
+            <div className="absolute inset-0 flex items-center justify-center">
+              <span className="text-sm font-semibold text-muted-foreground">
+                {item.app}
               </span>
             </div>
+          )}
+          <div className="absolute left-1.5 top-1.5 rounded bg-black/55 px-1.5 py-0.5 text-[10px] font-medium text-white backdrop-blur-sm">
+            {item.app}
+          </div>
+          <div className="absolute right-1.5 top-1.5 rounded border border-white/40 bg-[var(--brand-red)]/90 px-1.5 py-0.5 text-[10px] font-bold text-white backdrop-blur-sm">
+            官方
+          </div>
+        </div>
 
-            <div className="mt-auto flex flex-col gap-2 pt-2 md:pt-2">
-              <div className="flex flex-wrap items-end justify-between gap-2 md:block">
-                <div className="min-w-0 flex flex-wrap items-end gap-1.5">
-                  <div className="text-xl font-black leading-none tracking-tight text-[var(--brand-red)] md:text-2xl">
-                    {item.pointsPrice > 0 && (
-                      <span className="text-base md:text-lg">
-                        {item.pointsPrice}积分
-                      </span>
-                    )}
-                    {item.pointsPrice > 0 && price > 0 && (
-                      <span className="mx-0.5 text-sm font-black text-foreground md:text-base">
-                        +
-                      </span>
-                    )}
-                    {price > 0 && (
-                      <span>
-                        ¥
-                        {Number.isInteger(price)
-                          ? price.toFixed(0)
-                          : price.toFixed(2)}
-                      </span>
-                    )}
-                    {item.pointsPrice === 0 && price === 0 && (
-                      <span className="text-lg lg:text-xl">免费!</span>
-                    )}
-                  </div>
-                  {original != null && original > price && (
-                    <span className="pb-0.5 text-[10px] text-muted-foreground line-through">
-                      ¥
-                      {Number.isInteger(original)
-                        ? original.toFixed(0)
-                        : original.toFixed(2)}
-                    </span>
-                  )}
-                </div>
-                <Button
-                  size="sm"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onClick();
-                  }}
-                  className="h-8 shrink-0 rounded-full bg-[var(--brand-red)] px-4 text-xs font-black text-white hover:bg-[var(--brand-red-hover)] lg:mt-2 lg:h-9 lg:w-full lg:text-sm"
+        {/* 券撕边 */}
+        <div className="relative flex h-2.5 shrink-0 items-center bg-white px-2">
+          <div
+            className="absolute left-[-6px] top-1/2 z-[1] h-3 w-3 -translate-y-1/2 rounded-full border border-[var(--app-card-border)] bg-[var(--app-shell-bg)]"
+            aria-hidden
+          />
+          <div className="mx-2 h-0 flex-1 border-t border-dashed border-[var(--app-card-border)]" />
+          <div
+            className="absolute right-[-6px] top-1/2 z-[1] h-3 w-3 -translate-y-1/2 rounded-full border border-[var(--app-card-border)] bg-[var(--app-shell-bg)]"
+            aria-hidden
+          />
+        </div>
+
+        <div className="flex flex-1 flex-col bg-white px-3 pb-3 pt-0.5">
+          <div className="line-clamp-2 min-h-[36px] text-[13px] font-semibold leading-[18px] text-foreground">
+            {item.title}
+          </div>
+
+          <div className="mt-1.5 flex items-center gap-2 text-[10px] text-muted-foreground">
+            <span className="flex items-center gap-0.5">
+              <Star className="h-2.5 w-2.5 fill-[var(--brand-orange)] text-[var(--brand-orange)]" />
+              <span className="font-semibold text-foreground">{rating}</span>
+            </span>
+            <span>·</span>
+            <span>已售 {sold}</span>
+          </div>
+
+          <div className="mt-2 flex items-center gap-2">
+            <div className="flex -space-x-2">
+              {GRAB_AVATAR_SEEDS.map((ch, i) => (
+                <div
+                  key={i}
+                  className="relative flex h-6 w-6 items-center justify-center rounded-full border-2 border-white bg-gradient-to-br from-[#FE2C55] to-[#FF6E37] text-[9px] font-black text-white first:ml-0"
+                  style={{ zIndex: GRAB_AVATAR_SEEDS.length - i }}
                 >
-                  {ctaLabel}
-                </Button>
-              </div>
+                  {ch}
+                </div>
+              ))}
             </div>
+            <span className="text-[10px] font-semibold text-[var(--brand-red)]">
+              {grabbing}人正在抢!
+            </span>
+          </div>
+
+          <div className="mt-auto pt-2">
+            <div className="flex flex-wrap items-end gap-1.5">
+              <div className="text-2xl font-black leading-none tracking-tight text-[var(--brand-red)]">
+                {item.pointsPrice > 0 && (
+                  <span className="text-lg">{item.pointsPrice}积分</span>
+                )}
+                {item.pointsPrice > 0 && price > 0 && (
+                  <span className="mx-0.5 text-base font-black text-foreground">
+                    +
+                  </span>
+                )}
+                {price > 0 && (
+                  <span>
+                    ¥
+                    {Number.isInteger(price)
+                      ? price.toFixed(0)
+                      : price.toFixed(2)}
+                  </span>
+                )}
+                {item.pointsPrice === 0 && price === 0 && (
+                  <span className="text-xl">免费!</span>
+                )}
+              </div>
+              {original != null && original > price && (
+                <span className="pb-0.5 text-[10px] text-muted-foreground line-through">
+                  ¥
+                  {Number.isInteger(original)
+                    ? original.toFixed(0)
+                    : original.toFixed(2)}
+                </span>
+              )}
+            </div>
+            <Button
+              size="sm"
+              onClick={(e) => {
+                e.stopPropagation();
+                onClick();
+              }}
+              className="mt-2 h-9 w-full rounded-full bg-[var(--brand-red)] text-sm font-black text-white shadow-sm hover:bg-[var(--brand-red-hover)]"
+            >
+              {ctaLabel}
+            </Button>
           </div>
         </div>
       </Card>
@@ -593,22 +695,42 @@ function MinimalProductCard({
 /* ---------- Skeletons ---------- */
 function ProductGridSkeleton({ count = 4 }: { count?: number }) {
   return (
-    <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-      {Array.from({ length: count }).map((_, i) => (
-        <Card
-          key={i}
-          className="flex flex-row gap-0 overflow-hidden rounded-xl border border-[var(--app-card-border)] p-0 md:flex-col"
-        >
-          <Skeleton className="h-[104px] w-[104px] shrink-0 rounded-none md:aspect-square md:h-auto md:w-full" />
-          <div className="flex min-w-0 flex-1 flex-col justify-center space-y-2 p-3">
-            <Skeleton className="h-4 w-full" />
-            <Skeleton className="h-3 w-2/5" />
-            <Skeleton className="h-4 w-4/5" />
-            <Skeleton className="h-8 w-24 shrink-0 rounded-full md:w-full" />
-          </div>
-        </Card>
-      ))}
-    </div>
+    <>
+      <div className="flex flex-col gap-3 md:hidden">
+        {Array.from({ length: count }).map((_, i) => (
+          <Card
+            key={i}
+            className="flex gap-0 overflow-hidden rounded-xl border border-[var(--app-card-border)] p-0"
+          >
+            <Skeleton className="h-[120px] w-[120px] shrink-0" />
+            <div className="flex-1 space-y-2 p-3">
+              <Skeleton className="h-4 w-full" />
+              <Skeleton className="h-3 w-2/5" />
+              <div className="flex items-end justify-between gap-2 pt-3">
+                <Skeleton className="h-5 w-20" />
+                <Skeleton className="h-8 w-20 rounded-full" />
+              </div>
+            </div>
+          </Card>
+        ))}
+      </div>
+      <div className="hidden gap-3 md:grid md:grid-cols-3 lg:grid-cols-4">
+        {Array.from({ length: count }).map((_, i) => (
+          <Card
+            key={i}
+            className="gap-0 overflow-hidden rounded-xl border border-[var(--app-card-border)] p-0"
+          >
+            <Skeleton className="aspect-square w-full" />
+            <div className="space-y-2 p-3">
+              <Skeleton className="h-4 w-full" />
+              <Skeleton className="h-3 w-2/5" />
+              <Skeleton className="h-4 w-3/5" />
+              <Skeleton className="h-8 w-full rounded-full" />
+            </div>
+          </Card>
+        ))}
+      </div>
+    </>
   );
 }
 
@@ -754,16 +876,28 @@ export default function HomePage() {
               😅 暂无!
             </div>
           ) : (
-            <StaggerList className="grid grid-cols-1 gap-3 lg:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
-              {products.map((item) => (
-                <AnimatedItem key={item.id}>
-                  <MinimalProductCard
-                    item={item}
-                    onClick={() => openScroll(item.id)}
-                  />
-                </AnimatedItem>
-              ))}
-            </StaggerList>
+            <>
+              <StaggerList className="flex flex-col gap-3 md:hidden">
+                {products.map((item) => (
+                  <AnimatedItem key={item.id}>
+                    <MobileProductRow
+                      item={item}
+                      onClick={() => openScroll(item.id)}
+                    />
+                  </AnimatedItem>
+                ))}
+              </StaggerList>
+              <StaggerList className="hidden gap-3 md:grid md:grid-cols-3 lg:grid-cols-4">
+                {products.map((item) => (
+                  <AnimatedItem key={item.id}>
+                    <MinimalProductCard
+                      item={item}
+                      onClick={() => openScroll(item.id)}
+                    />
+                  </AnimatedItem>
+                ))}
+              </StaggerList>
+            </>
           )}
         </AnimatedSection>
 

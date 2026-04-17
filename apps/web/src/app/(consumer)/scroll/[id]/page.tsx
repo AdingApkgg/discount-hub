@@ -247,14 +247,14 @@ export default function ScrollDetailPage({
         )}
       </div>
 
-      {/* 底部「立即购买」条：移动端全宽贴底于 Tab 栏之上（Tab 为文档流占位 54px + safe） */}
+      {/* 底部浮动立即购买 */}
       <div
         className={cn(
-          "fixed inset-x-0 z-20 max-md:bottom-[calc(54px+env(safe-area-inset-bottom))] max-md:mx-0 max-md:border-t max-md:border-[var(--app-card-border)] max-md:bg-white max-md:px-3 max-md:py-2 max-md:shadow-[0_-8px_24px_rgba(15,23,42,0.06)]",
-          "md:static md:bottom-auto md:mx-6 md:mt-2 md:border-0 md:bg-transparent md:px-0 md:py-0 md:shadow-none",
+          "fixed inset-x-0 bottom-[calc(72px+env(safe-area-inset-bottom))] z-20 mx-4",
+          "md:static md:mx-6 md:mt-2",
         )}
       >
-        <div className="flex items-center gap-3 rounded-none border-0 bg-transparent p-0 md:rounded-full md:border md:border-[var(--app-card-border)] md:bg-white md:p-2 md:shadow-[0_-4px_20px_rgba(15,23,42,0.08)]">
+        <div className="flex items-center gap-3 rounded-full border border-[var(--app-card-border)] bg-white p-2 shadow-[0_-4px_20px_rgba(15,23,42,0.08)] md:shadow-none">
           <div className="ml-3 flex-1">
             <div className="text-[11px] text-muted-foreground">到手价</div>
             <div className="flex items-baseline gap-1">

@@ -1,8 +1,5 @@
 import Link from "next/link";
-import {
-  ConsumerDesktopNav,
-  ConsumerMobileTabBar,
-} from "@/components/ConsumerNav";
+import ConsumerNav from "@/components/ConsumerNav";
 import AndroidAppBanner from "@/components/AndroidAppBanner";
 import CheckinPrompt from "@/components/CheckinPrompt";
 
@@ -35,14 +32,11 @@ export default function ConsumerLayout({
   return (
     <div className="min-h-screen bg-[var(--app-shell-bg)]">
       <AndroidAppBanner />
-      <div className="consumer-theme flex min-h-dvh w-full flex-col bg-[var(--app-shell-surface)] md:min-h-screen">
-        <ConsumerDesktopNav />
-        <div className="flex min-h-0 flex-1 flex-col">
-          <main className="mx-auto flex min-h-0 w-full max-w-[1280px] flex-1 flex-col overflow-y-auto">
-            {children}
-          </main>
-          <ConsumerMobileTabBar />
-        </div>
+      <div className="consumer-theme relative flex min-h-screen w-full flex-col bg-[var(--app-shell-surface)]">
+        <ConsumerNav />
+        <main className="mx-auto flex w-full max-w-[1280px] flex-1 flex-col pb-[calc(56px+env(safe-area-inset-bottom))] md:pb-0">
+          {children}
+        </main>
         <CheckinPrompt />
         <ConsumerFooter />
       </div>

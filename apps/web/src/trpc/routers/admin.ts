@@ -15,7 +15,7 @@ export const adminRouter = createTRPCRouter({
       z.object({
         page: z.number().int().min(1).default(1),
         pageSize: z.number().int().min(1).max(100).default(20),
-        role: z.enum(["all", "CONSUMER", "MERCHANT", "ADMIN"]).default("all"),
+        role: z.enum(["all", "CONSUMER", "MERCHANT", "AGENT", "ADMIN"]).default("all"),
         search: z.string().optional(),
       }).optional(),
     )
@@ -65,7 +65,7 @@ export const adminRouter = createTRPCRouter({
     .input(
       z.object({
         userId: z.string(),
-        role: z.enum(["CONSUMER", "MERCHANT", "ADMIN"]),
+        role: z.enum(["CONSUMER", "MERCHANT", "AGENT", "ADMIN"]),
       }),
     )
     .mutation(async ({ ctx, input }) => {

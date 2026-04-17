@@ -17,10 +17,22 @@ export const createTRPCContext = async (opts: { headers: Headers }) => {
   };
 };
 
+const isProd = process.env.NODE_ENV === "production";
+
 const t = initTRPC
   .context<Awaited<ReturnType<typeof createTRPCContext>>>()
   .create({
     transformer: superjson,
+    errorFormatter(opts) {
+      const { shape, error } = opts;
+      if (isProd && error.code === "INTERNAL_SERVER_ERROR") {
+        return {
+          ...shape,
+          message: "服务器内部错误，请稍后重试",
+        };
+      }
+      return shape;
+    },
   });
 
 export const createTRPCRouter = t.router;

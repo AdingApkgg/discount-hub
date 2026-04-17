@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import {
   Crown,
+  Handshake,
   Loader2,
   Search,
   Shield,
@@ -48,8 +49,8 @@ import {
 
 type UsersPayload = RouterOutputs["admin"]["listUsers"];
 type UserItem = UsersPayload["users"][number];
-type RoleFilter = "all" | "CONSUMER" | "MERCHANT" | "ADMIN";
-type Role = "CONSUMER" | "MERCHANT" | "ADMIN";
+type RoleFilter = "all" | "CONSUMER" | "MERCHANT" | "AGENT" | "ADMIN";
+type Role = "CONSUMER" | "MERCHANT" | "AGENT" | "ADMIN";
 
 function roleBadge(role: string) {
   switch (role) {
@@ -67,6 +68,13 @@ function roleBadge(role: string) {
           商家
         </Badge>
       );
+    case "AGENT":
+      return (
+        <Badge className="bg-orange-500/10 text-orange-300 border-orange-400/30 gap-1">
+          <Handshake className="h-3 w-3" />
+          代理商
+        </Badge>
+      );
     default:
       return (
         <Badge className="bg-slate-500/10 text-slate-300 border-slate-400/30 gap-1">
@@ -80,6 +88,7 @@ function roleBadge(role: string) {
 const roleLabel: Record<Role, string> = {
   CONSUMER: "消费者",
   MERCHANT: "商家",
+  AGENT: "代理商",
   ADMIN: "管理员",
 };
 
@@ -211,6 +220,7 @@ export default function UsersPage() {
                 <TabsTrigger value="all">全部</TabsTrigger>
                 <TabsTrigger value="CONSUMER">消费者</TabsTrigger>
                 <TabsTrigger value="MERCHANT">商家</TabsTrigger>
+                <TabsTrigger value="AGENT">代理商</TabsTrigger>
                 <TabsTrigger value="ADMIN">管理员</TabsTrigger>
               </TabsList>
             </Tabs>
@@ -307,6 +317,7 @@ export default function UsersPage() {
                           <SelectContent>
                             <SelectItem value="CONSUMER">消费者</SelectItem>
                             <SelectItem value="MERCHANT">商家</SelectItem>
+                            <SelectItem value="AGENT">代理商</SelectItem>
                             <SelectItem value="ADMIN">管理员</SelectItem>
                           </SelectContent>
                         </Select>
