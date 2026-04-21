@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import Link from "next/link";
+import { useEffect, useMemo, useState } from "react";
 import {
   ImagePlus,
   Loader2,
@@ -9,6 +10,7 @@ import {
   Plus,
   Search,
   Sparkles,
+  Store,
   Trash2,
   X,
 } from "lucide-react";
@@ -39,6 +41,14 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Table,
@@ -52,6 +62,8 @@ import {
 type MerchantProduct = RouterOutputs["product"]["manageList"][number];
 type ProductStatusFilter = "all" | "ACTIVE" | "SOLD_OUT" | "EXPIRED" | "DRAFT";
 type ProductStatus = MerchantProduct["status"];
+
+type BulkDialogKind = "status" | "stock" | "delta" | "price" | "csv";
 
 type ProductFormState = {
   app: string;
@@ -93,6 +105,24 @@ function formatDateText(value: string | Date) {
   const d = typeof value === "string" ? new Date(value) : value;
   if (Number.isNaN(d.getTime())) return "—";
   return d.toLocaleDateString("zh-CN");
+}
+
+/** 解析库存导入：每行 `商品ID,库存`，支持表头与逗号/制表符 */
+function parseStockCsv(text: string): { id: string; stock: number }[] {
+  const rows: { id: string; stock: number }[] = [];
+  for (const rawLine of text.trim().split(/\r?\n/)) {
+    const line = rawLine.trim();
+    if (!line) continue;
+    const parts = line.split(/[,，\t]/).map((s) => s.trim());
+    if (parts.length < 2) continue;
+    const [id, stockStr] = parts;
+    if (!id) continue;
+    if (/^id$/i.test(id) || id.includes("商品")) continue;
+    const stock = Number.parseInt(stockStr, 10);
+    if (!Number.isFinite(stock)) continue;
+    rows.push({ id, stock });
+  }
+  return rows;
 }
 
 function buildForm(product?: MerchantProduct | null): ProductFormState {
@@ -157,6 +187,15 @@ export default function ProductsPage() {
   const [deleteTarget, setDeleteTarget] = useState<MerchantProduct | null>(null);
   const [uploading, setUploading] = useState(false);
 
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [bulkDialog, setBulkDialog] = useState<BulkDialogKind | null>(null);
+  const [bulkStatusChoice, setBulkStatusChoice] = useState<ProductStatus>("ACTIVE");
+  const [bulkStockInput, setBulkStockInput] = useState("0");
+  const [bulkDeltaInput, setBulkDeltaInput] = useState("0");
+  const [bulkCashInput, setBulkCashInput] = useState("");
+  const [bulkPointsInput, setBulkPointsInput] = useState("");
+  const [bulkCsvText, setBulkCsvText] = useState("");
+
   const { data, isLoading } = useQuery(
     trpc.product.manageList.queryOptions({
       status,
@@ -171,6 +210,20 @@ export default function ProductsPage() {
   const createMutation = useMutation(trpc.product.create.mutationOptions());
   const updateMutation = useMutation(trpc.product.update.mutationOptions());
   const deleteMutation = useMutation(trpc.product.delete.mutationOptions());
+  const bulkSetStatusMutation = useMutation(trpc.product.bulkSetStatus.mutationOptions());
+  const bulkSetStockMutation = useMutation(trpc.product.bulkSetStock.mutationOptions());
+  const bulkAdjustStockMutation = useMutation(trpc.product.bulkAdjustStock.mutationOptions());
+  const bulkSetPricesMutation = useMutation(trpc.product.bulkSetPrices.mutationOptions());
+  const bulkImportStockMutation = useMutation(
+    trpc.product.bulkImportStockRows.mutationOptions(),
+  );
+
+  const bulkBusy =
+    bulkSetStatusMutation.isPending ||
+    bulkSetStockMutation.isPending ||
+    bulkAdjustStockMutation.isPending ||
+    bulkSetPricesMutation.isPending ||
+    bulkImportStockMutation.isPending;
 
   const summary = useMemo(() => {
     const activeCount = products.filter((item) => item.status === "ACTIVE").length;
@@ -188,6 +241,167 @@ export default function ProductsPage() {
       { label: "售罄商品", value: String(soldOutCount) },
     ];
   }, [products]);
+
+  useEffect(() => {
+    const idSet = new Set(products.map((p) => p.id));
+    setSelectedIds((prev) => prev.filter((id) => idSet.has(id)));
+  }, [products]);
+
+  async function afterBulkSuccess() {
+    await queryClient.invalidateQueries();
+    setSelectedIds([]);
+    setBulkDialog(null);
+  }
+
+  function toggleSelect(id: string) {
+    setSelectedIds((prev) => {
+      const s = new Set(prev);
+      if (s.has(id)) s.delete(id);
+      else s.add(id);
+      return Array.from(s);
+    });
+  }
+
+  function toggleSelectAllOnPage() {
+    const pageIds = products.map((p) => p.id);
+    const allSelected =
+      pageIds.length > 0 && pageIds.every((id) => selectedIds.includes(id));
+    setSelectedIds((prev) => {
+      if (allSelected) return prev.filter((id) => !pageIds.includes(id));
+      return Array.from(new Set([...prev, ...pageIds]));
+    });
+  }
+
+  function openBulk(kind: BulkDialogKind) {
+    if (kind === "stock") setBulkStockInput("0");
+    if (kind === "delta") setBulkDeltaInput("0");
+    if (kind === "price") {
+      setBulkCashInput("");
+      setBulkPointsInput("");
+    }
+    if (kind === "csv") {
+      setBulkCsvText("");
+    }
+    setBulkDialog(kind);
+  }
+
+  async function runBulkStatus() {
+    if (selectedIds.length === 0) {
+      toast.error("请先勾选商品");
+      return;
+    }
+    try {
+      const r = await bulkSetStatusMutation.mutateAsync({
+        ids: selectedIds,
+        status: bulkStatusChoice,
+      });
+      toast.success(`已更新 ${r.updated} 个商品状态`);
+      await afterBulkSuccess();
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "批量操作失败");
+    }
+  }
+
+  async function runBulkSetStock() {
+    if (selectedIds.length === 0) {
+      toast.error("请先勾选商品");
+      return;
+    }
+    const stock = Number.parseInt(bulkStockInput, 10);
+    if (!Number.isFinite(stock) || stock < 0) {
+      toast.error("请输入有效的库存数量");
+      return;
+    }
+    try {
+      const r = await bulkSetStockMutation.mutateAsync({
+        ids: selectedIds,
+        stock,
+      });
+      toast.success(`已统一库存，更新 ${r.updated} 条`);
+      await afterBulkSuccess();
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "批量操作失败");
+    }
+  }
+
+  async function runBulkAdjustStock() {
+    if (selectedIds.length === 0) {
+      toast.error("请先勾选商品");
+      return;
+    }
+    const delta = Number.parseInt(bulkDeltaInput, 10);
+    if (!Number.isFinite(delta)) {
+      toast.error("请输入有效的增减数量（可为负数）");
+      return;
+    }
+    try {
+      const r = await bulkAdjustStockMutation.mutateAsync({
+        ids: selectedIds,
+        delta,
+      });
+      toast.success(`已调整库存，处理 ${r.updated} 条`);
+      await afterBulkSuccess();
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "批量操作失败");
+    }
+  }
+
+  async function runBulkPrices() {
+    if (selectedIds.length === 0) {
+      toast.error("请先勾选商品");
+      return;
+    }
+    const cash =
+      bulkCashInput.trim() === "" ? undefined : Number(bulkCashInput);
+    const points =
+      bulkPointsInput.trim() === "" ? undefined : Number.parseInt(bulkPointsInput, 10);
+    if (
+      (cash === undefined && points === undefined) ||
+      (cash !== undefined && (Number.isNaN(cash) || cash < 0)) ||
+      (points !== undefined && (Number.isNaN(points) || points < 0))
+    ) {
+      toast.error("请至少填写一项合法价格（现金价或积分价）");
+      return;
+    }
+    try {
+      const r = await bulkSetPricesMutation.mutateAsync({
+        ids: selectedIds,
+        cashPrice: cash,
+        pointsPrice: points,
+      });
+      toast.success(`已批量调价，更新 ${r.updated} 条`);
+      await afterBulkSuccess();
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "批量操作失败");
+    }
+  }
+
+  async function runBulkImportCsv() {
+    const rows = parseStockCsv(bulkCsvText);
+    if (rows.length === 0) {
+      toast.error("未解析到有效行，请使用「商品ID,库存」格式");
+      return;
+    }
+    try {
+      const r = await bulkImportStockMutation.mutateAsync({ rows });
+      toast.success(
+        `导入完成：更新 ${r.updated} 条，跳过 ${r.skipped} 条`,
+      );
+      await queryClient.invalidateQueries();
+      setBulkDialog(null);
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "导入失败");
+    }
+  }
+
+  const pageIds = useMemo(() => products.map((p) => p.id), [products]);
+  const selectedOnPage = pageIds.filter((id) => selectedIds.includes(id)).length;
+  const headerCheckboxChecked =
+    pageIds.length > 0 && selectedOnPage === pageIds.length
+      ? true
+      : selectedOnPage > 0
+        ? ("indeterminate" as const)
+        : false;
 
   function updateForm<K extends keyof ProductFormState>(
     key: K,
@@ -341,14 +555,22 @@ export default function ProductsPage() {
             管理在架优惠券和虚拟商品，支持新建、编辑和上下架。
           </p>
         </div>
-        <Button
-          onClick={openCreateDialog}
-          className="bg-[var(--gradient-primary)] hover:brightness-110 text-white gap-2"
-          style={{ boxShadow: "var(--shadow-glow)" }}
-        >
-          <Plus className="h-4 w-4" />
-          添加商品
-        </Button>
+        <div className="flex flex-wrap gap-2 justify-end">
+          <Button asChild variant="outline" className="gap-2">
+            <Link href="/agent-products">
+              <Store className="h-4 w-4" />
+              代理批发价
+            </Link>
+          </Button>
+          <Button
+            onClick={openCreateDialog}
+            className="bg-transparent text-white [background-image:var(--gradient-primary)] hover:brightness-110 gap-2"
+            style={{ boxShadow: "var(--shadow-glow)" }}
+          >
+            <Plus className="h-4 w-4" />
+            添加商品
+          </Button>
+        </div>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
@@ -377,16 +599,54 @@ export default function ProductsPage() {
               </TabsList>
             </Tabs>
 
-            <div className="relative w-full lg:max-w-sm">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                value={search}
-                onChange={(event) => setSearch(event.target.value)}
-                placeholder="搜索商品名称 / 平台"
-                className="pl-9"
-              />
+            <div className="flex w-full flex-col gap-3 sm:flex-row sm:items-center sm:justify-end lg:max-w-xl">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="shrink-0"
+                onClick={() => openBulk("csv")}
+              >
+                粘贴导入库存
+              </Button>
+              <div className="relative w-full sm:max-w-sm">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  value={search}
+                  onChange={(event) => setSearch(event.target.value)}
+                  placeholder="搜索商品名称 / 平台"
+                  className="pl-9"
+                />
+              </div>
             </div>
           </div>
+
+          {selectedIds.length > 0 ? (
+            <div className="flex flex-wrap items-center gap-2 rounded-lg border border-primary/25 bg-primary/5 px-3 py-2.5 text-sm">
+              <span className="font-medium text-foreground">已选 {selectedIds.length} 项</span>
+              <Button size="sm" variant="outline" type="button" onClick={() => openBulk("status")}>
+                改状态
+              </Button>
+              <Button size="sm" variant="outline" type="button" onClick={() => openBulk("stock")}>
+                统一库存
+              </Button>
+              <Button size="sm" variant="outline" type="button" onClick={() => openBulk("delta")}>
+                增减库存
+              </Button>
+              <Button size="sm" variant="outline" type="button" onClick={() => openBulk("price")}>
+                调价
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                type="button"
+                className="text-muted-foreground"
+                onClick={() => setSelectedIds([])}
+              >
+                清除选择
+              </Button>
+            </div>
+          ) : null}
 
           {isLoading ? (
             <div className="flex justify-center py-10">
@@ -407,6 +667,13 @@ export default function ProductsPage() {
               <Table>
                 <TableHeader>
                   <TableRow className="border-border hover:bg-transparent">
+                    <TableHead className="w-10 pr-0">
+                      <Checkbox
+                        checked={headerCheckboxChecked}
+                        onCheckedChange={() => toggleSelectAllOnPage()}
+                        aria-label="全选当前页"
+                      />
+                    </TableHead>
                     <TableHead>商品</TableHead>
                     <TableHead>状态</TableHead>
                     <TableHead className="text-right">积分价</TableHead>
@@ -420,6 +687,14 @@ export default function ProductsPage() {
                 <TableBody>
                   {products.map((product) => (
                     <TableRow key={product.id} className="border-border">
+                      <TableCell className="w-10 align-top pt-4">
+                        <Checkbox
+                          checked={selectedIds.includes(product.id)}
+                          onCheckedChange={() => toggleSelect(product.id)}
+                          onClick={(e) => e.stopPropagation()}
+                          aria-label={`选择 ${product.title}`}
+                        />
+                      </TableCell>
                       <TableCell className="min-w-[240px]">
                         <div className="font-semibold text-foreground">{product.title}</div>
                         <div className="mt-1 text-xs text-muted-foreground">
@@ -692,7 +967,7 @@ export default function ProductsPage() {
             <Button
               onClick={handleSubmit}
               disabled={createMutation.isPending || updateMutation.isPending}
-              className="bg-[var(--gradient-primary)] hover:brightness-110 text-white"
+              className="bg-transparent text-white [background-image:var(--gradient-primary)] hover:brightness-110"
               style={{ boxShadow: "var(--shadow-glow)" }}
             >
               {createMutation.isPending || updateMutation.isPending ? (
@@ -706,6 +981,186 @@ export default function ProductsPage() {
                 "创建商品"
               )}
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={bulkDialog !== null}
+        onOpenChange={(open) => {
+          if (!open) setBulkDialog(null);
+        }}
+      >
+        <DialogContent className="max-w-md bg-card border-border">
+          <DialogHeader>
+            <DialogTitle>
+              {bulkDialog === "status" ? "批量修改状态" : null}
+              {bulkDialog === "stock" ? "统一库存" : null}
+              {bulkDialog === "delta" ? "增减库存" : null}
+              {bulkDialog === "price" ? "批量调价" : null}
+              {bulkDialog === "csv" ? "粘贴导入库存" : null}
+            </DialogTitle>
+          </DialogHeader>
+
+          {bulkDialog === "status" ? (
+            <div className="space-y-2">
+              <Label>目标状态</Label>
+              <Select
+                value={bulkStatusChoice}
+                onValueChange={(v) => setBulkStatusChoice(v as ProductStatus)}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="选择状态" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ACTIVE">在架</SelectItem>
+                  <SelectItem value="SOLD_OUT">售罄</SelectItem>
+                  <SelectItem value="DRAFT">草稿</SelectItem>
+                  <SelectItem value="EXPIRED">已过期</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          ) : null}
+
+          {bulkDialog === "stock" ? (
+            <div className="space-y-2">
+              <Label>库存数量（绝对值）</Label>
+              <Input
+                type="number"
+                min={0}
+                value={bulkStockInput}
+                onChange={(event) => setBulkStockInput(event.target.value)}
+              />
+              <p className="text-xs text-muted-foreground">
+                将应用到已选的 {selectedIds.length} 个商品。
+              </p>
+            </div>
+          ) : null}
+
+          {bulkDialog === "delta" ? (
+            <div className="space-y-2">
+              <Label>增减数量</Label>
+              <Input
+                type="number"
+                value={bulkDeltaInput}
+                onChange={(event) => setBulkDeltaInput(event.target.value)}
+                placeholder="可为负数"
+              />
+              <p className="text-xs text-muted-foreground">
+                在当前库存基础上加减，结果不低于 0。
+              </p>
+            </div>
+          ) : null}
+
+          {bulkDialog === "price" ? (
+            <div className="grid gap-3">
+              <div className="space-y-2">
+                <Label>现金价（留空则不修改）</Label>
+                <Input
+                  type="number"
+                  min={0}
+                  step="0.01"
+                  value={bulkCashInput}
+                  onChange={(event) => setBulkCashInput(event.target.value)}
+                  placeholder="可选"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>积分价（留空则不修改）</Label>
+                <Input
+                  type="number"
+                  min={0}
+                  value={bulkPointsInput}
+                  onChange={(event) => setBulkPointsInput(event.target.value)}
+                  placeholder="可选"
+                />
+              </div>
+              <p className="text-xs text-muted-foreground">
+                至少填写一项；留空的字段保持各商品原值不变。
+              </p>
+            </div>
+          ) : null}
+
+          {bulkDialog === "csv" ? (
+            <div className="space-y-2">
+              <Label>CSV 文本</Label>
+              <Textarea
+                value={bulkCsvText}
+                onChange={(event) => setBulkCsvText(event.target.value)}
+                rows={10}
+                placeholder={`例如：\n商品ID,库存\n或每行：clxxx123,50`}
+                className="font-mono text-xs"
+              />
+              <p className="text-xs text-muted-foreground">
+                每行一条：商品 ID 与库存，可用逗号或 Tab 分隔；不含表头亦可。单次最多 500 行。
+              </p>
+            </div>
+          ) : null}
+
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button type="button" variant="outline" onClick={() => setBulkDialog(null)}>
+              取消
+            </Button>
+            {bulkDialog === "status" ? (
+              <Button type="button" disabled={bulkBusy} onClick={() => void runBulkStatus()}>
+                {bulkSetStatusMutation.isPending ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    处理中...
+                  </>
+                ) : (
+                  "确认"
+                )}
+              </Button>
+            ) : null}
+            {bulkDialog === "stock" ? (
+              <Button type="button" disabled={bulkBusy} onClick={() => void runBulkSetStock()}>
+                {bulkSetStockMutation.isPending ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    处理中...
+                  </>
+                ) : (
+                  "确认"
+                )}
+              </Button>
+            ) : null}
+            {bulkDialog === "delta" ? (
+              <Button type="button" disabled={bulkBusy} onClick={() => void runBulkAdjustStock()}>
+                {bulkAdjustStockMutation.isPending ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    处理中...
+                  </>
+                ) : (
+                  "确认"
+                )}
+              </Button>
+            ) : null}
+            {bulkDialog === "price" ? (
+              <Button type="button" disabled={bulkBusy} onClick={() => void runBulkPrices()}>
+                {bulkSetPricesMutation.isPending ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    处理中...
+                  </>
+                ) : (
+                  "确认"
+                )}
+              </Button>
+            ) : null}
+            {bulkDialog === "csv" ? (
+              <Button type="button" disabled={bulkBusy} onClick={() => void runBulkImportCsv()}>
+                {bulkImportStockMutation.isPending ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    导入中...
+                  </>
+                ) : (
+                  "导入"
+                )}
+              </Button>
+            ) : null}
           </DialogFooter>
         </DialogContent>
       </Dialog>

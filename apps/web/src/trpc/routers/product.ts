@@ -1,10 +1,24 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
+import type Redis from "ioredis";
 import { productCreateSchema, productUpdateSchema } from "@discount-hub/shared";
 import { createTRPCRouter, publicProcedure, merchantProcedure } from "../init";
 
 const PRODUCT_LIST_TTL = 60;
 const PRODUCT_DETAIL_TTL = 120;
+const MAX_BULK_IDS = 200;
+
+async function invalidateProductCaches(
+  redis: Redis | null | undefined,
+  productIds?: string[],
+) {
+  if (!redis) return;
+  const keys = await redis.keys("products:list:*");
+  if (keys.length > 0) await redis.del(...keys);
+  if (productIds?.length) {
+    await Promise.all(productIds.map((id) => redis.del(`products:detail:${id}`)));
+  }
+}
 
 function toNum(v: unknown): number {
   if (typeof v === "number") return v;
@@ -132,11 +146,7 @@ export const productRouter = createTRPCRouter({
     .mutation(async ({ ctx, input }) => {
       const product = await ctx.prisma.product.create({ data: input });
 
-      // Invalidate list cache on create
-      if (ctx.redis) {
-        const keys = await ctx.redis.keys("products:list:*");
-        if (keys.length > 0) await ctx.redis.del(...keys);
-      }
+      await invalidateProductCaches(ctx.redis ?? null, []);
 
       return product;
     }),
@@ -149,12 +159,7 @@ export const productRouter = createTRPCRouter({
         data: input.data,
       });
 
-      // Invalidate caches on update
-      if (ctx.redis) {
-        const keys = await ctx.redis.keys("products:list:*");
-        if (keys.length > 0) await ctx.redis.del(...keys);
-        await ctx.redis.del(`products:detail:${input.id}`);
-      }
+      await invalidateProductCaches(ctx.redis ?? null, [input.id]);
 
       return product;
     }),
@@ -185,12 +190,178 @@ export const productRouter = createTRPCRouter({
         await tx.product.delete({ where: { id: input.id } });
       });
 
-      if (ctx.redis) {
-        const keys = await ctx.redis.keys("products:list:*");
-        if (keys.length > 0) await ctx.redis.del(...keys);
-        await ctx.redis.del(`products:detail:${input.id}`);
-      }
+      await invalidateProductCaches(ctx.redis ?? null, [input.id]);
 
       return { success: true };
+    }),
+
+  bulkSetStatus: merchantProcedure
+    .input(
+      z.object({
+        ids: z.array(z.string()).min(1).max(MAX_BULK_IDS),
+        status: z.enum(["ACTIVE", "SOLD_OUT", "EXPIRED", "DRAFT"]),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const result = await ctx.prisma.product.updateMany({
+        where: { id: { in: input.ids } },
+        data: { status: input.status },
+      });
+      await invalidateProductCaches(ctx.redis ?? null, input.ids);
+      return { updated: result.count };
+    }),
+
+  bulkSetStock: merchantProcedure
+    .input(
+      z.object({
+        ids: z.array(z.string()).min(1).max(MAX_BULK_IDS),
+        stock: z.number().int().min(0).max(10_000_000),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const result = await ctx.prisma.product.updateMany({
+        where: { id: { in: input.ids } },
+        data: { stock: input.stock },
+      });
+      await invalidateProductCaches(ctx.redis ?? null, input.ids);
+      return { updated: result.count };
+    }),
+
+  bulkAdjustStock: merchantProcedure
+    .input(
+      z.object({
+        ids: z.array(z.string()).min(1).max(MAX_BULK_IDS),
+        delta: z.number().int().min(-10_000_000).max(10_000_000),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const products = await ctx.prisma.product.findMany({
+        where: { id: { in: input.ids } },
+        select: { id: true, stock: true },
+      });
+      await ctx.prisma.$transaction(
+        products.map((p) =>
+          ctx.prisma.product.update({
+            where: { id: p.id },
+            data: { stock: Math.max(0, p.stock + input.delta) },
+          }),
+        ),
+      );
+      await invalidateProductCaches(ctx.redis ?? null, input.ids);
+      return { updated: products.length };
+    }),
+
+  bulkSetPrices: merchantProcedure
+    .input(
+      z
+        .object({
+          ids: z.array(z.string()).min(1).max(MAX_BULK_IDS),
+          cashPrice: z.number().min(0).optional(),
+          pointsPrice: z.number().int().min(0).optional(),
+        })
+        .refine((d) => d.cashPrice !== undefined || d.pointsPrice !== undefined, {
+          message: "至少指定现金价或积分价之一",
+        }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const data: {
+        cashPrice?: number;
+        pointsPrice?: number;
+      } = {};
+      if (input.cashPrice !== undefined) {
+        data.cashPrice = input.cashPrice;
+      }
+      if (input.pointsPrice !== undefined) {
+        data.pointsPrice = input.pointsPrice;
+      }
+      const result = await ctx.prisma.product.updateMany({
+        where: { id: { in: input.ids } },
+        data,
+      });
+      await invalidateProductCaches(ctx.redis ?? null, input.ids);
+      return { updated: result.count };
+    }),
+
+  bulkSetAgentPricing: merchantProcedure
+    .input(
+      z.object({
+        ids: z.array(z.string()).min(1).max(MAX_BULK_IDS),
+        clearAgent: z.boolean().optional(),
+        agentPrice: z.number().min(0).optional(),
+        agentMinQty: z.number().int().min(1).optional(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      if (input.clearAgent) {
+        const result = await ctx.prisma.product.updateMany({
+          where: { id: { in: input.ids } },
+          data: { agentPrice: null, agentMinQty: null },
+        });
+        await invalidateProductCaches(ctx.redis ?? null, input.ids);
+        return { updated: result.count };
+      }
+      const data: {
+        agentPrice?: number | null;
+        agentMinQty?: number | null;
+      } = {};
+      if (input.agentPrice !== undefined) {
+        data.agentPrice = input.agentPrice;
+      }
+      if (input.agentMinQty !== undefined) {
+        data.agentMinQty = input.agentMinQty;
+      }
+      if (Object.keys(data).length === 0) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "请指定批发价、最低订量或选择清空代理价",
+        });
+      }
+      const result = await ctx.prisma.product.updateMany({
+        where: { id: { in: input.ids } },
+        data,
+      });
+      await invalidateProductCaches(ctx.redis ?? null, input.ids);
+      return { updated: result.count };
+    }),
+
+  bulkImportStockRows: merchantProcedure
+    .input(
+      z.object({
+        rows: z
+          .array(
+            z.object({
+              id: z.string().min(1),
+              stock: z.number().int().min(0).max(10_000_000),
+            }),
+          )
+          .min(1)
+          .max(500),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const requestIds = [...new Set(input.rows.map((r) => r.id))];
+      const existing = await ctx.prisma.product.findMany({
+        where: { id: { in: requestIds } },
+        select: { id: true },
+      });
+      const idSet = new Set(existing.map((e) => e.id));
+      const byId = new Map<string, number>();
+      for (const r of input.rows) {
+        if (idSet.has(r.id)) byId.set(r.id, r.stock);
+      }
+      const updates = [...byId.entries()];
+      if (updates.length > 0) {
+        await ctx.prisma.$transaction(
+          updates.map(([id, stock]) =>
+            ctx.prisma.product.update({ where: { id }, data: { stock } }),
+          ),
+        );
+      }
+      const touched = updates.map(([id]) => id);
+      await invalidateProductCaches(ctx.redis ?? null, touched);
+      return {
+        updated: byId.size,
+        skipped: input.rows.length - byId.size,
+      };
     }),
 });

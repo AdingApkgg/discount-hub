@@ -183,9 +183,12 @@
   --color-panel: var(--panel);
   --color-panel2: var(--panel2);
   --color-foreground: hsl(var(--foreground));
-  --color-muted: var(--text-muted);
-  --color-primary: var(--primary);
-  --color-accent: var(--accent);
+  /* 与 shadcn 一致：bg-muted / 弱背景，勿用 --text-muted */
+  --color-muted: hsl(var(--muted));
+  /* 与 shadcn 一致：hover/focus 等“弱强调”浅底，勿用品牌色 --accent 十六进制 */
+  --color-accent: hsl(var(--accent-hsl));
+  --color-primary: hsl(var(--primary-hsl));
+  --color-primary-foreground: hsl(var(--primary-foreground));
   --color-background: hsl(var(--background));
   --color-card: hsl(var(--card));
   --color-card-foreground: hsl(var(--card-foreground));
@@ -196,6 +199,7 @@
   --color-muted-foreground: hsl(var(--muted-foreground));
   --color-accent-foreground: hsl(var(--accent-foreground));
   --color-destructive: hsl(var(--destructive));
+  --color-destructive-foreground: hsl(var(--destructive-foreground));
   --color-border: hsl(var(--border-hsl));
   --color-input: hsl(var(--input));
   --color-ring: hsl(var(--ring));

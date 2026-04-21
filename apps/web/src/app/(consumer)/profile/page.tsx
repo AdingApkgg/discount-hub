@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   Bell,
@@ -74,10 +75,13 @@ function ProfileHeader({
   const vipLabel =
     (profile?.vipLevel ?? 0) <= 0 ? "普通会员" : `VIP${profile?.vipLevel}`;
   const points = profile?.points ?? 0;
+  const savingsPts = (profile as { totalSavingsPoints?: number } | undefined)
+    ?.totalSavingsPoints ?? 0;
+  const savingsYuan = savingsPts / 100;
   return (
     <Card className="gap-0 rounded-xl border border-[var(--app-card-border)] bg-[var(--app-card)] p-4 shadow-none">
-      <div className="flex items-center gap-3">
-        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-secondary text-base font-semibold text-foreground">
+      <div className="flex items-start gap-3">
+        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-secondary text-base font-semibold text-foreground">
           {name.slice(0, 1)}
         </div>
         <div className="flex-1 min-w-0">
@@ -89,24 +93,39 @@ function ProfileHeader({
               {vipLabel}
             </span>
           </div>
-          <div className="mt-0.5 flex items-center gap-2 text-[11px] text-muted-foreground">
-            <span>{points.toLocaleString("zh-CN")} 积分</span>
-            {email && (
-              <>
-                <span>·</span>
-                <span className="truncate">{email}</span>
-              </>
-            )}
+          <div className="mt-1 text-lg font-black tabular-nums leading-none text-[var(--brand-red)]">
+            {points.toLocaleString("zh-CN")}
+            <span className="ml-1 text-xs font-semibold text-muted-foreground">积分</span>
           </div>
+          <div className="mt-1 text-[11px] text-muted-foreground">
+            累计节省约{" "}
+            <span className="font-semibold text-foreground">
+              ¥{savingsYuan.toFixed(2)}
+            </span>
+            <span className="text-muted-foreground">
+              （已抵扣 {savingsPts.toLocaleString("zh-CN")} 积分）
+            </span>
+          </div>
+          {email && (
+            <div className="mt-1 truncate text-[11px] text-muted-foreground">{email}</div>
+          )}
         </div>
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={onCopyInvite}
-          className="h-8 shrink-0 rounded-full border-[var(--app-card-border)] text-xs"
-        >
-          邀请好友
-        </Button>
+        <div className="flex shrink-0 flex-col items-end gap-1">
+          <Button
+            size="sm"
+            className="h-8 rounded-full bg-[var(--brand-red)] px-3 text-xs font-semibold text-white hover:bg-[var(--brand-red-hover)]"
+            asChild
+          >
+            <Link href="/invite">邀请详情</Link>
+          </Button>
+          <button
+            type="button"
+            onClick={onCopyInvite}
+            className="text-[10px] text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
+          >
+            复制邀请链接
+          </button>
+        </div>
       </div>
     </Card>
   );

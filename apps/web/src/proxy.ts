@@ -17,6 +17,7 @@ const MERCHANT_PREFIXES = [
   "/verify",
   "/verifications",
   "/products",
+  "/agent-products",
   "/orders",
   "/settings",
   "/coupon-manage",

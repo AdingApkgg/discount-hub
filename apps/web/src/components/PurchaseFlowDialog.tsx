@@ -574,7 +574,7 @@ export default function PurchaseFlowDialog({
           {step === "offer" && (
             <div className="flex items-center justify-between gap-3">
               <div className="text-sm text-muted-foreground">限购 1 张</div>
-              <Button onClick={() => setStep("pay")} className="bg-[var(--gradient-primary)] text-white hover:brightness-110" style={{ boxShadow: "var(--shadow-glow)" }}>
+              <Button onClick={() => setStep("pay")} className="bg-transparent text-white [background-image:var(--gradient-primary)] hover:brightness-110" style={{ boxShadow: "var(--shadow-glow)" }}>
                 立即购买
               </Button>
             </div>
@@ -582,7 +582,7 @@ export default function PurchaseFlowDialog({
           {step === "pay" && (
             <div className="flex items-center justify-between gap-3">
               <Button variant="outline" onClick={() => setStep("offer")} disabled={paying}>返回</Button>
-              <Button onClick={payNow} className="bg-[var(--gradient-primary)] text-white hover:brightness-110" style={{ boxShadow: "var(--shadow-glow)" }} disabled={paying}>
+              <Button onClick={payNow} className="bg-transparent text-white [background-image:var(--gradient-primary)] hover:brightness-110" style={{ boxShadow: "var(--shadow-glow)" }} disabled={paying}>
                 {paying ? (<><Loader2 className="mr-2 h-4 w-4 animate-spin" />创建订单中…</>) : summary.cash > 0 ? `创建支付订单 ${formatMoney(summary.cash)}` : `确认兑换 ${summary.points} 积分`}
               </Button>
             </div>
@@ -590,7 +590,7 @@ export default function PurchaseFlowDialog({
           {step === "pending" && paymentSession && (
             <div className="flex items-center justify-between gap-3">
               <Button variant="outline" onClick={() => onOpenChange(false)}>稍后支付</Button>
-              <Button onClick={confirmPayment} className="bg-[var(--gradient-primary)] text-white hover:brightness-110" style={{ boxShadow: "var(--shadow-glow)" }} disabled={confirming || !paymentSession.demoActionEnabled}>
+              <Button onClick={confirmPayment} className="bg-transparent text-white [background-image:var(--gradient-primary)] hover:brightness-110" style={{ boxShadow: "var(--shadow-glow)" }} disabled={confirming || !paymentSession.demoActionEnabled}>
                 {confirming ? (<><Loader2 className="mr-2 h-4 w-4 animate-spin" />确认中…</>) : paymentSession.demoActionEnabled ? "模拟支付完成" : "等待支付回调"}
               </Button>
             </div>
@@ -598,7 +598,7 @@ export default function PurchaseFlowDialog({
           {step === "success" && (
             <div className="flex items-center justify-between gap-3">
               <Button variant="outline" onClick={() => onOpenChange(false)}>继续逛</Button>
-              <Button onClick={() => { onOpenChange(false); onGoMy(); }} className="bg-[var(--gradient-primary)] text-white hover:brightness-110" style={{ boxShadow: "var(--shadow-glow)" }}>
+              <Button onClick={() => { onOpenChange(false); onGoMy(); }} className="bg-transparent text-white [background-image:var(--gradient-primary)] hover:brightness-110" style={{ boxShadow: "var(--shadow-glow)" }}>
                 查看我的
               </Button>
             </div>

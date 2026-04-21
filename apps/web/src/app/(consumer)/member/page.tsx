@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import {
   CalendarCheck,
   Check,
-  Copy,
   Gift,
   Loader2,
   Play,
@@ -176,12 +175,6 @@ export default function MemberPage() {
   );
   const isLoading = loadingStatus || loadingProfile;
 
-  const inviteCode = profile?.inviteCode ?? "";
-  const inviteLink =
-    typeof window === "undefined" || !inviteCode
-      ? ""
-      : `${window.location.origin}/login?inviteCode=${encodeURIComponent(inviteCode)}`;
-
   async function refreshAll() {
     await queryClient.invalidateQueries();
   }
@@ -252,15 +245,6 @@ export default function MemberPage() {
     if (todayTasks.has(id) || busyTaskId === id) return;
     openApp(app);
     await runTask(id);
-  }
-
-  async function handleCopyInvite() {
-    try {
-      await navigator.clipboard.writeText(inviteLink || inviteCode);
-      toast.success("邀请链接已复制");
-    } catch {
-      toast.error("复制失败");
-    }
   }
 
   if (isLoading) return <MemberSkeleton />;
@@ -531,11 +515,10 @@ export default function MemberPage() {
               </div>
               <Button
                 size="sm"
-                onClick={handleCopyInvite}
+                onClick={() => router.push("/invite")}
                 className="h-8 rounded-full bg-[var(--brand-red)] px-4 text-xs font-semibold text-white hover:bg-[var(--brand-red-hover)]"
               >
-                <Copy className="h-3 w-3" />
-                复制
+                去邀请
               </Button>
             </div>
             {referrals.length > 0 && (
@@ -599,12 +582,24 @@ export default function MemberPage() {
               )}
             </div>
 
-            <Button
-              onClick={() => setCheckinResult(null)}
-              className="mt-5 h-9 w-full rounded-full bg-[var(--brand-red)] text-sm font-semibold text-white hover:bg-[var(--brand-red-hover)]"
-            >
-              去做任务
-            </Button>
+            <div className="mt-5 flex flex-col gap-2">
+              <Button
+                onClick={() => {
+                  setCheckinResult(null);
+                  router.push("/");
+                }}
+                className="h-9 w-full rounded-full bg-[var(--brand-red)] text-sm font-semibold text-white hover:bg-[var(--brand-red-hover)]"
+              >
+                逛好物兑换
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => setCheckinResult(null)}
+                className="h-9 w-full rounded-full border-[var(--app-card-border)] text-sm"
+              >
+                去做任务
+              </Button>
+            </div>
           </div>
         </DialogContent>
       </Dialog>

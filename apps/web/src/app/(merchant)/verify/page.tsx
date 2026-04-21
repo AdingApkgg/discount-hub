@@ -112,7 +112,7 @@ export default function VerifyPage() {
                 <Button
                   onClick={handleVerify}
                   disabled={!code.trim() || result === "loading"}
-                  className="w-full bg-[var(--gradient-primary)] hover:brightness-110 text-white"
+                  className="w-full bg-transparent text-white [background-image:var(--gradient-primary)] hover:brightness-110"
                   style={{ boxShadow: "var(--shadow-glow)" }}
                 >
                   {result === "loading" ? (
@@ -151,7 +151,7 @@ export default function VerifyPage() {
             </div>
             <Button
               onClick={resetVerify}
-              className="bg-[var(--gradient-primary)] hover:brightness-110 text-white"
+              className="bg-transparent text-white [background-image:var(--gradient-primary)] hover:brightness-110"
               style={{ boxShadow: "var(--shadow-glow)" }}
             >
               继续核销

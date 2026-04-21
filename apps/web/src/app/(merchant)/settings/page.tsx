@@ -823,7 +823,7 @@ export default function SettingsPage() {
                 <Button
                   onClick={handleSaveProfile}
                   disabled={!profileDirty || profileMutation.isPending}
-                  className="bg-[var(--gradient-primary)] hover:brightness-110 text-white gap-2"
+                  className="bg-transparent text-white [background-image:var(--gradient-primary)] hover:brightness-110 gap-2"
                   style={{ boxShadow: profileDirty ? "var(--shadow-glow)" : undefined }}
                 >
                   {profileMutation.isPending ? (

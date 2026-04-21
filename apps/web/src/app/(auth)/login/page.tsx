@@ -94,7 +94,7 @@ function LoginForm() {
           <CardContent className="p-8">
             <div className="mb-8 text-center">
               <div
-                className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-[var(--gradient-primary)]"
+                className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-transparent [background-image:var(--gradient-primary)]"
                 style={{ boxShadow: "var(--shadow-glow)" }}
               >
                 <Sparkles className="h-8 w-8 text-white" />
@@ -170,7 +170,7 @@ function LoginForm() {
               <Button
                 type="submit"
                 disabled={loading}
-                className="w-full rounded-2xl bg-[var(--gradient-primary)] py-6 text-white hover:brightness-110"
+                className="w-full rounded-2xl bg-transparent py-6 text-white [background-image:var(--gradient-primary)] hover:brightness-110"
                 style={{ boxShadow: "var(--shadow-glow)" }}
               >
                 {loading ? (

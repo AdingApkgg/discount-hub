@@ -1,9 +1,10 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { Megaphone, X } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import { useTRPC } from "@/trpc/client";
 import { cn } from "@/lib/utils";
 
@@ -21,6 +22,24 @@ export default function NoticeBanner() {
 
   const { data } = useQuery(trpc.notice.listActive.queryOptions());
   const markRead = useMutation(trpc.notice.markRead.mutationOptions());
+
+  useEffect(() => {
+    if (!data?.length) return;
+    for (const n of data) {
+      if (n.level !== "CRITICAL" || n.read) continue;
+      const key = `notice:critical-toast:${n.id}`;
+      try {
+        if (sessionStorage.getItem(key)) continue;
+        sessionStorage.setItem(key, "1");
+        toast.error(n.title, {
+          description: n.content,
+          duration: 12_000,
+        });
+      } catch {
+        /* sessionStorage unavailable */
+      }
+    }
+  }, [data]);
 
   const visible = useMemo(() => {
     return (data ?? [])

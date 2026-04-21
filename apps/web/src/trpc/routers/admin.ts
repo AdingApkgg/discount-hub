@@ -1,6 +1,11 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
-import { createTRPCRouter, adminProcedure, merchantProcedure } from "../init";
+import {
+  createTRPCRouter,
+  adminProcedure,
+  merchantProcedure,
+  publicProcedure,
+} from "../init";
 import { writeAuditLog } from "@/lib/audit";
 
 function daysAgo(n: number) {
@@ -498,6 +503,31 @@ export const adminRouter = createTRPCRouter({
       orderBy: { sortOrder: "asc" },
     });
   }),
+
+  /** C 端首页/侧栏等：已启用的广告位，按时间窗过滤 */
+  listPublicAdSlots: publicProcedure
+    .input(
+      z
+        .object({
+          placement: z.string().optional(),
+        })
+        .optional(),
+    )
+    .query(async ({ ctx, input }) => {
+      const now = new Date();
+      const placement = input?.placement?.trim();
+      return ctx.prisma.adSlot.findMany({
+        where: {
+          isActive: true,
+          ...(placement ? { placement } : {}),
+          AND: [
+            { OR: [{ startAt: null }, { startAt: { lte: now } }] },
+            { OR: [{ endAt: null }, { endAt: { gte: now } }] },
+          ],
+        },
+        orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+      });
+    }),
 
   upsertAdSlot: adminProcedure
     .input(z.object({

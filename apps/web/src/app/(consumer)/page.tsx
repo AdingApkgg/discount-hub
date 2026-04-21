@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   ArrowRight,
@@ -30,6 +30,7 @@ import { Card } from "@/components/ui/card";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
 import { banners, earnContents, hotPosts } from "@/data/mock";
+import { pickAdSlotImage } from "@/lib/ad-slot-image";
 import { cn } from "@/lib/utils";
 import {
   motion,
@@ -156,29 +157,105 @@ function FlashCountdownStrip() {
   );
 }
 
-/* ---------- Banner 轮播 ---------- */
-function BannerCarousel({ onOpen }: { onOpen: (scrollId: string) => void }) {
+type CmsBannerItem = {
+  id: string;
+  imageUrl: string;
+  title: string;
+  linkUrl: string;
+};
+
+/* ---------- Banner 轮播（优先后台广告位多尺寸图，无则 fallback 本地样式） ---------- */
+function BannerCarousel({
+  cmsBanners,
+  onOpen,
+  onFollowAdLink,
+  onCmsFallback,
+}: {
+  cmsBanners: CmsBannerItem[];
+  onOpen: (scrollId: string) => void;
+  onFollowAdLink: (url: string) => void;
+  onCmsFallback: () => void;
+}) {
   const [index, setIndex] = useState(0);
+  const useCms = cmsBanners.length > 0;
+  const slides = useCms ? cmsBanners : null;
+  const mockLen = banners.length;
 
   useEffect(() => {
+    const len = useCms ? cmsBanners.length : mockLen;
+    if (len <= 1) return;
     const id = window.setTimeout(() => {
-      setIndex((i) => (i + 1) % banners.length);
+      setIndex((i) => (i + 1) % len);
     }, 6000);
     return () => window.clearTimeout(id);
-  }, [index]);
+  }, [index, useCms, cmsBanners.length, mockLen]);
 
-  const current = banners[index];
+  const currentMock = banners[index % mockLen];
+
+  if (useCms && slides) {
+    const current = slides[index % slides.length];
+    return (
+      <div className="relative overflow-hidden rounded-xl">
+        <AnimatePresence mode="wait">
+          <motion.button
+            key={current.id}
+            type="button"
+            onClick={() =>
+              current.linkUrl.trim()
+                ? onFollowAdLink(current.linkUrl)
+                : onCmsFallback()
+            }
+            className="relative block h-32 w-full overflow-hidden rounded-xl md:h-36"
+            initial={{ opacity: 0, x: 30 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -30 }}
+            transition={{ duration: 0.4 }}
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={current.imageUrl}
+              alt=""
+              className="h-full w-full object-cover"
+              loading="lazy"
+            />
+            <div className="absolute inset-0 bg-gradient-to-r from-black/55 via-black/15 to-transparent" />
+            <div className="absolute bottom-3 left-3 right-14 text-left">
+              <div className="text-[11px] font-medium text-white/85">限时推广</div>
+              <div className="mt-0.5 line-clamp-2 text-base font-extrabold leading-tight text-white md:text-lg">
+                {current.title}
+              </div>
+            </div>
+          </motion.button>
+        </AnimatePresence>
+
+        <div className="absolute bottom-2 left-0 right-0 flex justify-center gap-1.5">
+          {slides.map((_, i) => (
+            <button
+              key={i}
+              type="button"
+              onClick={() => setIndex(i)}
+              aria-label={`切换到第 ${i + 1} 张`}
+              className={cn(
+                "h-1.5 rounded-full transition-all",
+                i === index % slides.length ? "w-5 bg-white" : "w-1.5 bg-white/50",
+              )}
+            />
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="relative overflow-hidden rounded-xl">
       <AnimatePresence mode="wait">
         <motion.button
-          key={current.id}
+          key={currentMock.id}
           type="button"
-          onClick={() => onOpen(current.scrollId)}
+          onClick={() => onOpen(currentMock.scrollId)}
           className={cn(
             "relative flex h-32 w-full items-center justify-between overflow-hidden rounded-xl bg-gradient-to-br px-5 text-left text-white md:h-36",
-            current.gradient,
+            currentMock.gradient,
           )}
           initial={{ opacity: 0, x: 30 }}
           animate={{ opacity: 1, x: 0 }}
@@ -188,13 +265,13 @@ function BannerCarousel({ onOpen }: { onOpen: (scrollId: string) => void }) {
           <div className="absolute inset-0 bg-gradient-to-r from-black/30 via-transparent to-black/10" />
           <div className="relative max-w-[60%]">
             <div className="text-[11px] font-medium text-white/80">
-              {current.cta}
+              {currentMock.cta}
             </div>
             <div className="mt-1 text-lg font-extrabold leading-tight tracking-tight md:text-xl">
-              {current.title}
+              {currentMock.title}
             </div>
             <div className="mt-1 text-[11px] text-white/85 md:text-xs">
-              {current.subtitle}
+              {currentMock.subtitle}
             </div>
           </div>
           <div className="relative text-5xl md:text-6xl opacity-90">🎁</div>
@@ -210,7 +287,7 @@ function BannerCarousel({ onOpen }: { onOpen: (scrollId: string) => void }) {
             aria-label={`切换到第 ${i + 1} 张`}
             className={cn(
               "h-1.5 rounded-full transition-all",
-              i === index ? "w-5 bg-white" : "w-1.5 bg-white/50",
+              i === index % mockLen ? "w-5 bg-white" : "w-1.5 bg-white/50",
             )}
           />
         ))}
@@ -221,12 +298,82 @@ function BannerCarousel({ onOpen }: { onOpen: (scrollId: string) => void }) {
 
 /* ---------- 副 Banner 并排 2 张 ---------- */
 function DoubleBanners({
+  cmsInline,
   onLimited,
   onZero,
+  onFollowAdLink,
 }: {
+  cmsInline: CmsBannerItem[];
   onLimited: () => void;
   onZero: () => void;
+  onFollowAdLink: (url: string) => void;
 }) {
+  if (cmsInline.length >= 1) {
+    const a = cmsInline[0];
+    const b = cmsInline[1];
+    const CmsBtn = ({
+      slot,
+      fallback,
+    }: {
+      slot: CmsBannerItem;
+      fallback: () => void;
+    }) => (
+      <HoverScale key={slot.id}>
+        <button
+          type="button"
+          onClick={() =>
+            slot.linkUrl.trim() ? onFollowAdLink(slot.linkUrl) : fallback()
+          }
+          className="relative flex h-20 w-full overflow-hidden rounded-xl shadow-md"
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={slot.imageUrl}
+            alt=""
+            className="h-full w-full object-cover"
+            loading="lazy"
+          />
+          <div className="absolute inset-0 bg-gradient-to-r from-black/45 to-transparent" />
+          <div className="absolute bottom-2 left-2 right-2 text-left text-[11px] font-bold leading-tight text-white drop-shadow">
+            {slot.title}
+          </div>
+        </button>
+      </HoverScale>
+    );
+
+    if (cmsInline.length === 1) {
+      return (
+        <div className="grid grid-cols-2 gap-3">
+          <CmsBtn slot={a} fallback={onLimited} />
+          <HoverScale>
+            <button
+              type="button"
+              onClick={onZero}
+              className="relative flex h-20 w-full items-center justify-between overflow-hidden rounded-xl bg-gradient-to-br from-[#F5B800] to-[#FF6E37] px-4 text-left text-white shadow-[0_6px_18px_rgba(245,184,0,0.24)]"
+            >
+              <div className="absolute -right-2 -top-2 h-16 w-16 rounded-full bg-white/15 blur-xl" />
+              <div className="relative">
+                <div className="text-[10px] font-bold text-white/90">💎 兑到手软!</div>
+                <div className="text-base font-extrabold leading-tight">0元专区!</div>
+                <div className="mt-0.5 inline-flex items-center rounded-full bg-white px-2 py-0.5 text-[10px] font-semibold text-[var(--brand-orange)]">
+                  冲!
+                </div>
+              </div>
+              <div className="relative text-3xl">💎</div>
+            </button>
+          </HoverScale>
+        </div>
+      );
+    }
+
+    return (
+      <div className="grid grid-cols-2 gap-3">
+        <CmsBtn slot={a} fallback={onLimited} />
+        {b ? <CmsBtn slot={b} fallback={onZero} /> : null}
+      </div>
+    );
+  }
+
   return (
     <div className="grid grid-cols-2 gap-3">
       <HoverScale>
@@ -801,6 +948,60 @@ export default function HomePage() {
     enabled: !!session?.user,
   });
 
+  const { data: publicAds } = useQuery(
+    trpc.admin.listPublicAdSlots.queryOptions(undefined),
+  );
+
+  const cmsBannerSlides = useMemo((): CmsBannerItem[] => {
+    if (!publicAds?.length) return [];
+    const out: CmsBannerItem[] = [];
+    for (const s of publicAds) {
+      if (s.placement !== "banner") continue;
+      const imageUrl = pickAdSlotImage(s.imageUrls);
+      if (!imageUrl) continue;
+      out.push({
+        id: s.id,
+        imageUrl,
+        title: s.name,
+        linkUrl: s.linkUrl ?? "",
+      });
+    }
+    return out;
+  }, [publicAds]);
+
+  const cmsInlineSlides = useMemo((): CmsBannerItem[] => {
+    if (!publicAds?.length) return [];
+    const out: CmsBannerItem[] = [];
+    for (const s of publicAds) {
+      if (s.placement !== "inline") continue;
+      const imageUrl = pickAdSlotImage(s.imageUrls);
+      if (!imageUrl) continue;
+      out.push({
+        id: s.id,
+        imageUrl,
+        title: s.name,
+        linkUrl: s.linkUrl ?? "",
+      });
+    }
+    return out;
+  }, [publicAds]);
+
+  const followAdLink = useCallback(
+    (url: string) => {
+      const u = url.trim();
+      if (!u) {
+        router.push("/");
+        return;
+      }
+      if (/^https?:\/\//i.test(u)) {
+        window.open(u, "_blank", "noopener,noreferrer");
+        return;
+      }
+      router.push(u.startsWith("/") ? u : `/${u}`);
+    },
+    [router],
+  );
+
   const productsRaw = useMemo(
     () => (productsData ?? []) as ProductItem[],
     [productsData],
@@ -846,7 +1047,12 @@ export default function HomePage() {
         </AnimatedItem>
 
         <AnimatedItem>
-          <BannerCarousel onOpen={openScroll} />
+          <BannerCarousel
+            cmsBanners={cmsBannerSlides}
+            onOpen={openScroll}
+            onFollowAdLink={followAdLink}
+            onCmsFallback={() => router.push("/")}
+          />
         </AnimatedItem>
 
         <AnimatedItem>
@@ -855,8 +1061,10 @@ export default function HomePage() {
 
         <AnimatedItem>
           <DoubleBanners
+            cmsInline={cmsInlineSlides}
             onLimited={() => setActiveCat("limited")}
             onZero={() => setActiveCat("zero")}
+            onFollowAdLink={followAdLink}
           />
         </AnimatedItem>
 
