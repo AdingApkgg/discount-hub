@@ -2,14 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import {
-  CalendarCheck,
-  Check,
-  Gift,
-  Loader2,
-  Play,
-  Users,
-} from "lucide-react";
+import { Loader2, Users } from "lucide-react";
 import {
   useMutation,
   useQuery,
@@ -21,7 +14,6 @@ import { earnContents } from "@/data/mock";
 import { useTRPC } from "@/trpc/client";
 import type { RouterOutputs } from "@/trpc/types";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -29,12 +21,18 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import {
-  motion,
   AnimatedItem,
   AnimatedSection,
   PageTransition,
   StaggerList,
 } from "@/components/motion";
+import {
+  BurstBadge,
+  CoinBadge,
+  FloorHeader,
+  HotSticker,
+  StampMark,
+} from "@/components/consumer-visual";
 
 type PointsStatus = RouterOutputs["points"]["getStatus"];
 type UserProfile = RouterOutputs["user"]["me"];
@@ -50,10 +48,10 @@ const VIP_BENEFITS: Record<number, string[]> = {
 };
 
 const DAILY_TASKS = [
-  { id: "checkin", title: "每日签到", desc: "享受 0.5 折特惠", reward: 200 },
-  { id: "browse", title: "完成一次兑换", desc: "去完成", reward: 100 },
-  { id: "purchase", title: "浏览 60 秒抖音", desc: "去完成", reward: 100 },
-  { id: "share", title: "分享 APP 给好友", desc: "去完成", reward: 80 },
+  { id: "checkin", emoji: "📅", title: "每日签到", desc: "享受 0.5 折特惠", reward: 200 },
+  { id: "browse", emoji: "🛒", title: "完成一次兑换", desc: "去完成", reward: 100 },
+  { id: "purchase", emoji: "📺", title: "浏览 60 秒抖音", desc: "去完成", reward: 100 },
+  { id: "share", emoji: "💌", title: "分享 APP 给好友", desc: "去完成", reward: 80 },
 ] as const;
 
 function buildVipTiers(pointsPerLevel: number) {
@@ -78,40 +76,52 @@ function isToday(value: string | Date | null | undefined) {
 
 function MemberSkeleton() {
   return (
-    <div className="space-y-4 px-4 py-4 md:px-6 md:py-5">
-      <Skeleton className="h-16 rounded-2xl" />
-      <Skeleton className="h-12 w-full rounded-full" />
-      <Skeleton className="h-40 rounded-xl" />
-      <Skeleton className="h-64 rounded-xl" />
+    <div className="space-y-3 px-3 py-3 md:space-y-4 md:px-6 md:py-4">
+      <Skeleton className="h-28 rounded-2xl" />
+      <Skeleton className="h-44 rounded-2xl" />
+      <Skeleton className="h-56 rounded-2xl" />
+      <Skeleton className="h-56 rounded-2xl" />
     </div>
   );
 }
 
-/* ---------- 顶部用户信息 ---------- */
-function MemberTopBar({ profile }: { profile: UserProfile | undefined }) {
+/* ============ 顶部会员头卡 ============ */
+function MemberTopCard({ profile }: { profile: UserProfile | undefined }) {
   const name = profile?.name ?? "游客";
   const points = profile?.points ?? 0;
-  const vipLabel =
-    (profile?.vipLevel ?? 0) <= 0 ? "普通会员" : `VIP${profile?.vipLevel}`;
+  const vipLevel = profile?.vipLevel ?? 0;
+  const vipLabel = vipLevel <= 0 ? "普通会员" : `VIP${vipLevel}`;
+
   return (
-    <div className="flex items-center gap-3">
-      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-secondary text-sm font-semibold text-foreground">
-        {name.slice(0, 1)}
-      </div>
-      <div className="flex-1">
-        <div className="text-sm font-semibold text-foreground">{name}</div>
-        <div className="mt-0.5 flex items-center gap-1.5 text-[11px] text-muted-foreground">
-          <span className="rounded bg-[var(--brand-red-soft)] px-1.5 py-0.5 font-semibold text-[var(--brand-red)]">
-            {vipLabel}
-          </span>
-          <span>{points.toLocaleString("zh-CN")} 积分</span>
+    <div className="relative overflow-hidden rounded-2xl bg-[linear-gradient(135deg,#7A1E2E_0%,#B8252F_55%,#F5B800_120%)] px-4 py-3.5 text-white shadow-[0_10px_24px_rgba(122,30,46,0.28)]">
+      <div className="stripe-urgent pointer-events-none absolute inset-0" />
+      <div className="pointer-events-none absolute -right-6 -top-8 h-32 w-32 rounded-full bg-white/18 blur-2xl" />
+      <div className="pointer-events-none absolute -bottom-10 -left-6 h-24 w-24 rounded-full bg-[var(--brand-gold)]/30 blur-2xl" />
+
+      <div className="relative flex items-center gap-3">
+        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white text-xl font-black text-[var(--brand-red)] shadow-[0_4px_12px_rgba(0,0,0,0.22)]">
+          {name.slice(0, 1)}
         </div>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-1.5">
+            <span className="truncate text-base font-black drop-shadow-sm">
+              {name}
+            </span>
+            <HotSticker tone="gold" rotate={-5}>
+              {vipLabel}
+            </HotSticker>
+          </div>
+          <div className="mt-0.5 text-[11px] font-semibold text-white/85">
+            刷任务、签到、邀请 · 积分当钱花
+          </div>
+        </div>
+        <CoinBadge value={points.toLocaleString("zh-CN")} size="md" />
       </div>
     </div>
   );
 }
 
-/* =========================================================== */
+/* ============================================================= */
 export default function MemberPage() {
   const router = useRouter();
   const trpc = useTRPC();
@@ -251,15 +261,16 @@ export default function MemberPage() {
 
   return (
     <PageTransition>
-      <div className="space-y-4 px-4 py-4 md:space-y-5 md:px-6 md:py-5">
+      <div className="space-y-3 px-3 py-3 md:space-y-4 md:px-6 md:py-4">
         <AnimatedItem>
-          <MemberTopBar profile={profile} />
+          <MemberTopCard profile={profile} />
         </AnimatedItem>
 
-        {/* VIP 等级 Tab 切换器 */}
+        {/* VIP 等级 */}
         <AnimatedItem>
-          <div className="space-y-3">
-            <div className="flex items-center gap-2 border-b border-[var(--app-card-border)]">
+          <div className="space-y-2">
+            <FloorHeader emoji="👑" title="会员权益" subtitle="积分越多权益越香" tone="gold" />
+            <div className="flex items-center gap-1 overflow-x-auto pb-1">
               {vipTiers.map((tier) => {
                 const isActive = tier.level === shownTierLevel;
                 const isCurrent = tier.level === currentLevel;
@@ -269,229 +280,240 @@ export default function MemberPage() {
                     type="button"
                     onClick={() => setActiveTier(tier.level)}
                     className={cn(
-                      "relative px-4 py-2.5 text-sm transition-colors",
+                      "relative shrink-0 rounded-full px-3 py-1 text-[12px] font-black transition-all active:scale-95",
                       isActive
-                        ? "font-bold text-foreground"
-                        : "font-medium text-muted-foreground hover:text-foreground",
+                        ? "bg-[linear-gradient(135deg,#FE2C55_0%,#FF6E37_100%)] text-white shadow-[0_3px_8px_rgba(254,44,85,0.3)]"
+                        : "bg-[var(--app-card)] text-muted-foreground shadow-[inset_0_0_0_1px_rgba(193,122,60,0.2)]",
                     )}
                   >
-                    <span className="flex items-center gap-1">
-                      {tier.name}
-                      {isCurrent && (
-                        <span className="rounded bg-[var(--brand-red)] px-1 py-0 text-[9px] font-bold text-white">
-                          当前
-                        </span>
-                      )}
-                    </span>
-                    {isActive && (
-                      <motion.span
-                        layoutId="vip-tab-underline"
-                        className="absolute bottom-[-1px] left-2 right-2 h-[3px] rounded-full bg-[var(--brand-red)]"
-                        transition={{ type: "spring", stiffness: 380, damping: 30 }}
-                      />
+                    {tier.name}
+                    {isCurrent && (
+                      <span className="ml-1 rounded bg-[var(--brand-gold)] px-1 py-0 text-[9px] font-black text-[#5C3A00]">
+                        当前
+                      </span>
                     )}
                   </button>
                 );
               })}
             </div>
 
-            <Card className="gap-0 rounded-xl border border-[var(--app-card-border)] bg-[var(--app-card)] p-4 shadow-none">
-              <div className="flex items-center justify-between">
+            <div className="relative overflow-hidden rounded-2xl bg-[var(--app-card)] p-3 shadow-[0_4px_14px_rgba(122,60,30,0.08)]">
+              <div className="pointer-events-none absolute -right-6 -top-6 h-20 w-20 rounded-full bg-[var(--brand-gold-soft)] blur-xl" />
+              <div className="relative flex items-start justify-between gap-3">
                 <div>
-                  <div className="text-xs text-muted-foreground">
-                    {shownTier.name} 权益
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[13px] font-black text-[var(--brand-red)]">
+                      {shownTier.name}
+                    </span>
+                    <HotSticker tone="gold" rotate={-4}>
+                      尊享权益
+                    </HotSticker>
                   </div>
-                  <div className="mt-1 text-sm font-semibold text-foreground">
-                    达到 {shownTier.minPoints.toLocaleString("zh-CN")} 积分
+                  <div className="mt-0.5 text-[11px] font-semibold text-muted-foreground">
+                    达成 {shownTier.minPoints.toLocaleString("zh-CN")} 积分解锁
                   </div>
                 </div>
                 {shownTier.level > currentLevel && (
-                  <div className="text-xs text-muted-foreground">
-                    还差{" "}
-                    <span className="font-semibold text-[var(--brand-red)]">
+                  <div className="shrink-0 text-right">
+                    <div className="text-[10px] font-semibold text-muted-foreground">
+                      还差
+                    </div>
+                    <div className="text-sm font-black text-[var(--brand-red)] tabular-nums">
                       {Math.max(0, shownTier.minPoints - points).toLocaleString("zh-CN")}
-                    </span>{" "}
-                    积分
+                    </div>
                   </div>
                 )}
               </div>
-              <ol className="mt-3 space-y-1.5 text-sm text-muted-foreground">
+              <ul className="relative mt-2.5 grid gap-1.5">
                 {shownTier.benefits.map((b, i) => (
-                  <li key={b} className="flex items-start gap-2">
-                    <span className="mt-0.5 text-xs text-muted-foreground">
-                      {i + 1}.
+                  <li
+                    key={b}
+                    className="flex items-start gap-1.5 text-[12px] font-semibold text-foreground"
+                  >
+                    <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-[var(--brand-red-soft)] text-[9px] font-black text-[var(--brand-red)]">
+                      {i + 1}
                     </span>
                     <span>{b}</span>
                   </li>
                 ))}
-              </ol>
-            </Card>
+              </ul>
+            </div>
           </div>
         </AnimatedItem>
 
         {/* 签到日历 */}
-        <AnimatedSection>
-          <Card className="gap-0 rounded-xl border border-[var(--app-card-border)] bg-[var(--app-card)] p-4 shadow-none">
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="text-sm font-bold text-foreground">连续签到</div>
-                <div className="mt-0.5 text-xs text-muted-foreground">
-                  {completedCheckinDays >= checkinCycle
-                    ? "已完成本轮 · 明天开始新周期"
-                    : `已连续 ${completedCheckinDays} 天 · 第 ${checkinCycle} 天奖励 ${checkinRewards[
-                        checkinCycle - 1
-                      ].toLocaleString("zh-CN")} 积分`}
-                </div>
-              </div>
-              <Button
-                onClick={handleCheckin}
-                disabled={checkedIn || busyTaskId === "checkin"}
-                size="sm"
-                className="h-8 rounded-full bg-[var(--brand-red)] px-4 text-xs font-semibold text-white hover:bg-[var(--brand-red-hover)] disabled:opacity-60"
-              >
-                {busyTaskId === "checkin" ? (
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                ) : checkedIn ? (
-                  <Check className="h-3.5 w-3.5" />
-                ) : (
-                  <CalendarCheck className="h-3.5 w-3.5" />
-                )}
-                {checkedIn ? "已签到" : "立即签到"}
-              </Button>
-            </div>
+        <AnimatedSection className="space-y-2">
+          <FloorHeader emoji="📅" title="连续签到" subtitle={
+            completedCheckinDays >= checkinCycle
+              ? "本轮已满 · 明天新周期"
+              : `已连 ${completedCheckinDays} 天 · 第 ${checkinCycle} 天爆奖 ${checkinRewards[checkinCycle - 1]?.toLocaleString("zh-CN")}`
+          } tone="red" />
+          <div className="relative overflow-hidden rounded-2xl bg-[var(--festive-dialog-bg)] p-3 shadow-[0_4px_14px_rgba(122,60,30,0.08)]">
+            <div className="dotted-warm pointer-events-none absolute inset-0 opacity-60" />
 
-            <div className="mt-4 grid grid-cols-7 gap-1.5">
+            <div className="relative grid grid-cols-7 gap-1.5">
               {checkinRewards.map((reward, i) => {
                 const done = i < completedCheckinDays;
                 const isSpecial = i === checkinCycle - 1;
+                const isNext = !done && i === completedCheckinDays;
                 return (
                   <div
                     key={i}
                     className={cn(
-                      "flex flex-col items-center gap-1 rounded-lg border py-2 text-center text-[11px] transition-all",
+                      "relative flex flex-col items-center gap-0.5 rounded-xl py-2 text-center text-[10px] font-bold",
                       done
-                        ? "border-[var(--brand-red)] bg-[var(--brand-red-soft)] text-[var(--brand-red)]"
+                        ? "bg-[var(--checkin-done-bg)] text-[var(--brand-red)] shadow-[inset_0_0_0_1px_rgba(254,44,85,0.35)]"
                         : isSpecial
-                          ? "border-[var(--brand-red)]/40 bg-[var(--app-card)] text-foreground"
-                          : "border-[var(--app-card-border)] bg-secondary/40 text-muted-foreground",
+                          ? "bg-[linear-gradient(180deg,#FFE37A_0%,#FFB84D_100%)] text-[#5C3A00] shadow-[0_3px_8px_rgba(245,184,0,0.4)]"
+                          : "bg-[var(--app-card)] text-muted-foreground shadow-[inset_0_0_0_1px_var(--app-card-border)]",
                     )}
                   >
-                    <span className="text-[10px]">第 {i + 1} 天</span>
+                    {done && (
+                      <StampMark
+                        size={26}
+                        className="absolute -top-1 right-0 scale-75"
+                      >
+                        ✓
+                      </StampMark>
+                    )}
+                    {isNext && (
+                      <span className="pulse-red absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full bg-[var(--brand-red)]" />
+                    )}
+                    <span className="text-[9px] leading-none">
+                      第{i + 1}天
+                    </span>
                     <span
                       className={cn(
-                        "text-[11px] font-bold",
-                        isSpecial && !done && "text-[var(--brand-red)]",
+                        "text-[12px] font-black leading-none tabular-nums",
+                        isSpecial && "text-[#8B4513]",
                       )}
                     >
                       {reward >= 1000
                         ? `${(reward / 1000).toFixed(reward % 1000 === 0 ? 0 : 1)}k`
                         : `+${reward}`}
                     </span>
-                    {done && <Check className="h-3 w-3" />}
+                    {isSpecial && !done && (
+                      <span className="text-[9px] font-black leading-none text-[#8B4513]">
+                        🎁大奖
+                      </span>
+                    )}
                   </div>
                 );
               })}
             </div>
-          </Card>
+
+            <Button
+              onClick={handleCheckin}
+              disabled={checkedIn || busyTaskId === "checkin"}
+              className={cn(
+                "relative mt-3 h-10 w-full rounded-full text-sm font-black text-white",
+                checkedIn
+                  ? "bg-[var(--app-soft-strong)] text-muted-foreground"
+                  : "bg-[linear-gradient(135deg,#FE2C55_0%,#FF6E37_100%)] shadow-[0_6px_16px_rgba(254,44,85,0.32)] hover:brightness-110",
+              )}
+            >
+              {busyTaskId === "checkin" ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : checkedIn ? (
+                <>✓ 今日已签</>
+              ) : (
+                <>🚀 立即签到 · 赢 {checkinRewards[completedCheckinDays] ?? 200} 积分</>
+              )}
+            </Button>
+          </div>
         </AnimatedSection>
 
-        {/* 任务列表 */}
-        <AnimatedSection>
-          <Card className="gap-0 rounded-xl border border-[var(--app-card-border)] bg-[var(--app-card)] p-0 shadow-none">
-            <div className="flex items-center justify-between px-4 py-3">
-              <div>
-                <div className="text-sm font-bold text-foreground">日常任务</div>
-                <div className="mt-0.5 text-[11px] text-muted-foreground">
-                  完成任务即可获得积分奖励
-                </div>
-              </div>
-              <span className="text-[11px] text-muted-foreground">
-                {[...todayTasks, checkedIn ? "checkin" : ""].filter(Boolean).length}
-                /{DAILY_TASKS.length}
-              </span>
-            </div>
-            <div className="divide-y divide-[var(--app-card-border)] border-t border-[var(--app-card-border)]">
-              {DAILY_TASKS.map((task) => {
-                const done =
-                  task.id === "checkin" ? checkedIn : todayTasks.has(task.id);
-                return (
-                  <div
-                    key={task.id}
-                    className="flex items-center justify-between gap-3 px-4 py-3"
-                  >
-                    <div className="flex-1 min-w-0">
-                      <div className="text-sm font-semibold text-foreground">
+        {/* 日常任务 */}
+        <AnimatedSection className="space-y-2">
+          <FloorHeader emoji="🎯" title="日常任务" subtitle={`${[...todayTasks, checkedIn ? "checkin" : ""].filter(Boolean).length}/${DAILY_TASKS.length} 已完成`} tone="pink" />
+          <div className="overflow-hidden rounded-2xl bg-[var(--app-card)] shadow-[0_4px_14px_rgba(122,60,30,0.08)]">
+            {DAILY_TASKS.map((task, i) => {
+              const done =
+                task.id === "checkin" ? checkedIn : todayTasks.has(task.id);
+              return (
+                <div
+                  key={task.id}
+                  className={cn(
+                    "flex items-center justify-between gap-3 px-3 py-2.5",
+                    i !== DAILY_TASKS.length - 1 &&
+                      "border-b border-dashed border-[var(--app-card-border)]",
+                  )}
+                >
+                  <div className="flex min-w-0 items-center gap-2.5">
+                    <span className="text-2xl leading-none">{task.emoji}</span>
+                    <div className="min-w-0">
+                      <div className="text-[13px] font-black text-foreground">
                         {task.title}
                       </div>
-                      <div className="mt-0.5 flex items-center gap-2 text-[11px] text-muted-foreground">
-                        <span>
-                          +<span className="font-semibold text-[var(--brand-red)]">{task.reward}</span> 积分
+                      <div className="mt-0.5 flex items-center gap-1 text-[10px] font-semibold">
+                        <span className="inline-flex items-center gap-0.5 rounded-full bg-[var(--brand-gold-soft)] px-1.5 py-0.5 font-black text-[#8B6A00]">
+                          +{task.reward} 积分
                         </span>
-                        <span>·</span>
-                        <span>{task.desc}</span>
+                        <span className="text-muted-foreground">· {task.desc}</span>
                       </div>
                     </div>
-                    <Button
-                      size="sm"
-                      disabled={done || busyTaskId === task.id}
-                      onClick={() => handleTask(task.id)}
-                      className={cn(
-                        "h-8 min-w-[68px] rounded-full text-xs font-semibold",
-                        done
-                          ? "bg-secondary text-muted-foreground hover:bg-secondary"
-                          : "bg-[var(--brand-red)] text-white hover:bg-[var(--brand-red-hover)]",
-                      )}
-                    >
-                      {busyTaskId === task.id ? (
-                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                      ) : done ? (
-                        <>
-                          <Check className="h-3.5 w-3.5" />
-                          已完成
-                        </>
-                      ) : (
-                        "去完成"
-                      )}
-                    </Button>
                   </div>
-                );
-              })}
-            </div>
-          </Card>
+                  <Button
+                    size="sm"
+                    disabled={done || busyTaskId === task.id}
+                    onClick={() => handleTask(task.id)}
+                    className={cn(
+                      "h-8 min-w-[72px] rounded-full text-[12px] font-black",
+                      done
+                        ? "bg-[var(--app-soft-strong)] text-muted-foreground hover:bg-[var(--app-soft-strong)]"
+                        : "bg-[linear-gradient(135deg,#FE2C55_0%,#FF6E37_100%)] text-white shadow-[0_3px_8px_rgba(254,44,85,0.28)] hover:brightness-110",
+                    )}
+                  >
+                    {busyTaskId === task.id ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : done ? (
+                      <>✓ 已完成</>
+                    ) : (
+                      <>去完成 ›</>
+                    )}
+                  </Button>
+                </div>
+              );
+            })}
+          </div>
         </AnimatedSection>
 
-        {/* 看内容赚积分 */}
-        <AnimatedSection className="space-y-3">
-          <div className="flex items-center justify-between">
-            <h2 className="text-base font-bold text-foreground">看内容赚积分</h2>
-          </div>
-          <StaggerList className="grid grid-cols-2 gap-3 md:grid-cols-4">
+        {/* 刷内容赚积分 */}
+        <AnimatedSection className="space-y-2">
+          <FloorHeader emoji="📺" title="刷内容赚积分" subtitle="秒变金币达人" tone="gold" />
+          <StaggerList className="grid grid-cols-2 gap-2.5 md:grid-cols-4">
             {earnContents.slice(0, 4).map((content) => {
               const done = todayTasks.has(content.id);
               return (
                 <AnimatedItem key={content.id}>
-                  <Card
+                  <button
+                    type="button"
                     onClick={() => handleEarn(content.id, content.app)}
+                    disabled={done}
                     className={cn(
-                      "flex h-full cursor-pointer gap-0 overflow-hidden rounded-xl border border-[var(--app-card-border)] bg-[var(--app-card)] p-0 shadow-none transition-colors",
+                      "flex h-full w-full flex-col overflow-hidden rounded-2xl bg-[var(--app-card)] shadow-[0_4px_12px_rgba(122,60,30,0.08)] transition-transform active:scale-[0.98]",
                       done && "opacity-60",
                     )}
                   >
-                    <div className="relative flex aspect-square items-center justify-center overflow-hidden bg-secondary">
-                      <Play className="h-8 w-8 text-muted-foreground" />
-                      <div className="absolute right-1.5 top-1.5 rounded bg-[var(--brand-red)] px-1.5 py-0.5 text-[10px] font-bold text-white">
-                        {done ? "已领" : `+${content.rewardPoints}`}
-                      </div>
+                    <div className="relative flex aspect-video items-center justify-center overflow-hidden bg-[linear-gradient(135deg,#FE2C55_0%,#FF6E37_100%)]">
+                      <span className="text-3xl">▶️</span>
+                      <BurstBadge
+                        tone="gold"
+                        size={42}
+                        className="absolute right-1 top-1"
+                      >
+                        {done ? "领" : `+${content.rewardPoints}`}
+                      </BurstBadge>
                     </div>
-                    <div className="flex flex-1 flex-col p-3">
-                      <div className="line-clamp-2 min-h-[36px] text-[12px] font-medium leading-[18px] text-foreground">
+                    <div className="flex flex-1 flex-col p-2 text-left">
+                      <div className="line-clamp-2 min-h-[36px] text-[12px] font-black leading-[18px] text-foreground">
                         {content.title}
                       </div>
-                      <div className="mt-2 text-[11px] text-muted-foreground">
-                        {content.subtitle}
+                      <div className="mt-1 inline-flex w-fit items-center gap-0.5 rounded-full bg-[var(--brand-red-soft)] px-2 py-0.5 text-[10px] font-black text-[var(--brand-red)]">
+                        {content.subtitle} ›
                       </div>
                     </div>
-                  </Card>
+                  </button>
                 </AnimatedItem>
               );
             })}
@@ -499,39 +521,46 @@ export default function MemberPage() {
         </AnimatedSection>
 
         {/* 邀请好友 */}
-        <AnimatedSection>
-          <Card className="gap-0 rounded-xl border border-[var(--app-card-border)] bg-[var(--app-card)] p-4 shadow-none">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2.5">
-                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[var(--brand-red-soft)]">
-                  <Gift className="h-4 w-4 text-[var(--brand-red)]" />
+        <AnimatedSection className="space-y-2">
+          <FloorHeader emoji="🎁" title="邀请好友" subtitle="拉新最高返 100 积分" tone="red" />
+          <div className="relative overflow-hidden rounded-2xl bg-[var(--festive-card-bg)] p-3 shadow-[0_4px_14px_rgba(245,184,0,0.2)]">
+            <div className="pointer-events-none absolute -right-4 -top-4 h-24 w-24 rounded-full bg-[var(--brand-red)]/12 blur-2xl" />
+            <div className="relative flex items-center gap-3">
+              <BurstBadge tone="red" size={56}>
+                +100
+              </BurstBadge>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[14px] font-black text-[var(--brand-red)]">
+                    邀请好友
+                  </span>
+                  <HotSticker tone="gold" rotate={-4}>
+                    拉新必选
+                  </HotSticker>
                 </div>
-                <div>
-                  <div className="text-sm font-bold text-foreground">邀请好友</div>
-                  <div className="mt-0.5 text-[11px] text-muted-foreground">
-                    已邀请 {referrals.length} 位好友 · 拉新最高返 100 积分
-                  </div>
+                <div className="mt-0.5 text-[11px] font-semibold text-[#8B4513]">
+                  已邀请 <span className="font-black text-[var(--brand-red)]">{referrals.length}</span> 位好友
                 </div>
               </div>
               <Button
-                size="sm"
                 onClick={() => router.push("/invite")}
-                className="h-8 rounded-full bg-[var(--brand-red)] px-4 text-xs font-semibold text-white hover:bg-[var(--brand-red-hover)]"
+                className="h-9 rounded-full bg-[linear-gradient(135deg,#FE2C55_0%,#FF6E37_100%)] px-4 text-[12px] font-black text-white shadow-[0_3px_8px_rgba(254,44,85,0.32)] hover:brightness-110"
               >
-                去邀请
+                去邀请 ›
               </Button>
             </div>
+
             {referrals.length > 0 && (
-              <div className="mt-3 border-t border-[var(--app-card-border)] pt-3">
-                <div className="mb-2 flex items-center gap-1.5 text-[11px] text-muted-foreground">
+              <div className="relative mt-2.5 border-t border-dashed border-[#C17A3C]/30 pt-2.5">
+                <div className="mb-1.5 flex items-center gap-1 text-[10px] font-black text-[#8B4513]">
                   <Users className="h-3 w-3" />
                   最近邀请
                 </div>
-                <div className="space-y-1.5">
+                <div className="space-y-1">
                   {referrals.slice(0, 3).map((r) => (
                     <div
                       key={r.id}
-                      className="flex items-center justify-between text-xs"
+                      className="flex items-center justify-between text-[11px] font-semibold"
                     >
                       <span className="truncate text-foreground">
                         {r.name ?? r.email}
@@ -544,7 +573,7 @@ export default function MemberPage() {
                 </div>
               </div>
             )}
-          </Card>
+          </div>
         </AnimatedSection>
       </div>
 
@@ -553,51 +582,53 @@ export default function MemberPage() {
         open={!!checkinResult}
         onOpenChange={(open) => !open && setCheckinResult(null)}
       >
-        <DialogContent className="max-w-xs rounded-2xl border-[var(--app-card-border)] bg-[var(--app-card)] p-0">
-          <div className="p-6 text-center">
-            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-[var(--brand-red-soft)]">
-              <CalendarCheck className="h-7 w-7 text-[var(--brand-red)]" />
+        <DialogContent className="max-w-xs overflow-hidden rounded-3xl border-0 bg-[var(--festive-dialog-bg)] p-0 shadow-[0_20px_60px_rgba(254,44,85,0.3)]">
+          <div className="relative p-6 text-center">
+            <div className="dotted-warm pointer-events-none absolute inset-0 opacity-50" />
+            <div className="relative mx-auto">
+              <BurstBadge tone="red" size={72}>
+                +{checkinResult?.reward ?? 0}
+              </BurstBadge>
             </div>
-            <div className="mt-3 text-lg font-bold text-foreground">
-              签到成功
+            <div className="relative mt-3 text-lg font-black text-[var(--brand-red)]">
+              🎉 签到成功
             </div>
-            <div className="mt-1 text-3xl font-extrabold text-[var(--brand-red)]">
-              +{checkinResult?.reward ?? 0}
+            <div className="relative mt-0.5 text-[11px] font-semibold text-muted-foreground">
+              积分已到账 · 继续签到拿大奖
             </div>
-            <div className="mt-0.5 text-xs text-muted-foreground">积分已到账</div>
 
-            <div className="mt-4 rounded-xl bg-secondary/50 px-3 py-2.5 text-xs text-foreground">
+            <div className="relative mt-4 rounded-2xl bg-[var(--app-card)] px-3 py-2.5 text-[12px] font-bold text-foreground shadow-[inset_0_0_0_1.5px_rgba(254,44,85,0.18)]">
               连续签到第{" "}
-              <span className="font-bold text-[var(--brand-red)]">
+              <span className="font-black text-[var(--brand-red)]">
                 {checkinResult?.dayIndex ?? 1}
               </span>{" "}
               / {checkinResult?.cycle ?? checkinCycle} 天
               {(checkinResult?.dayIndex ?? 0) < checkinCycle && (
-                <div className="mt-1 text-muted-foreground">
+                <div className="mt-1 text-[11px] text-muted-foreground">
                   明日奖励：
-                  <span className="font-semibold text-[var(--brand-red)]">
+                  <span className="font-black text-[var(--brand-red)]">
                     +{checkinRewards[checkinResult?.dayIndex ?? 0] ?? 200} 积分
                   </span>
                 </div>
               )}
             </div>
 
-            <div className="mt-5 flex flex-col gap-2">
+            <div className="relative mt-4 flex flex-col gap-2">
               <Button
                 onClick={() => {
                   setCheckinResult(null);
                   router.push("/");
                 }}
-                className="h-9 w-full rounded-full bg-[var(--brand-red)] text-sm font-semibold text-white hover:bg-[var(--brand-red-hover)]"
+                className="h-10 w-full rounded-full bg-[linear-gradient(135deg,#FE2C55_0%,#FF6E37_100%)] text-sm font-black text-white shadow-[0_6px_14px_rgba(254,44,85,0.35)] hover:brightness-110"
               >
-                逛好物兑换
+                🛒 逛好物兑换
               </Button>
               <Button
                 variant="outline"
                 onClick={() => setCheckinResult(null)}
-                className="h-9 w-full rounded-full border-[var(--app-card-border)] text-sm"
+                className="h-10 w-full rounded-full border-0 bg-[var(--app-card)] text-sm font-bold shadow-[inset_0_0_0_1px_var(--app-card-border)]"
               >
-                去做任务
+                继续做任务
               </Button>
             </div>
           </div>

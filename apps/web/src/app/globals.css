@@ -32,8 +32,8 @@
   --secondary-foreground: 20 42% 11%;
   --muted: 28 60% 94%;
   --muted-foreground: 25 14% 48%;
-  --accent-hsl: 22 100% 60%;
-  --accent-foreground: 0 0% 100%;
+  --accent-hsl: 28 70% 92%;
+  --accent-foreground: 20 42% 11%;
   --destructive: 0 84% 60%;
   --destructive-foreground: 0 0% 100%;
   --border-hsl: 26 45% 86%;
@@ -101,6 +101,25 @@
   --price-red: #FE2C55;
   --price-line: #9CA3AF;
   --save-badge-bg: linear-gradient(90deg, #FE2C55 0%, #FF6E37 100%);
+
+  /* 装饰性糖果底（金刚区 / 弹幕 / 节庆弹窗 / 顶底导航） */
+  --brand-pink-soft: #FFF0F5;
+  --pastel-red: radial-gradient(circle at 30% 30%, #FFD6DE 0%, #FFF1F3 60%, #FFFFFF 100%);
+  --pastel-gold: radial-gradient(circle at 30% 30%, #FFEBAD 0%, #FFF8DD 60%, #FFFFFF 100%);
+  --pastel-pink: radial-gradient(circle at 30% 30%, #FFD0DF 0%, #FFF0F5 60%, #FFFFFF 100%);
+  --pastel-orange: radial-gradient(circle at 30% 30%, #FFD9B3 0%, #FFF3EA 60%, #FFFFFF 100%);
+  --pastel-gradient: linear-gradient(135deg, #FFE6EB 0%, #FFF3DC 100%);
+  --danmu-bg: linear-gradient(90deg, #FFF8DD 0%, #FFF3EA 50%, #FFF8DD 100%);
+  --festive-dialog-bg: linear-gradient(180deg, #FFF8DD 0%, #FFFFFF 40%);
+  --festive-card-bg: linear-gradient(135deg, #FFF8DD 0%, #FFE8D6 55%, #FFD6DE 100%);
+  --checkin-done-bg: linear-gradient(180deg, #FFF1F3 0%, #FFE3E9 100%);
+  --nav-top-bg: linear-gradient(180deg, #FFF7F0 0%, rgba(255, 247, 240, 0.92) 100%);
+  --nav-bottom-fade: linear-gradient(
+    180deg,
+    rgba(255, 247, 240, 0) 0%,
+    rgba(255, 247, 240, 0.96) 45%,
+    rgba(255, 247, 240, 1) 100%
+  );
 }
 
 .dark {
@@ -121,8 +140,8 @@
   --secondary-foreground: 28 80% 95%;
   --muted: 18 30% 16%;
   --muted-foreground: 28 20% 72%;
-  --accent-hsl: 22 100% 60%;
-  --accent-foreground: 0 0% 100%;
+  --accent-hsl: 18 32% 18%;
+  --accent-foreground: 28 80% 95%;
   --border-hsl: 18 30% 18%;
   --input: 18 30% 18%;
   --sidebar: 18 40% 8%;
@@ -176,6 +195,71 @@
   --price-red: #FF4D6E;
   --price-line: #8A7D72;
   --save-badge-bg: linear-gradient(90deg, #FE2C55 0%, #FF6E37 100%);
+
+  /* 装饰性糖果底（深色版：用半透明品牌色覆盖在深 card 上） */
+  --brand-pink-soft: rgba(255, 77, 141, 0.14);
+  --pastel-red: radial-gradient(
+    circle at 30% 30%,
+    rgba(254, 44, 85, 0.28) 0%,
+    rgba(254, 44, 85, 0.10) 60%,
+    var(--app-card) 100%
+  );
+  --pastel-gold: radial-gradient(
+    circle at 30% 30%,
+    rgba(245, 184, 0, 0.32) 0%,
+    rgba(245, 184, 0, 0.12) 60%,
+    var(--app-card) 100%
+  );
+  --pastel-pink: radial-gradient(
+    circle at 30% 30%,
+    rgba(255, 77, 141, 0.24) 0%,
+    rgba(255, 77, 141, 0.08) 60%,
+    var(--app-card) 100%
+  );
+  --pastel-orange: radial-gradient(
+    circle at 30% 30%,
+    rgba(255, 110, 55, 0.26) 0%,
+    rgba(255, 110, 55, 0.09) 60%,
+    var(--app-card) 100%
+  );
+  --pastel-gradient: linear-gradient(
+    135deg,
+    rgba(254, 44, 85, 0.18) 0%,
+    rgba(245, 184, 0, 0.14) 100%
+  );
+  --danmu-bg: linear-gradient(
+    90deg,
+    rgba(245, 184, 0, 0.16) 0%,
+    rgba(255, 110, 55, 0.12) 50%,
+    rgba(245, 184, 0, 0.16) 100%
+  );
+  --festive-dialog-bg: linear-gradient(
+    180deg,
+    rgba(245, 184, 0, 0.18) 0%,
+    var(--app-card) 40%
+  );
+  --festive-card-bg: linear-gradient(
+    135deg,
+    rgba(245, 184, 0, 0.20) 0%,
+    rgba(255, 110, 55, 0.16) 55%,
+    rgba(254, 44, 85, 0.14) 100%
+  );
+  --checkin-done-bg: linear-gradient(
+    180deg,
+    rgba(254, 44, 85, 0.22) 0%,
+    rgba(254, 44, 85, 0.10) 100%
+  );
+  --nav-top-bg: linear-gradient(
+    180deg,
+    #1C0F0A 0%,
+    rgba(28, 15, 10, 0.92) 100%
+  );
+  --nav-bottom-fade: linear-gradient(
+    180deg,
+    rgba(20, 9, 6, 0) 0%,
+    rgba(20, 9, 6, 0.96) 45%,
+    rgba(20, 9, 6, 1) 100%
+  );
 }
 
 @theme inline {
@@ -323,8 +407,79 @@ body {
   animation: consumer-marquee 28s linear infinite;
 }
 
+@keyframes urgent-shake {
+  0%, 100% { transform: translateX(0) rotate(0deg); }
+  25% { transform: translateX(-1px) rotate(-1.5deg); }
+  75% { transform: translateX(1px) rotate(1.5deg); }
+}
+
+.shake-urgent {
+  animation: urgent-shake 0.6s ease-in-out infinite;
+}
+
+@keyframes coin-wobble {
+  0%, 100% { transform: rotate(-2deg); }
+  50% { transform: rotate(2deg); }
+}
+
+.coin-wobble {
+  animation: coin-wobble 2.4s ease-in-out infinite;
+}
+
+@keyframes pulse-red {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(254, 44, 85, 0.55); }
+  70% { box-shadow: 0 0 0 10px rgba(254, 44, 85, 0); }
+}
+
+.pulse-red {
+  animation: pulse-red 1.6s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes number-tick {
+  0% { transform: translateY(0); opacity: 1; }
+  40% { transform: translateY(-4px); opacity: 0.3; }
+  60% { transform: translateY(4px); opacity: 0.3; }
+  100% { transform: translateY(0); opacity: 1; }
+}
+
+.number-tick {
+  animation: number-tick 0.45s ease-out;
+}
+
+/* 卡片撕边 — 虚线 + 两侧半圆 */
+.coupon-dashed-v {
+  background-image: linear-gradient(to bottom,
+    var(--app-card-border) 0,
+    var(--app-card-border) 4px,
+    transparent 4px,
+    transparent 8px);
+  background-size: 1px 8px;
+  background-repeat: repeat-y;
+}
+
+/* 斑点底纹 — 弹幕/赞助区通用 */
+.dotted-warm {
+  background-image: radial-gradient(rgba(245, 184, 0, 0.18) 1px, transparent 1.5px);
+  background-size: 8px 8px;
+}
+
+/* 斜条纹 — 限时/秒杀背景 */
+.stripe-urgent {
+  background-image: repeating-linear-gradient(
+    -45deg,
+    rgba(255, 255, 255, 0.08) 0px,
+    rgba(255, 255, 255, 0.08) 8px,
+    transparent 8px,
+    transparent 16px
+  );
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .consumer-marquee-track {
+  .consumer-marquee-track,
+  .shake-urgent,
+  .coin-wobble,
+  .pulse-red,
+  .number-tick {
     animation: none;
     transform: none;
   }

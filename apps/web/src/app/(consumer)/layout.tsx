@@ -36,7 +36,7 @@ export default function ConsumerLayout({
       <div className="consumer-theme relative flex min-h-screen w-full flex-col bg-[var(--app-shell-surface)]">
         <ConsumerNav />
         <NoticeBanner />
-        <main className="mx-auto flex w-full max-w-[1280px] flex-1 flex-col pb-[calc(56px+env(safe-area-inset-bottom))] md:pb-0">
+        <main className="mx-auto flex w-full max-w-[1280px] flex-1 flex-col pb-[calc(72px+env(safe-area-inset-bottom))] md:pb-0">
           {children}
         </main>
         <CheckinPrompt />
