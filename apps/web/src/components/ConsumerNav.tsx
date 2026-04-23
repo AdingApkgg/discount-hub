@@ -48,7 +48,7 @@ export default function ConsumerNav() {
               alt="Discount Hub"
               width={44}
               height={44}
-              className="h-11 w-11 rounded-2xl object-cover shadow-[var(--shadow-glow)]"
+              className="h-11 w-11 rounded-2xl object-cover shadow-[0_4px_12px_rgba(254,44,85,0.18)]"
             />
             <div className="min-w-0">
               <div className="truncate text-base font-semibold text-foreground">

@@ -41,7 +41,7 @@ export default function AndroidAppBanner() {
 
   return (
     <div className="fixed inset-x-0 top-0 z-50 animate-in slide-in-from-top duration-300">
-      <div className="mx-auto flex max-w-xl items-center gap-3 bg-gradient-to-r from-blue-600 to-indigo-600 px-4 py-3 shadow-lg sm:rounded-b-2xl">
+      <div className="mx-auto flex max-w-xl items-center gap-3 bg-gradient-to-r from-[#FE2C55] to-[#FF6E37] px-4 py-3 shadow-lg sm:rounded-b-2xl">
         <Image
           src="/logo.png"
           alt="Discount Hub"
@@ -53,21 +53,21 @@ export default function AndroidAppBanner() {
           <p className="text-sm font-semibold text-white">
             Discount Hub 安卓版
           </p>
-          <p className="truncate text-xs text-blue-100">
+          <p className="truncate text-xs text-white/85">
             下载 App 获得更流畅的体验
           </p>
         </div>
         <a
           href={APK_URL}
           download
-          className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-white px-4 py-2 text-sm font-semibold text-blue-600 shadow-sm active:scale-95"
+          className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-white px-4 py-2 text-sm font-semibold text-[var(--brand-red)] shadow-sm active:scale-95"
         >
           <Download className="h-4 w-4" />
           下载
         </a>
         <button
           onClick={dismiss}
-          className="shrink-0 rounded-full p-1.5 text-blue-100 hover:bg-white/20 hover:text-white"
+          className="shrink-0 rounded-full p-1.5 text-white/80 hover:bg-white/20 hover:text-white"
           aria-label="关闭"
         >
           <X className="h-4 w-4" />

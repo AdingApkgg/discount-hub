@@ -158,7 +158,7 @@ function QuickActionsGrid({ onGo }: { onGo: (path: string) => void }) {
                     i === 0 && "bg-red-50 text-[var(--brand-red)]",
                     i === 1 && "bg-orange-50 text-[var(--brand-orange)]",
                     i === 2 && "bg-pink-50 text-[var(--brand-pink)]",
-                    i === 3 && "bg-purple-50 text-[var(--brand-purple)]",
+                    i === 3 && "bg-amber-50 text-[var(--brand-gold)]",
                   )}
                 >
                   <Icon className="h-[18px] w-[18px]" />

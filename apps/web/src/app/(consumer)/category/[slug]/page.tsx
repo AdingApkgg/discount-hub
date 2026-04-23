@@ -91,10 +91,10 @@ export default function CategoryPage({ params }: { params: Promise<{ slug: strin
                   <AnimatedItem key={item.id}>
                     <HoverScale>
                       <Card
-                        className={`${appCardClassName} group cursor-pointer overflow-hidden transition-shadow hover:shadow-[0_16px_48px_rgba(15,23,42,0.12)]`}
+                        className={`${appCardClassName} group cursor-pointer overflow-hidden transition-shadow hover:shadow-[0_16px_48px_rgba(122,60,30,0.14)]`}
                         onClick={() => router.push(`/scroll/${item.id}`)}
                       >
-                        <div className="relative aspect-square overflow-hidden bg-[linear-gradient(135deg,#111827_0%,#1f2937_55%,#374151_100%)]">
+                        <div className="relative aspect-square overflow-hidden bg-[linear-gradient(135deg,#FE2C55_0%,#FF6E37_55%,#F5B800_100%)]">
                           {item.imageUrl && (
                             <img src={item.imageUrl} alt={item.title} className="absolute inset-0 h-full w-full object-cover transition-transform duration-300 group-hover:scale-105" />
                           )}

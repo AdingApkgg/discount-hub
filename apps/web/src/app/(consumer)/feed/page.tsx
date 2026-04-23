@@ -30,11 +30,11 @@ import {
 } from "@/components/motion";
 
 const VIP_TIERS = [
-  { level: 1, label: "VIP1", points: 200, color: "from-amber-500 to-orange-500" },
-  { level: 2, label: "VIP2", points: 500, color: "from-sky-500 to-blue-500" },
-  { level: 3, label: "VIP3", points: 1200, color: "from-violet-500 to-purple-500" },
-  { level: 4, label: "VIP4", points: 2000, color: "from-rose-500 to-pink-500" },
-  { level: 5, label: "VIP5", points: 5000, color: "from-emerald-500 to-teal-500" },
+  { level: 1, label: "VIP1", points: 200, color: "from-amber-400 to-orange-400" },
+  { level: 2, label: "VIP2", points: 500, color: "from-orange-500 to-red-500" },
+  { level: 3, label: "VIP3", points: 1200, color: "from-rose-500 to-pink-500" },
+  { level: 4, label: "VIP4", points: 2000, color: "from-pink-500 to-red-600" },
+  { level: 5, label: "VIP5", points: 5000, color: "from-yellow-500 to-amber-600" },
 ];
 
 const mockPosts = [

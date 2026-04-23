@@ -417,15 +417,15 @@ function DoubleBanners({
 /* ---------- 金刚区 10 品牌入口 ---------- */
 const SHORTCUTS = [
   { id: "video",   icon: Video,             label: "视频会员",  color: "from-[#FE2C55] to-[#FF4D8D]" },
-  { id: "music",   icon: Music,             label: "音乐会员",  color: "from-[#00D084] to-[#0AE59C]" },
-  { id: "game",    icon: Gamepad2,          label: "游戏直充",  color: "from-[#A855F7] to-[#C084FC]" },
-  { id: "phone",   icon: Phone,             label: "话费充值",  color: "from-[#3B82F6] to-[#60A5FA]" },
+  { id: "music",   icon: Music,             label: "音乐会员",  color: "from-[#FF4D8D] to-[#FF8BB5]" },
+  { id: "game",    icon: Gamepad2,          label: "游戏直充",  color: "from-[#D9336C] to-[#FE2C55]" },
+  { id: "phone",   icon: Phone,             label: "话费充值",  color: "from-[#FF6E37] to-[#FFA64D]" },
   { id: "food",    icon: UtensilsCrossed,   label: "外卖美食",  color: "from-[#FF6E37] to-[#FFA500]" },
   { id: "shop",    icon: ShoppingBag,       label: "品牌券包",  color: "from-[#EC4899] to-[#F472B6]" },
-  { id: "learn",   icon: GraduationCap,     label: "学习知识",  color: "from-[#06B6D4] to-[#22D3EE]" },
+  { id: "learn",   icon: GraduationCap,     label: "学习知识",  color: "from-[#F5B800] to-[#FFD84D]" },
   { id: "rebate",  icon: Gift,              label: "邀请返利",  color: "from-[#F5B800] to-[#FFA500]" },
-  { id: "zero",    icon: Sparkles,          label: "0 元兑",   color: "from-[#FE2C55] to-[#A855F7]" },
-  { id: "all",     icon: Grid3x3,           label: "全部分类",  color: "from-[#64748B] to-[#94A3B8]" },
+  { id: "zero",    icon: Sparkles,          label: "0 元兑",   color: "from-[#FE2C55] to-[#FF6E37]" },
+  { id: "all",     icon: Grid3x3,           label: "全部分类",  color: "from-[#C17A3C] to-[#E3A66A]" },
 ] as const;
 
 function ShortcutGrid({ onSelect }: { onSelect: (id: string) => void }) {

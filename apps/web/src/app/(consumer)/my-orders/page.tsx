@@ -39,7 +39,7 @@ const STATUS_MAP: Record<string, { label: string; className: string }> = {
   PENDING: { label: "待付款", className: "text-amber-600" },
   PAID: { label: "待核销", className: "text-[var(--brand-red)]" },
   CANCELLED: { label: "已取消", className: "text-muted-foreground" },
-  REFUNDED: { label: "已退款", className: "text-violet-600" },
+  REFUNDED: { label: "已退款", className: "text-stone-500" },
 };
 
 export default function OrdersPage() {

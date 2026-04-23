@@ -11,7 +11,7 @@ export const banners: BannerItem[] = [
     title: "今晚 20:00 限时神卷上新",
     subtitle: "诱惑优惠，先到先得",
     cta: "立刻开抢",
-    gradient: "from-[#ff2d55]/90 via-[#b5179e]/85 to-[#8a2be2]/90",
+    gradient: "from-[#FE2C55]/90 via-[#FF4D8D]/85 to-[#FF6E37]/90",
     scrollId: "s-douyin-8off",
   },
   {
@@ -19,7 +19,7 @@ export const banners: BannerItem[] = [
     title: "新用户首充礼",
     subtitle: "满减券叠加，最高立省 100",
     cta: "查看推荐",
-    gradient: "from-[#8a2be2]/90 via-[#5b21b6]/85 to-[#ff2d55]/90",
+    gradient: "from-[#F5B800]/90 via-[#FF6E37]/90 to-[#FE2C55]/90",
     scrollId: "s-douyin-first-topup",
   },
   {
@@ -27,7 +27,7 @@ export const banners: BannerItem[] = [
     title: "0 元兑专区",
     subtitle: "积分即兑，秒到账（原型演示）",
     cta: "去逛逛",
-    gradient: "from-[#0ea5e9]/25 via-[#ff2d55]/25 to-[#8a2be2]/35",
+    gradient: "from-[#FF4D8D]/85 via-[#FE2C55]/85 to-[#F5B800]/85",
     scrollId: "s-douyin-1000-diamond",
   },
 ];
@@ -228,7 +228,7 @@ export const earnContents: EarnContentItem[] = [
     subtitle: "去抖音观看",
     app: "抖音",
     rewardPoints: 30,
-    gradient: "from-[#ff2d55]/25 via-[#8a2be2]/20 to-[#0b0b10]",
+    gradient: "from-[#FE2C55]/25 via-[#FF6E37]/20 to-[#3D1A12]",
   },
   {
     id: "c2",
@@ -236,7 +236,7 @@ export const earnContents: EarnContentItem[] = [
     subtitle: "去抖音观看",
     app: "抖音",
     rewardPoints: 30,
-    gradient: "from-[#8a2be2]/25 via-[#ff2d55]/15 to-[#0b0b10]",
+    gradient: "from-[#FF4D8D]/25 via-[#FE2C55]/15 to-[#3D1A12]",
   },
   {
     id: "c3",
@@ -244,7 +244,7 @@ export const earnContents: EarnContentItem[] = [
     subtitle: "去抖音观看",
     app: "抖音",
     rewardPoints: 40,
-    gradient: "from-[#22c55e]/15 via-[#ff2d55]/20 to-[#0b0b10]",
+    gradient: "from-[#F5B800]/20 via-[#FF6E37]/20 to-[#3D1A12]",
   },
   {
     id: "c4",
@@ -252,7 +252,7 @@ export const earnContents: EarnContentItem[] = [
     subtitle: "去抖音观看",
     app: "抖音",
     rewardPoints: 50,
-    gradient: "from-[#0ea5e9]/15 via-[#8a2be2]/20 to-[#0b0b10]",
+    gradient: "from-[#FFA64D]/20 via-[#FE2C55]/20 to-[#3D1A12]",
   },
 ];
 
