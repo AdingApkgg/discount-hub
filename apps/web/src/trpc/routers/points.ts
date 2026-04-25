@@ -28,6 +28,7 @@ type IncentiveValues = {
   oldUserCheckinMulti: number;
   referralReward: number;
   refereeReward: number;
+  streakBonusThreshold: number;
 };
 
 const DEFAULT_INCENTIVE: IncentiveValues = {
@@ -37,6 +38,7 @@ const DEFAULT_INCENTIVE: IncentiveValues = {
   oldUserCheckinMulti: 1.0,
   referralReward: 1000,
   refereeReward: 500,
+  streakBonusThreshold: 3,
 };
 
 type PrismaLike = Pick<PrismaClient, "incentiveConfig">;
@@ -56,6 +58,7 @@ export async function getActiveIncentive(
     oldUserCheckinMulti: cfg.oldUserCheckinMulti,
     referralReward: cfg.referralReward,
     refereeReward: cfg.refereeReward,
+    streakBonusThreshold: cfg.streakBonusThreshold,
   };
 }
 
@@ -205,9 +208,9 @@ export const pointsRouter = createTRPCRouter({
       const newPoints = (currentUser?.points ?? 0) + reward;
       let newVipLevel = computeVipLevel(newPoints);
 
-      const STREAK_BONUS_THRESHOLD = 3;
-      if (dayIndex >= STREAK_BONUS_THRESHOLD) {
-        const streakBonus = Math.floor(dayIndex / STREAK_BONUS_THRESHOLD);
+      const streakThreshold = incentive.streakBonusThreshold;
+      if (streakThreshold > 0 && dayIndex >= streakThreshold) {
+        const streakBonus = Math.floor(dayIndex / streakThreshold);
         newVipLevel = Math.min(VIP_MAX_LEVEL, Math.max(newVipLevel, (currentUser?.vipLevel ?? 0) + streakBonus));
       }
 

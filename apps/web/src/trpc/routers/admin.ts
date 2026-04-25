@@ -393,6 +393,7 @@ export const adminRouter = createTRPCRouter({
       oldUserCheckinMulti: 1.0,
       referralReward: 1000,
       refereeReward: 500,
+      streakBonusThreshold: 3,
       isActive: true,
     };
   }),
@@ -405,6 +406,7 @@ export const adminRouter = createTRPCRouter({
       oldUserCheckinMulti: z.number().min(0.5).max(5),
       referralReward: z.number().int().min(0).max(50000),
       refereeReward: z.number().int().min(0).max(50000),
+      streakBonusThreshold: z.number().int().min(0).max(30),
     }))
     .mutation(async ({ ctx, input }) => {
       await ctx.prisma.incentiveConfig.updateMany({

@@ -409,16 +409,17 @@ model AgentCommission {
 // ─── Incentive Config / 激励策略配置 ────────────────
 
 model IncentiveConfig {
-  id                  String   @id @default(cuid())
-  newUserBonusPoints  Int      @default(500)
-  newUserBonusDays    Int      @default(7)
-  newUserCheckinMulti Float    @default(2.0)
-  oldUserCheckinMulti Float    @default(1.0)
-  referralReward      Int      @default(1000)
-  refereeReward       Int      @default(500)
-  isActive            Boolean  @default(true)
-  createdAt           DateTime @default(now())
-  updatedAt           DateTime @updatedAt
+  id                   String   @id @default(cuid())
+  newUserBonusPoints   Int      @default(500)
+  newUserBonusDays     Int      @default(7)
+  newUserCheckinMulti  Float    @default(2.0)
+  oldUserCheckinMulti  Float    @default(1.0)
+  referralReward       Int      @default(1000)
+  refereeReward        Int      @default(500)
+  streakBonusThreshold Int      @default(3)
+  isActive             Boolean  @default(true)
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
 
   @@map("incentive_configs")
 }

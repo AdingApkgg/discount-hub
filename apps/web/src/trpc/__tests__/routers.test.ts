@@ -1486,6 +1486,79 @@ describe("points router", () => {
     expect(result.reward).toBe(800);
   });
 
+  it("checkin streakBonusThreshold=3 day 3 boosts vipLevel from existing+1", async () => {
+    mockPrismaInstance.checkin.findFirst
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({ id: "ch-prev", dayIndex: 2, checkedAt: yesterdayDate() });
+    mockPrismaInstance.checkin.create.mockResolvedValue({});
+    // User starts at vip 2 with 0 points: pure-points path would compute vip=0,
+    // so any vipLevel > 0 in the update can only come from the streak bonus.
+    mockPrismaInstance.user.findUnique.mockResolvedValue({
+      vipLevel: 2,
+      points: 0,
+      createdAt: new Date(Date.now() - 60 * 24 * 60 * 60 * 1000),
+    });
+    mockPrismaInstance.incentiveConfig.findFirst.mockResolvedValue({
+      newUserBonusPoints: 500,
+      newUserBonusDays: 7,
+      newUserCheckinMulti: 2.0,
+      oldUserCheckinMulti: 1.0,
+      referralReward: 1000,
+      refereeReward: 500,
+      streakBonusThreshold: 3,
+      isActive: true,
+    });
+    mockPrismaInstance.user.update.mockResolvedValue({ points: 300 });
+
+    const caller = makeCaller(mockConsumer);
+    await caller.points.checkin();
+
+    // streak bonus = floor(3/3) = 1 → max(0, 2+1) = 3
+    expect(mockPrismaInstance.user.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          vipLevel: { set: 3 },
+        }),
+      }),
+    );
+  });
+
+  it("checkin streakBonusThreshold=0 disables streak vipLevel boost", async () => {
+    mockPrismaInstance.checkin.findFirst
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({ id: "ch-prev", dayIndex: 2, checkedAt: yesterdayDate() });
+    mockPrismaInstance.checkin.create.mockResolvedValue({});
+    mockPrismaInstance.user.findUnique.mockResolvedValue({
+      vipLevel: 2,
+      points: 0,
+      createdAt: new Date(Date.now() - 60 * 24 * 60 * 60 * 1000),
+    });
+    mockPrismaInstance.incentiveConfig.findFirst.mockResolvedValue({
+      newUserBonusPoints: 500,
+      newUserBonusDays: 7,
+      newUserCheckinMulti: 2.0,
+      oldUserCheckinMulti: 1.0,
+      referralReward: 1000,
+      refereeReward: 500,
+      streakBonusThreshold: 0,
+      isActive: true,
+    });
+    mockPrismaInstance.user.update.mockResolvedValue({ points: 300 });
+
+    const caller = makeCaller(mockConsumer);
+    await caller.points.checkin();
+
+    // No streak bonus → newVipLevel = computeVipLevel(0+300) = 0; user gets demoted
+    // because that is the configured policy (vip set, not max with current)
+    expect(mockPrismaInstance.user.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          vipLevel: { set: 0 },
+        }),
+      }),
+    );
+  });
+
   it("checkin updates VIP level based on accumulated points", async () => {
     mockPrismaInstance.checkin.findFirst.mockResolvedValue(null);
     mockPrismaInstance.checkin.create.mockResolvedValue({});

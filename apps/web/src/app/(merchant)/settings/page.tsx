@@ -65,6 +65,7 @@ function IncentiveTab() {
       oldUserCheckinMulti: config?.oldUserCheckinMulti ?? 1.0,
       referralReward: config?.referralReward ?? 1000,
       refereeReward: config?.refereeReward ?? 500,
+      streakBonusThreshold: config?.streakBonusThreshold ?? 3,
     }),
     [config],
   );
@@ -173,6 +174,31 @@ function IncentiveTab() {
               value={form.refereeReward}
               onChange={(e) => update("refereeReward", Number(e.target.value))}
             />
+          </div>
+        </div>
+
+        <Separator />
+
+        <div>
+          <h3 className="text-sm font-medium text-foreground">签到权重</h3>
+          <p className="mt-1 text-xs text-muted-foreground">
+            连续签到达到阈值时自动给用户加会员等级。例如设为 3，则连续 3 天签到 = +1 级，6 天 = +2 级。设为 0 可关闭此机制。
+          </p>
+        </div>
+
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="space-y-2">
+            <Label>连续签到加级阈值（天）</Label>
+            <Input
+              type="number"
+              min={0}
+              max={30}
+              value={form.streakBonusThreshold}
+              onChange={(e) => update("streakBonusThreshold", Number(e.target.value))}
+            />
+            <p className="text-xs text-muted-foreground">
+              0 = 关闭；签到天数 ≥ 此值后每多此值天 +1 级
+            </p>
           </div>
         </div>
 
