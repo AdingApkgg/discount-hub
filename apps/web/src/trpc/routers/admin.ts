@@ -783,6 +783,70 @@ export const adminRouter = createTRPCRouter({
       });
     }),
 
+  listDeviceFingerprints: merchantProcedure
+    .input(
+      z
+        .object({
+          filter: z.enum(["all", "suspicious", "blocked"]).default("suspicious"),
+          page: z.number().int().min(1).default(1),
+          pageSize: z.number().int().min(1).max(100).default(30),
+        })
+        .optional(),
+    )
+    .query(async ({ ctx, input }) => {
+      const filter = input?.filter ?? "suspicious";
+      const page = input?.page ?? 1;
+      const pageSize = input?.pageSize ?? 30;
+      const where =
+        filter === "blocked"
+          ? { blockedAt: { not: null } }
+          : filter === "suspicious"
+            ? { suspicious: true }
+            : {};
+      const [rows, total] = await Promise.all([
+        ctx.prisma.deviceFingerprint.findMany({
+          where,
+          orderBy: { lastSeenAt: "desc" },
+          skip: (page - 1) * pageSize,
+          take: pageSize,
+        }),
+        ctx.prisma.deviceFingerprint.count({ where }),
+      ]);
+      return { rows, total, page, pageSize };
+    }),
+
+  blockDeviceFingerprint: adminProcedure
+    .input(
+      z.object({
+        visitorId: z.string().min(1),
+        reason: z.string().max(500).optional(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      return ctx.prisma.deviceFingerprint.updateMany({
+        where: { visitorId: input.visitorId },
+        data: {
+          blockedAt: new Date(),
+          blockedBy: ctx.user.id,
+          blockReason: input.reason ?? null,
+        },
+      });
+    }),
+
+  unblockDeviceFingerprint: adminProcedure
+    .input(z.object({ visitorId: z.string().min(1) }))
+    .mutation(async ({ ctx, input }) => {
+      return ctx.prisma.deviceFingerprint.updateMany({
+        where: { visitorId: input.visitorId },
+        data: {
+          blockedAt: null,
+          blockedBy: null,
+          blockReason: null,
+          suspicious: false,
+        },
+      });
+    }),
+
   listAdSlots: merchantProcedure.query(async ({ ctx }) => {
     return ctx.prisma.adSlot.findMany({
       orderBy: { sortOrder: "asc" },

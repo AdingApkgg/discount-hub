@@ -105,6 +105,13 @@ function mockPrisma() {
       create: vi.fn(),
       findMany: vi.fn().mockResolvedValue([]),
     },
+    deviceFingerprint: {
+      findFirst: vi.fn().mockResolvedValue(null),
+      findMany: vi.fn().mockResolvedValue([]),
+      upsert: vi.fn().mockResolvedValue({ id: "fp1" }),
+      updateMany: vi.fn().mockResolvedValue({ count: 0 }),
+      count: vi.fn().mockResolvedValue(0),
+    },
     taskCompletion: {
       findFirst: vi.fn().mockResolvedValue(null),
       findMany: vi.fn().mockResolvedValue([]),
@@ -177,6 +184,11 @@ function makeCaller(user: AnyMockUser | null = null) {
     session: (user ? { user } : null) as CallerContext["session"],
     user,
     headers: mockHeaders,
+    risk: {
+      visitorId: null,
+      ipAddress: "127.0.0.1",
+      userAgent: "vitest",
+    },
   } as CallerContext;
 
   return createCaller(ctx);
@@ -2578,5 +2590,202 @@ describe("admin agent commission CRUD", () => {
       pendingAmount: 50,
       paidAmount: 200,
     });
+  });
+});
+
+// ════════════════════════════════════════════════════
+// Device Fingerprint Risk
+// ════════════════════════════════════════════════════
+
+import {
+  recordFingerprint,
+  assertNotBlocked,
+  readRiskHeaders,
+} from "@/lib/device-risk";
+
+describe("device-risk helpers", () => {
+  beforeEach(() => {
+    mockPrismaInstance = mockPrisma();
+    vi.clearAllMocks();
+  });
+
+  it("readRiskHeaders extracts and validates visitorId format", () => {
+    const ok = new Headers({
+      "x-visitor-id": "abc123def456",
+      "x-forwarded-for": "1.2.3.4",
+      "user-agent": "Test",
+    });
+    expect(readRiskHeaders(ok)).toEqual({
+      visitorId: "abc123def456",
+      ipAddress: "1.2.3.4",
+      userAgent: "Test",
+    });
+  });
+
+  it("readRiskHeaders rejects malformed visitorId", () => {
+    const bad = new Headers({ "x-visitor-id": "short" });
+    expect(readRiskHeaders(bad).visitorId).toBeNull();
+
+    const inj = new Headers({ "x-visitor-id": "a'; DROP TABLE--" });
+    expect(readRiskHeaders(inj).visitorId).toBeNull();
+  });
+
+  it("recordFingerprint is a no-op when visitorId is null", async () => {
+    const result = await recordFingerprint(
+      mockPrismaInstance as never,
+      "user-1",
+      { visitorId: null, ipAddress: null, userAgent: null },
+    );
+    expect(result).toBeNull();
+    expect(mockPrismaInstance.deviceFingerprint.upsert).not.toHaveBeenCalled();
+  });
+
+  it("recordFingerprint upserts and skips suspicion flag below threshold", async () => {
+    mockPrismaInstance.deviceFingerprint.findMany.mockResolvedValue([
+      { userId: "u1" },
+      { userId: "u2" },
+    ]);
+
+    await recordFingerprint(
+      mockPrismaInstance as never,
+      "u1",
+      { visitorId: "vis-aaaa-1234", ipAddress: "1.1.1.1", userAgent: "ua" },
+    );
+
+    expect(mockPrismaInstance.deviceFingerprint.upsert).toHaveBeenCalled();
+    expect(mockPrismaInstance.deviceFingerprint.updateMany).not.toHaveBeenCalled();
+  });
+
+  it("recordFingerprint flags suspicious when distinct userIds > 3", async () => {
+    mockPrismaInstance.deviceFingerprint.findMany.mockResolvedValue([
+      { userId: "u1" },
+      { userId: "u2" },
+      { userId: "u3" },
+      { userId: "u4" },
+      { userId: "u5" },
+    ]);
+
+    await recordFingerprint(
+      mockPrismaInstance as never,
+      "u5",
+      { visitorId: "vis-bbbb-5678", ipAddress: null, userAgent: null },
+    );
+
+    expect(mockPrismaInstance.deviceFingerprint.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { visitorId: "vis-bbbb-5678", suspicious: false },
+        data: { suspicious: true },
+      }),
+    );
+  });
+
+  it("assertNotBlocked passes when no blocked row exists", async () => {
+    mockPrismaInstance.deviceFingerprint.findFirst.mockResolvedValue(null);
+    await expect(
+      assertNotBlocked(mockPrismaInstance as never, {
+        visitorId: "vis-ok-1234",
+        ipAddress: null,
+        userAgent: null,
+      }),
+    ).resolves.toBeUndefined();
+  });
+
+  it("assertNotBlocked throws when visitorId has been blocked", async () => {
+    mockPrismaInstance.deviceFingerprint.findFirst.mockResolvedValue({
+      blockReason: "刷单",
+    });
+    await expect(
+      assertNotBlocked(mockPrismaInstance as never, {
+        visitorId: "vis-blocked-9999",
+        ipAddress: null,
+        userAgent: null,
+      }),
+    ).rejects.toThrow("当前设备已被风控限制");
+  });
+
+  it("assertNotBlocked is a no-op when visitorId is null", async () => {
+    await expect(
+      assertNotBlocked(mockPrismaInstance as never, {
+        visitorId: null,
+        ipAddress: null,
+        userAgent: null,
+      }),
+    ).resolves.toBeUndefined();
+    expect(mockPrismaInstance.deviceFingerprint.findFirst).not.toHaveBeenCalled();
+  });
+});
+
+describe("admin device fingerprint CRUD", () => {
+  beforeEach(() => {
+    mockPrismaInstance = mockPrisma();
+    vi.clearAllMocks();
+  });
+
+  it("listDeviceFingerprints filters by suspicious by default", async () => {
+    mockPrismaInstance.deviceFingerprint.findMany.mockResolvedValue([]);
+    mockPrismaInstance.deviceFingerprint.count.mockResolvedValue(0);
+
+    const caller = makeCaller(mockMerchant);
+    await caller.admin.listDeviceFingerprints();
+
+    expect(mockPrismaInstance.deviceFingerprint.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { suspicious: true } }),
+    );
+  });
+
+  it("listDeviceFingerprints filter=blocked uses blockedAt criteria", async () => {
+    mockPrismaInstance.deviceFingerprint.findMany.mockResolvedValue([]);
+    mockPrismaInstance.deviceFingerprint.count.mockResolvedValue(0);
+
+    const caller = makeCaller(mockMerchant);
+    await caller.admin.listDeviceFingerprints({ filter: "blocked" });
+
+    expect(mockPrismaInstance.deviceFingerprint.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { blockedAt: { not: null } } }),
+    );
+  });
+
+  it("blockDeviceFingerprint sets blockedAt + blockedBy + reason", async () => {
+    mockPrismaInstance.deviceFingerprint.updateMany = vi.fn().mockResolvedValue({ count: 1 });
+
+    const caller = makeCaller(mockAdmin);
+    await caller.admin.blockDeviceFingerprint({
+      visitorId: "vis-block-test",
+      reason: "测试封禁",
+    });
+
+    expect(mockPrismaInstance.deviceFingerprint.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { visitorId: "vis-block-test" },
+        data: expect.objectContaining({
+          blockedBy: "admin-1",
+          blockReason: "测试封禁",
+        }),
+      }),
+    );
+  });
+
+  it("unblockDeviceFingerprint clears block fields and suspicion", async () => {
+    mockPrismaInstance.deviceFingerprint.updateMany = vi.fn().mockResolvedValue({ count: 1 });
+
+    const caller = makeCaller(mockAdmin);
+    await caller.admin.unblockDeviceFingerprint({ visitorId: "vis-unblock" });
+
+    expect(mockPrismaInstance.deviceFingerprint.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          blockedAt: null,
+          blockReason: null,
+          suspicious: false,
+        }),
+      }),
+    );
+  });
+
+  it("blockDeviceFingerprint requires admin role", async () => {
+    const caller = makeCaller(mockMerchant);
+    await expect(
+      caller.admin.blockDeviceFingerprint({ visitorId: "x" }),
+    ).rejects.toThrow();
   });
 });

@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { createTRPCRouter, protectedProcedure, merchantProcedure } from "../init";
+import { assertNotBlocked, recordFingerprint } from "@/lib/device-risk";
 
 export const userRouter = createTRPCRouter({
   me: protectedProcedure.query(async ({ ctx }) => {
@@ -100,6 +101,9 @@ export const userRouter = createTRPCRouter({
   bindInviteCode: protectedProcedure
     .input(z.object({ inviteCode: z.string().min(1) }))
     .mutation(async ({ ctx, input }) => {
+      await assertNotBlocked(ctx.prisma, ctx.risk);
+      await recordFingerprint(ctx.prisma, ctx.user.id, ctx.risk);
+
       const currentUser = await ctx.prisma.user.findUnique({
         where: { id: ctx.user.id },
         select: { invitedById: true },

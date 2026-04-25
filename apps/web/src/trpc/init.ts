@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { redis } from "@/lib/redis";
 import { auth } from "@/lib/auth";
 import { checkRateLimit } from "@/lib/rate-limit";
+import { readRiskHeaders } from "@/lib/device-risk";
 
 export const createTRPCContext = async (opts: { headers: Headers }) => {
   const session = await auth.api.getSession({ headers: opts.headers });
@@ -14,6 +15,7 @@ export const createTRPCContext = async (opts: { headers: Headers }) => {
     session,
     user: session?.user ?? null,
     headers: opts.headers,
+    risk: readRiskHeaders(opts.headers),
   };
 };
 

@@ -449,6 +449,28 @@ enum TaskType {
   CUMULATIVE
 }
 
+// ─── Device Fingerprint / 设备风控 ─────────────────
+
+model DeviceFingerprint {
+  id          String    @id @default(cuid())
+  visitorId   String
+  userId      String?
+  ipAddress   String?
+  userAgent   String?   @db.Text
+  suspicious  Boolean   @default(false)
+  blockedAt   DateTime?
+  blockedBy   String?
+  blockReason String?
+  firstSeenAt DateTime  @default(now())
+  lastSeenAt  DateTime  @default(now())
+
+  @@unique([visitorId, userId])
+  @@index([visitorId, lastSeenAt])
+  @@index([userId])
+  @@index([suspicious])
+  @@map("device_fingerprints")
+}
+
 // ─── Redemption Guide / 兑换引导 ───────────────────
 
 model RedemptionGuide {

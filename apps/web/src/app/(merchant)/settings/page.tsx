@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { CheckCircle, ClipboardList, Gift, Headphones, Image, Loader2, Plus, Save, Share2, Store, Bell, Shield, Palette, Sun, Moon, Monitor, Trash2, Users, Zap } from "lucide-react";
+import { CheckCircle, ClipboardList, Gift, Headphones, Image, Loader2, Lock, Plus, Save, Share2, ShieldAlert, Store, Bell, Shield, Palette, Sun, Moon, Monitor, Trash2, Unlock, Users, Zap } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTheme } from "next-themes";
 import { toast } from "sonner";
@@ -1486,6 +1486,164 @@ function RedemptionGuideTab() {
   );
 }
 
+function DeviceRiskTab() {
+  const trpc = useTRPC();
+  const queryClient = useQueryClient();
+  const [filter, setFilter] = useState<"suspicious" | "blocked" | "all">(
+    "suspicious",
+  );
+  const { data: resp, isLoading } = useQuery(
+    trpc.admin.listDeviceFingerprints.queryOptions({
+      filter,
+      page: 1,
+      pageSize: 50,
+    }),
+  );
+  const blockMutation = useMutation(trpc.admin.blockDeviceFingerprint.mutationOptions());
+  const unblockMutation = useMutation(trpc.admin.unblockDeviceFingerprint.mutationOptions());
+
+  async function handleBlock(visitorId: string) {
+    const reason =
+      typeof window !== "undefined"
+        ? window.prompt("封禁原因（可选）：") ?? ""
+        : "";
+    try {
+      await blockMutation.mutateAsync({ visitorId, reason: reason || undefined });
+      await queryClient.invalidateQueries();
+      toast.success("已封禁设备");
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "操作失败");
+    }
+  }
+
+  async function handleUnblock(visitorId: string) {
+    try {
+      await unblockMutation.mutateAsync({ visitorId });
+      await queryClient.invalidateQueries();
+      toast.success("已解除封禁");
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "操作失败");
+    }
+  }
+
+  type FpRow = NonNullable<typeof resp>["rows"][number];
+  const grouped = (resp?.rows ?? []).reduce<Record<string, FpRow[]>>(
+    (acc, r) => {
+      acc[r.visitorId] = acc[r.visitorId] ?? [];
+      acc[r.visitorId].push(r);
+      return acc;
+    },
+    {},
+  );
+
+  return (
+    <Card className="border-border">
+      <CardContent className="p-6 space-y-4">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h3 className="text-sm font-medium text-foreground flex items-center gap-2">
+              <ShieldAlert className="h-4 w-4 text-amber-500" />
+              设备风控
+            </h3>
+            <p className="text-xs text-muted-foreground mt-1">
+              基于 FingerprintJS 浏览器指纹聚合。同一 visitorId 在 1 小时内出现 ≥ 4 个不同账号会自动标记为可疑。封禁后该 visitorId 无法再签到、绑定邀请码等。
+            </p>
+          </div>
+          <div className="flex gap-1">
+            {(["suspicious", "blocked", "all"] as const).map((f) => (
+              <Button
+                key={f}
+                size="sm"
+                variant={filter === f ? "default" : "outline"}
+                onClick={() => setFilter(f)}
+              >
+                {f === "suspicious" ? "可疑" : f === "blocked" ? "已封禁" : "全部"}
+              </Button>
+            ))}
+          </div>
+        </div>
+
+        {isLoading ? (
+          <Loader2 className="h-5 w-5 animate-spin mx-auto" />
+        ) : !resp || Object.keys(grouped).length === 0 ? (
+          <div className="rounded-lg border border-dashed border-border bg-secondary/30 p-8 text-center text-sm text-muted-foreground">
+            暂无{filter === "suspicious" ? "可疑" : filter === "blocked" ? "已封禁" : ""}设备
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {Object.entries(grouped).map(([visitorId, rows]) => {
+              const blocked = rows.some((r) => r.blockedAt);
+              const userIds = Array.from(
+                new Set(rows.map((r) => r.userId).filter(Boolean)),
+              );
+              return (
+                <div
+                  key={visitorId}
+                  className="rounded-lg border border-border p-3 space-y-2"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <code className="text-xs font-mono text-foreground">
+                          {visitorId.slice(0, 16)}...
+                        </code>
+                        {blocked ? (
+                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-destructive/10 text-destructive">
+                            已封禁
+                          </span>
+                        ) : (
+                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-500">
+                            可疑
+                          </span>
+                        )}
+                        <span className="text-[10px] text-muted-foreground">
+                          关联 {userIds.length} 个账号
+                        </span>
+                      </div>
+                      <div className="mt-0.5 text-xs text-muted-foreground truncate">
+                        {rows[0].ipAddress ?? "未知 IP"} · 最近活动{" "}
+                        {new Date(rows[0].lastSeenAt).toLocaleString("zh-CN")}
+                      </div>
+                      {rows[0].blockReason && (
+                        <div className="mt-1 text-xs text-destructive">
+                          原因: {rows[0].blockReason}
+                        </div>
+                      )}
+                    </div>
+                    <div>
+                      {blocked ? (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleUnblock(visitorId)}
+                          disabled={unblockMutation.isPending}
+                        >
+                          <Unlock className="h-3.5 w-3.5 mr-1" />
+                          解除
+                        </Button>
+                      ) : (
+                        <Button
+                          size="sm"
+                          variant="destructive"
+                          onClick={() => handleBlock(visitorId)}
+                          disabled={blockMutation.isPending}
+                        >
+                          <Lock className="h-3.5 w-3.5 mr-1" />
+                          封禁
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 function AgentCommissionTab() {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
@@ -1895,6 +2053,12 @@ export default function SettingsPage() {
             代理佣金
           </TabsTrigger>
           ) : null}
+          {isAdmin ? (
+          <TabsTrigger value="device-risk" className="gap-2">
+            <ShieldAlert className="h-4 w-4" />
+            设备风控
+          </TabsTrigger>
+          ) : null}
           <TabsTrigger value="appearance" className="gap-2">
             <Palette className="h-4 w-4" />
             外观
@@ -2122,6 +2286,12 @@ export default function SettingsPage() {
         {isAdmin ? (
         <TabsContent value="agent-commission">
           <AgentCommissionTab />
+        </TabsContent>
+        ) : null}
+
+        {isAdmin ? (
+        <TabsContent value="device-risk">
+          <DeviceRiskTab />
         </TabsContent>
         ) : null}
 

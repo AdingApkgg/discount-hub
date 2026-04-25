@@ -7,6 +7,7 @@ import { createTRPCContext } from "@trpc/tanstack-react-query";
 import { useState } from "react";
 import superjson from "superjson";
 import { makeQueryClient } from "./query-client";
+import { getCachedVisitorId, getVisitorId } from "@/lib/fingerprint";
 import type { AppRouter } from "./routers/_app";
 
 export const { TRPCProvider, useTRPC } = createTRPCContext<AppRouter>();
@@ -41,6 +42,14 @@ export function TRPCReactProvider(
         httpBatchLink({
           transformer: superjson,
           url: getUrl(),
+          headers: async () => {
+            // Use cached visitorId synchronously when available so the first
+            // batch isn't blocked. Kick off init in parallel for the next call.
+            const cached = getCachedVisitorId();
+            if (cached) return { "x-visitor-id": cached };
+            const id = await getVisitorId();
+            return id ? { "x-visitor-id": id } : {};
+          },
         }),
       ],
     }),

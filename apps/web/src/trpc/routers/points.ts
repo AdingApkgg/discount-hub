@@ -2,6 +2,7 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import type { PrismaClient } from "@/generated/prisma";
 import { createTRPCRouter, protectedProcedure, sensitiveProcedure } from "../init";
+import { assertNotBlocked, recordFingerprint } from "@/lib/device-risk";
 
 export const VIP_POINTS_PER_LEVEL = 500;
 export const VIP_MAX_LEVEL = 10;
@@ -158,6 +159,9 @@ export const pointsRouter = createTRPCRouter({
   }),
 
   checkin: sensitiveProcedure.mutation(async ({ ctx }) => {
+    await assertNotBlocked(ctx.prisma, ctx.risk);
+    await recordFingerprint(ctx.prisma, ctx.user.id, ctx.risk);
+
     return ctx.prisma.$transaction(async (tx) => {
       // Check inside transaction to prevent race conditions
       const existing = await tx.checkin.findFirst({
