@@ -53,9 +53,17 @@ function mockPrisma() {
       findFirst: vi.fn().mockResolvedValue(null),
       create: vi.fn(),
     },
+    incentiveConfig: {
+      findFirst: vi.fn().mockResolvedValue(null),
+    },
+    taskTemplate: {
+      findUnique: vi.fn().mockResolvedValue(null),
+      findMany: vi.fn().mockResolvedValue([]),
+    },
     taskCompletion: {
       findFirst: vi.fn().mockResolvedValue(null),
       findMany: vi.fn().mockResolvedValue([]),
+      count: vi.fn().mockResolvedValue(0),
       create: vi.fn(),
     },
     verificationRecord: {
@@ -1168,6 +1176,22 @@ describe("points router", () => {
     expect(Array.isArray(result.todayTasks)).toBe(true);
   });
 
+  it("getStatus aggregates todayTaskCounts from completions", async () => {
+    mockPrismaInstance.user.findUnique.mockResolvedValue({ points: 0, vipLevel: 0 });
+    mockPrismaInstance.taskCompletion.findMany.mockResolvedValue([
+      { taskId: "chat5" },
+      { taskId: "chat5" },
+      { taskId: "chat5" },
+      { taskId: "browse" },
+    ]);
+
+    const caller = makeCaller(mockConsumer);
+    const result = await caller.points.getStatus();
+
+    expect(result.todayTaskCounts).toEqual({ chat5: 3, browse: 1 });
+    expect(new Set(result.todayTasks)).toEqual(new Set(["chat5", "browse"]));
+  });
+
   it("getStatus defaults to 0 when user has no record", async () => {
     mockPrismaInstance.user.findUnique.mockResolvedValue(null);
 
@@ -1276,6 +1300,90 @@ describe("points router", () => {
     );
   });
 
+  it("checkin new-user first sign-in gives newUserBonusPoints", async () => {
+    mockPrismaInstance.checkin.findFirst.mockResolvedValue(null);
+    mockPrismaInstance.checkin.create.mockResolvedValue({});
+    mockPrismaInstance.user.findUnique.mockResolvedValue({
+      vipLevel: 0,
+      points: 0,
+      createdAt: new Date(),
+    });
+    mockPrismaInstance.incentiveConfig.findFirst.mockResolvedValue({
+      newUserBonusPoints: 500,
+      newUserBonusDays: 7,
+      newUserCheckinMulti: 2.0,
+      oldUserCheckinMulti: 1.0,
+      referralReward: 1000,
+      refereeReward: 500,
+      isActive: true,
+    });
+    mockPrismaInstance.user.update.mockResolvedValue({ points: 500 });
+
+    const caller = makeCaller(mockConsumer);
+    const result = await caller.points.checkin();
+
+    expect(result.reward).toBe(500);
+  });
+
+  it("checkin new-user day 2 applies newUserCheckinMulti", async () => {
+    mockPrismaInstance.checkin.findFirst
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({ id: "ch-prev", dayIndex: 1, checkedAt: yesterdayDate() });
+    mockPrismaInstance.checkin.create.mockResolvedValue({});
+    mockPrismaInstance.user.findUnique.mockResolvedValue({
+      vipLevel: 0,
+      points: 500,
+      createdAt: new Date(),
+    });
+    mockPrismaInstance.incentiveConfig.findFirst.mockResolvedValue({
+      newUserBonusPoints: 500,
+      newUserBonusDays: 7,
+      newUserCheckinMulti: 2.0,
+      oldUserCheckinMulti: 1.0,
+      referralReward: 1000,
+      refereeReward: 500,
+      isActive: true,
+    });
+    mockPrismaInstance.user.update.mockResolvedValue({ points: 6500 });
+
+    const caller = makeCaller(mockConsumer);
+    const result = await caller.points.checkin();
+
+    // day 2 base = 3000, vip 0 bonus 0, newUserMulti 2.0 → 6000
+    expect(result.dayIndex).toBe(2);
+    expect(result.reward).toBe(6000);
+  });
+
+  it("checkin old-user day 1 applies oldUserCheckinMulti", async () => {
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    mockPrismaInstance.checkin.findFirst
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({ id: "ch-old", dayIndex: 3, checkedAt: twoDaysAgo() });
+    mockPrismaInstance.checkin.create.mockResolvedValue({});
+    mockPrismaInstance.user.findUnique.mockResolvedValue({
+      vipLevel: 0,
+      points: 5000,
+      createdAt: thirtyDaysAgo,
+    });
+    mockPrismaInstance.incentiveConfig.findFirst.mockResolvedValue({
+      newUserBonusPoints: 500,
+      newUserBonusDays: 7,
+      newUserCheckinMulti: 2.0,
+      oldUserCheckinMulti: 1.2,
+      referralReward: 1000,
+      refereeReward: 500,
+      isActive: true,
+    });
+    mockPrismaInstance.user.update.mockResolvedValue({ points: 5240 });
+
+    const caller = makeCaller(mockConsumer);
+    const result = await caller.points.checkin();
+
+    // streak broken → day 1, base 200, oldUserMulti 1.2 → 240
+    expect(result.dayIndex).toBe(1);
+    expect(result.reward).toBe(240);
+  });
+
   it("checkin consecutive day increments dayIndex", async () => {
     mockPrismaInstance.checkin.findFirst
       .mockResolvedValueOnce(null) // existing today check
@@ -1355,9 +1463,7 @@ describe("points router", () => {
   });
 
   it("completeTask prevents duplicate task completion", async () => {
-    mockPrismaInstance.taskCompletion.findFirst.mockResolvedValue({
-      id: "tc1",
-    });
+    mockPrismaInstance.taskCompletion.count.mockResolvedValue(1);
 
     const caller = makeCaller(mockConsumer);
 
@@ -1418,6 +1524,121 @@ describe("points router", () => {
         }),
       }),
     );
+  });
+
+  it("completeTask uses TaskTemplate reward when present", async () => {
+    mockPrismaInstance.taskTemplate.findUnique.mockResolvedValue({
+      reward: 999,
+      isActive: true,
+    });
+    mockPrismaInstance.taskCompletion.findFirst.mockResolvedValue(null);
+    mockPrismaInstance.taskCompletion.create.mockResolvedValue({});
+    mockPrismaInstance.user.update.mockResolvedValue({});
+
+    const caller = makeCaller(mockConsumer);
+    const result = await caller.points.completeTask({ taskId: "browse" });
+
+    expect(result.reward).toBe(999);
+  });
+
+  it("completeTask accepts new taskId not in TASK_REWARDS via template", async () => {
+    mockPrismaInstance.taskTemplate.findUnique.mockResolvedValue({
+      reward: 250,
+      isActive: true,
+    });
+    mockPrismaInstance.taskCompletion.findFirst.mockResolvedValue(null);
+    mockPrismaInstance.taskCompletion.create.mockResolvedValue({});
+    mockPrismaInstance.user.update.mockResolvedValue({});
+
+    const caller = makeCaller(mockConsumer);
+    const result = await caller.points.completeTask({ taskId: "watch_video" });
+
+    expect(result.reward).toBe(250);
+  });
+
+  it("completeTask rejects inactive template task", async () => {
+    mockPrismaInstance.taskTemplate.findUnique.mockResolvedValue({
+      reward: 100,
+      isActive: false,
+      type: "BASIC",
+      targetCount: 1,
+    });
+
+    const caller = makeCaller(mockConsumer);
+    await expect(
+      caller.points.completeTask({ taskId: "browse" }),
+    ).rejects.toThrow("任务已下线");
+  });
+
+  it("completeTask CUMULATIVE step 1 of 5 records 0 reward, returns progress", async () => {
+    mockPrismaInstance.taskTemplate.findUnique.mockResolvedValue({
+      reward: 500,
+      isActive: true,
+      type: "CUMULATIVE",
+      targetCount: 5,
+    });
+    mockPrismaInstance.taskCompletion.count.mockResolvedValue(0);
+    mockPrismaInstance.taskCompletion.create.mockResolvedValue({});
+
+    const caller = makeCaller(mockConsumer);
+    const result = await caller.points.completeTask({ taskId: "chat5" });
+
+    expect(result).toMatchObject({
+      reward: 0,
+      progress: 1,
+      target: 5,
+      done: false,
+    });
+    expect(mockPrismaInstance.user.update).not.toHaveBeenCalled();
+    expect(mockPrismaInstance.taskCompletion.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ reward: 0 }),
+      }),
+    );
+  });
+
+  it("completeTask CUMULATIVE final step pays full reward", async () => {
+    mockPrismaInstance.taskTemplate.findUnique.mockResolvedValue({
+      reward: 500,
+      isActive: true,
+      type: "CUMULATIVE",
+      targetCount: 5,
+    });
+    mockPrismaInstance.taskCompletion.count.mockResolvedValue(4);
+    mockPrismaInstance.taskCompletion.create.mockResolvedValue({});
+    mockPrismaInstance.user.update.mockResolvedValue({ points: 5500 });
+
+    const caller = makeCaller(mockConsumer);
+    const result = await caller.points.completeTask({ taskId: "chat5" });
+
+    expect(result).toMatchObject({
+      reward: 500,
+      progress: 5,
+      target: 5,
+      done: true,
+    });
+    expect(mockPrismaInstance.user.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          points: { increment: 500 },
+        }),
+      }),
+    );
+  });
+
+  it("completeTask CUMULATIVE rejects when already at target", async () => {
+    mockPrismaInstance.taskTemplate.findUnique.mockResolvedValue({
+      reward: 500,
+      isActive: true,
+      type: "CUMULATIVE",
+      targetCount: 5,
+    });
+    mockPrismaInstance.taskCompletion.count.mockResolvedValue(5);
+
+    const caller = makeCaller(mockConsumer);
+    await expect(
+      caller.points.completeTask({ taskId: "chat5" }),
+    ).rejects.toThrow("今日已完成该任务");
   });
 });
 

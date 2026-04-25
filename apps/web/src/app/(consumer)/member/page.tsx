@@ -47,12 +47,22 @@ const VIP_BENEFITS: Record<number, string[]> = {
   4: ["每日签到奖励 +20%", "抢先看特权", "双倍积分日", "所有 VIP3 权益"],
 };
 
-const DAILY_TASKS = [
-  { id: "checkin", emoji: "📅", title: "每日签到", desc: "享受 0.5 折特惠", reward: 200 },
-  { id: "browse", emoji: "🛒", title: "完成一次兑换", desc: "去完成", reward: 100 },
-  { id: "purchase", emoji: "📺", title: "浏览 60 秒抖音", desc: "去完成", reward: 100 },
-  { id: "share", emoji: "💌", title: "分享 APP 给好友", desc: "去完成", reward: 80 },
-] as const;
+type DailyTask = {
+  id: string;
+  emoji: string;
+  title: string;
+  desc: string;
+  reward: number;
+  type: "BASIC" | "CUMULATIVE";
+  targetCount: number;
+};
+
+const FALLBACK_DAILY_TASKS: DailyTask[] = [
+  { id: "checkin", emoji: "📅", title: "每日签到", desc: "享受 0.5 折特惠", reward: 200, type: "BASIC", targetCount: 1 },
+  { id: "browse", emoji: "🛒", title: "完成一次兑换", desc: "去完成", reward: 100, type: "BASIC", targetCount: 1 },
+  { id: "purchase", emoji: "📺", title: "浏览 60 秒抖音", desc: "去完成", reward: 100, type: "BASIC", targetCount: 1 },
+  { id: "share", emoji: "💌", title: "分享 APP 给好友", desc: "去完成", reward: 80, type: "BASIC", targetCount: 1 },
+];
 
 function buildVipTiers(pointsPerLevel: number) {
   return [0, 1, 2, 3].map((level) => ({
@@ -142,6 +152,24 @@ export default function MemberPage() {
   );
   const { data: ordersData } = useQuery(trpc.order.myOrders.queryOptions());
   const { data: referralsData } = useQuery(trpc.user.referrals.queryOptions());
+  const { data: activeTasksData } = useQuery(
+    trpc.points.listActiveTasks.queryOptions(),
+  );
+
+  const dailyTasks = useMemo<DailyTask[]>(() => {
+    if (!activeTasksData || activeTasksData.length === 0) {
+      return FALLBACK_DAILY_TASKS;
+    }
+    return activeTasksData.map((t) => ({
+      id: t.taskId,
+      emoji: t.icon || "⭐",
+      title: t.title,
+      desc: t.description || "去完成",
+      reward: t.reward,
+      type: t.type,
+      targetCount: t.targetCount,
+    }));
+  }, [activeTasksData]);
 
   const checkinMutation = useMutation(trpc.points.checkin.mutationOptions());
   const completeTaskMutation = useMutation(
@@ -156,6 +184,7 @@ export default function MemberPage() {
   );
   const referrals = (referralsData ?? []) as ReferralRecord[];
   const todayTasks = new Set(status?.todayTasks ?? []);
+  const todayTaskCounts = status?.todayTaskCounts ?? {};
 
   const checkinRewards =
     status?.checkinRewards ?? [200, 3000, 300, 500, 800, 1200, 10000];
@@ -194,7 +223,13 @@ export default function MemberPage() {
     try {
       const result = await completeTaskMutation.mutateAsync({ taskId });
       await refreshAll();
-      toast.success(`任务完成！+${result.reward} 积分`);
+      if (result.done && result.reward > 0) {
+        toast.success(`任务完成！+${result.reward} 积分`);
+      } else if (result.target > 1) {
+        toast.success(`进度 ${result.progress}/${result.target}`);
+      } else {
+        toast.success("任务完成");
+      }
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "任务提交失败");
     } finally {
@@ -220,7 +255,7 @@ export default function MemberPage() {
     }
   }
 
-  async function handleTask(taskId: (typeof DAILY_TASKS)[number]["id"]) {
+  async function handleTask(taskId: string) {
     if (taskId === "checkin") {
       await handleCheckin();
       return;
@@ -425,23 +460,28 @@ export default function MemberPage() {
 
         {/* 日常任务 */}
         <AnimatedSection className="space-y-2">
-          <FloorHeader emoji="🎯" title="日常任务" subtitle={`${[...todayTasks, checkedIn ? "checkin" : ""].filter(Boolean).length}/${DAILY_TASKS.length} 已完成`} tone="pink" />
+          <FloorHeader emoji="🎯" title="日常任务" subtitle={`${dailyTasks.filter((t) => t.id === "checkin" ? checkedIn : (todayTaskCounts[t.id] ?? 0) >= t.targetCount).length}/${dailyTasks.length} 已完成`} tone="pink" />
           <div className="overflow-hidden rounded-2xl bg-[var(--app-card)] shadow-[0_4px_14px_rgba(122,60,30,0.08)]">
-            {DAILY_TASKS.map((task, i) => {
-              const done =
-                task.id === "checkin" ? checkedIn : todayTasks.has(task.id);
+            {dailyTasks.map((task, i) => {
+              const progress = task.id === "checkin"
+                ? (checkedIn ? 1 : 0)
+                : (todayTaskCounts[task.id] ?? 0);
+              const done = progress >= task.targetCount;
+              const isCumulative = task.type === "CUMULATIVE" && task.targetCount > 1;
+              const inProgress = isCumulative && progress > 0 && !done;
+              const pct = Math.min(100, (progress / task.targetCount) * 100);
               return (
                 <div
                   key={task.id}
                   className={cn(
                     "flex items-center justify-between gap-3 px-3 py-2.5",
-                    i !== DAILY_TASKS.length - 1 &&
+                    i !== dailyTasks.length - 1 &&
                       "border-b border-dashed border-[var(--app-card-border)]",
                   )}
                 >
-                  <div className="flex min-w-0 items-center gap-2.5">
+                  <div className="flex min-w-0 flex-1 items-center gap-2.5">
                     <span className="text-2xl leading-none">{task.emoji}</span>
-                    <div className="min-w-0">
+                    <div className="min-w-0 flex-1">
                       <div className="text-[13px] font-black text-foreground">
                         {task.title}
                       </div>
@@ -451,6 +491,29 @@ export default function MemberPage() {
                         </span>
                         <span className="text-muted-foreground">· {task.desc}</span>
                       </div>
+                      {isCumulative && (
+                        <div className="mt-1 flex items-center gap-1.5">
+                          <div className="h-1 flex-1 overflow-hidden rounded-full bg-[var(--app-soft-strong)]">
+                            <div
+                              className={cn(
+                                "h-full transition-all",
+                                done
+                                  ? "bg-emerald-500"
+                                  : progress > 0
+                                    ? "bg-amber-400"
+                                    : "bg-transparent",
+                              )}
+                              style={{ width: `${pct}%` }}
+                            />
+                          </div>
+                          <span className={cn(
+                            "text-[10px] font-black tabular-nums",
+                            done ? "text-emerald-600" : inProgress ? "text-amber-600" : "text-muted-foreground",
+                          )}>
+                            {progress}/{task.targetCount}
+                          </span>
+                        </div>
+                      )}
                     </div>
                   </div>
                   <Button
@@ -468,6 +531,8 @@ export default function MemberPage() {
                       <Loader2 className="h-3.5 w-3.5 animate-spin" />
                     ) : done ? (
                       <>✓ 已完成</>
+                    ) : inProgress ? (
+                      <>继续 ›</>
                     ) : (
                       <>去完成 ›</>
                     )}

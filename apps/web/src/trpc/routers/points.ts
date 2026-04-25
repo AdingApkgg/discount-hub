@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
+import type { PrismaClient } from "@/generated/prisma";
 import { createTRPCRouter, protectedProcedure, sensitiveProcedure } from "../init";
 
 export const VIP_POINTS_PER_LEVEL = 500;
@@ -20,6 +21,49 @@ const VIP_CHECKIN_BONUS: Record<number, number> = {
   4: 0.20,
 };
 
+type IncentiveValues = {
+  newUserBonusPoints: number;
+  newUserBonusDays: number;
+  newUserCheckinMulti: number;
+  oldUserCheckinMulti: number;
+  referralReward: number;
+  refereeReward: number;
+};
+
+const DEFAULT_INCENTIVE: IncentiveValues = {
+  newUserBonusPoints: 500,
+  newUserBonusDays: 7,
+  newUserCheckinMulti: 2.0,
+  oldUserCheckinMulti: 1.0,
+  referralReward: 1000,
+  refereeReward: 500,
+};
+
+type PrismaLike = Pick<PrismaClient, "incentiveConfig">;
+
+export async function getActiveIncentive(
+  db: PrismaLike,
+): Promise<IncentiveValues> {
+  const cfg = await db.incentiveConfig.findFirst({
+    where: { isActive: true },
+    orderBy: { updatedAt: "desc" },
+  });
+  if (!cfg) return DEFAULT_INCENTIVE;
+  return {
+    newUserBonusPoints: cfg.newUserBonusPoints,
+    newUserBonusDays: cfg.newUserBonusDays,
+    newUserCheckinMulti: cfg.newUserCheckinMulti,
+    oldUserCheckinMulti: cfg.oldUserCheckinMulti,
+    referralReward: cfg.referralReward,
+    refereeReward: cfg.refereeReward,
+  };
+}
+
+export function isNewUser(createdAt: Date, newUserBonusDays: number): boolean {
+  const ageMs = Date.now() - createdAt.getTime();
+  return ageMs < newUserBonusDays * 24 * 60 * 60 * 1000;
+}
+
 /** Server-authoritative task reward map – clients may NOT specify reward values */
 const TASK_REWARDS: Record<string, number> = {
   browse: 100,
@@ -31,12 +75,12 @@ const TASK_REWARDS: Record<string, number> = {
   c4: 50,
 };
 
-function checkinReward(dayIndex: number, vipLevel = 0) {
+function checkinReward(dayIndex: number, vipLevel = 0, tierMulti = 1) {
   const base = CHECKIN_REWARDS[
     Math.max(0, Math.min(CHECKIN_REWARDS.length - 1, dayIndex - 1))
   ];
   const bonus = VIP_CHECKIN_BONUS[Math.min(vipLevel, 4)] ?? 0.25;
-  return Math.round(base * (1 + bonus));
+  return Math.round(base * (1 + bonus) * tierMulti);
 }
 
 function todayStart() {
@@ -64,7 +108,12 @@ export const pointsRouter = createTRPCRouter({
 
     const todayTasks = await ctx.prisma.taskCompletion.findMany({
       where: { userId: ctx.user.id, doneAt: { gte: todayStart() } },
+      select: { taskId: true },
     });
+    const todayTaskCounts: Record<string, number> = {};
+    for (const t of todayTasks) {
+      todayTaskCounts[t.taskId] = (todayTaskCounts[t.taskId] ?? 0) + 1;
+    }
 
     const lastCheckin = await ctx.prisma.checkin.findFirst({
       where: { userId: ctx.user.id },
@@ -100,7 +149,8 @@ export const pointsRouter = createTRPCRouter({
       nextLevelPoints,
       checkedInToday: !!todayCheckin,
       nextDayIndex,
-      todayTasks: todayTasks.map((t) => t.taskId),
+      todayTasks: Object.keys(todayTaskCounts),
+      todayTaskCounts,
     };
   }),
 
@@ -134,9 +184,19 @@ export const pointsRouter = createTRPCRouter({
 
       const currentUser = await tx.user.findUnique({
         where: { id: ctx.user.id },
-        select: { vipLevel: true, points: true },
+        select: { vipLevel: true, points: true, createdAt: true },
       });
-      const reward = checkinReward(dayIndex, currentUser?.vipLevel ?? 0);
+      const incentive = await getActiveIncentive(tx);
+      const userIsNew = currentUser
+        ? isNewUser(currentUser.createdAt, incentive.newUserBonusDays)
+        : false;
+      const tierMulti = userIsNew
+        ? incentive.newUserCheckinMulti
+        : incentive.oldUserCheckinMulti;
+      const reward =
+        userIsNew && !lastCheckin
+          ? incentive.newUserBonusPoints
+          : checkinReward(dayIndex, currentUser?.vipLevel ?? 0, tierMulti);
 
       await tx.checkin.create({
         data: { userId: ctx.user.id, dayIndex, reward },
@@ -165,19 +225,47 @@ export const pointsRouter = createTRPCRouter({
     });
   }),
 
+  listActiveTasks: protectedProcedure.query(async ({ ctx }) => {
+    return ctx.prisma.taskTemplate.findMany({
+      where: { isActive: true },
+      orderBy: { sortOrder: "asc" },
+      select: {
+        taskId: true,
+        title: true,
+        description: true,
+        type: true,
+        targetCount: true,
+        reward: true,
+        icon: true,
+      },
+    });
+  }),
+
   completeTask: sensitiveProcedure
     .input(z.object({ taskId: z.string() }))
     .mutation(async ({ ctx, input }) => {
-      const reward = TASK_REWARDS[input.taskId];
-      if (reward === undefined) {
+      const template = await ctx.prisma.taskTemplate.findUnique({
+        where: { taskId: input.taskId },
+        select: { reward: true, isActive: true, type: true, targetCount: true },
+      });
+      if (template && !template.isActive) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: `任务已下线: ${input.taskId}`,
+        });
+      }
+      const fullReward = template?.reward ?? TASK_REWARDS[input.taskId];
+      if (fullReward === undefined) {
         throw new TRPCError({
           code: "BAD_REQUEST",
           message: `未知任务: ${input.taskId}`,
         });
       }
+      const isCumulative = template?.type === "CUMULATIVE";
+      const targetCount = isCumulative ? Math.max(1, template?.targetCount ?? 1) : 1;
 
       return ctx.prisma.$transaction(async (tx) => {
-        const existing = await tx.taskCompletion.findFirst({
+        const todayCount = await tx.taskCompletion.count({
           where: {
             userId: ctx.user.id,
             taskId: input.taskId,
@@ -185,30 +273,45 @@ export const pointsRouter = createTRPCRouter({
           },
         });
 
-        if (existing) {
+        if (todayCount >= targetCount) {
           throw new TRPCError({
             code: "BAD_REQUEST",
             message: "今日已完成该任务",
           });
         }
 
+        const newCount = todayCount + 1;
+        const isFinalStep = newCount >= targetCount;
+        const rewardThisCall = isFinalStep ? fullReward : 0;
+
         await tx.taskCompletion.create({
           data: {
             userId: ctx.user.id,
             taskId: input.taskId,
-            reward,
+            reward: rewardThisCall,
           },
         });
 
-        const updatedUser = await tx.user.update({
-          where: { id: ctx.user.id },
-          data: {
-            points: { increment: reward },
-            vipLevel: { set: computeVipLevel(ctx.user.points + reward) },
-          },
-        });
+        let resultPoints = ctx.user.points;
+        if (rewardThisCall > 0) {
+          const updatedUser = await tx.user.update({
+            where: { id: ctx.user.id },
+            data: {
+              points: { increment: rewardThisCall },
+              vipLevel: { set: computeVipLevel(ctx.user.points + rewardThisCall) },
+            },
+          });
+          resultPoints = updatedUser.points;
+        }
 
-        return { taskId: input.taskId, reward, points: updatedUser.points };
+        return {
+          taskId: input.taskId,
+          reward: rewardThisCall,
+          points: resultPoints,
+          progress: newCount,
+          target: targetCount,
+          done: isFinalStep,
+        };
       });
     }),
 });
