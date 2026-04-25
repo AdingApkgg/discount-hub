@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ClipboardList, Headphones, Image, Loader2, Plus, Save, Store, Bell, Shield, Palette, Sun, Moon, Monitor, Trash2, Zap } from "lucide-react";
+import { ClipboardList, Headphones, Image, Loader2, Plus, Save, Share2, Store, Bell, Shield, Palette, Sun, Moon, Monitor, Trash2, Zap } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTheme } from "next-themes";
 import { toast } from "sonner";
@@ -957,6 +957,261 @@ function SupportTab() {
   );
 }
 
+function PosterTemplateTab() {
+  const trpc = useTRPC();
+  const queryClient = useQueryClient();
+  const { data: templates, isLoading } = useQuery(
+    trpc.admin.listPosterTemplates.queryOptions(),
+  );
+  const upsert = useMutation(trpc.admin.upsertPosterTemplate.mutationOptions());
+  const remove = useMutation(trpc.admin.deletePosterTemplate.mutationOptions());
+
+  const [editing, setEditing] = useState<string | null>(null);
+  const [form, setForm] = useState({
+    kind: "invite",
+    name: "",
+    headline: "",
+    subline: "",
+    ctaText: "",
+    bgGradient: "from-primary/5 via-background to-accent/5",
+    accentColor: "#0EA5E9",
+    isActive: true,
+    sortOrder: 0,
+  });
+
+  function startEdit(t?: NonNullable<typeof templates>[number]) {
+    if (t) {
+      setEditing(t.id);
+      setForm({
+        kind: t.kind,
+        name: t.name,
+        headline: t.headline,
+        subline: t.subline,
+        ctaText: t.ctaText,
+        bgGradient: t.bgGradient,
+        accentColor: t.accentColor,
+        isActive: t.isActive,
+        sortOrder: t.sortOrder,
+      });
+    } else {
+      setEditing("new");
+      setForm({
+        kind: "invite",
+        name: "",
+        headline: "",
+        subline: "",
+        ctaText: "",
+        bgGradient: "from-primary/5 via-background to-accent/5",
+        accentColor: "#0EA5E9",
+        isActive: true,
+        sortOrder: (templates?.length ?? 0) * 10,
+      });
+    }
+  }
+
+  async function handleSave() {
+    try {
+      await upsert.mutateAsync({
+        ...form,
+        id: editing === "new" ? undefined : editing!,
+      });
+      await queryClient.invalidateQueries();
+      setEditing(null);
+      toast.success("海报模板已保存");
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "保存失败");
+    }
+  }
+
+  async function handleDelete(id: string) {
+    try {
+      await remove.mutateAsync({ id });
+      await queryClient.invalidateQueries();
+      toast.success("已删除");
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "删除失败");
+    }
+  }
+
+  if (isLoading) {
+    return (
+      <Card className="border-border">
+        <CardContent className="p-6">
+          <Loader2 className="h-5 w-5 animate-spin mx-auto" />
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <Card className="border-border">
+      <CardContent className="p-6 space-y-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="text-sm font-medium text-foreground">海报模板</h3>
+            <p className="text-xs text-muted-foreground mt-1">
+              邀请页/分享页生成的海报使用的文案与配色，按 kind 分类（invite / product...）
+            </p>
+          </div>
+          <Button size="sm" variant="outline" onClick={() => startEdit()}>
+            <Plus className="h-4 w-4 mr-1" />
+            新建
+          </Button>
+        </div>
+
+        {editing && (
+          <div className="rounded-lg border border-border bg-secondary/30 p-4 space-y-3">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label className="text-xs">类型 (kind)</Label>
+                <Input
+                  value={form.kind}
+                  onChange={(e) => setForm({ ...form, kind: e.target.value })}
+                  placeholder="invite, product..."
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">名称（后台标识用）</Label>
+                <Input
+                  value={form.name}
+                  onChange={(e) => setForm({ ...form, name: e.target.value })}
+                  placeholder="春节邀请活动"
+                />
+              </div>
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">主标题</Label>
+              <Input
+                value={form.headline}
+                onChange={(e) => setForm({ ...form, headline: e.target.value })}
+                placeholder="邀请好友，一起省"
+              />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">副标题</Label>
+              <Input
+                value={form.subline}
+                onChange={(e) => setForm({ ...form, subline: e.target.value })}
+                placeholder="使用邀请码注册，双方各得 10000 积分"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label className="text-xs">CTA 按钮文案</Label>
+                <Input
+                  value={form.ctaText}
+                  onChange={(e) => setForm({ ...form, ctaText: e.target.value })}
+                  placeholder="立即领取"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">主色（hex）</Label>
+                <Input
+                  value={form.accentColor}
+                  onChange={(e) => setForm({ ...form, accentColor: e.target.value })}
+                  placeholder="#0EA5E9"
+                />
+              </div>
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">背景渐变（Tailwind classes）</Label>
+              <Input
+                value={form.bgGradient}
+                onChange={(e) => setForm({ ...form, bgGradient: e.target.value })}
+                placeholder="from-primary/5 via-background to-accent/5"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label className="text-xs">排序</Label>
+                <Input
+                  type="number"
+                  value={form.sortOrder}
+                  onChange={(e) => setForm({ ...form, sortOrder: Number(e.target.value) })}
+                />
+              </div>
+              <div className="flex items-center gap-2 pt-5">
+                <Switch
+                  checked={form.isActive}
+                  onCheckedChange={(v) => setForm({ ...form, isActive: v })}
+                />
+                <Label className="text-xs">启用</Label>
+              </div>
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button size="sm" variant="ghost" onClick={() => setEditing(null)}>
+                取消
+              </Button>
+              <Button
+                size="sm"
+                onClick={handleSave}
+                disabled={upsert.isPending || !form.name.trim() || !form.headline.trim()}
+              >
+                {upsert.isPending ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Save className="h-4 w-4" />
+                )}
+                保存
+              </Button>
+            </div>
+          </div>
+        )}
+
+        <div className="space-y-2">
+          {templates?.map((t) => (
+            <div
+              key={t.id}
+              className="flex items-start justify-between gap-3 rounded-lg border border-border p-3"
+            >
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium text-foreground">{t.name}</span>
+                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-500">
+                    {t.kind}
+                  </span>
+                  {!t.isActive && (
+                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-secondary text-muted-foreground">
+                      停用
+                    </span>
+                  )}
+                </div>
+                <div className="mt-0.5 text-xs text-foreground/80">{t.headline}</div>
+                {t.subline && (
+                  <div className="mt-0.5 text-xs text-muted-foreground">{t.subline}</div>
+                )}
+              </div>
+              <div className="flex shrink-0 gap-1">
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-8 w-8 p-0"
+                  onClick={() => startEdit(t)}
+                >
+                  <Save className="h-3.5 w-3.5" />
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-8 w-8 p-0 text-destructive hover:text-destructive"
+                  onClick={() => handleDelete(t.id)}
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+            </div>
+          ))}
+          {(!templates || templates.length === 0) && (
+            <div className="rounded-lg border border-dashed border-border bg-secondary/30 p-8 text-center text-sm text-muted-foreground">
+              暂无海报模板，点击上方「新建」添加
+            </div>
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 export default function SettingsPage() {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
@@ -1097,6 +1352,12 @@ export default function SettingsPage() {
           <TabsTrigger value="support" className="gap-2">
             <Headphones className="h-4 w-4" />
             客服
+          </TabsTrigger>
+          ) : null}
+          {isAdmin ? (
+          <TabsTrigger value="poster" className="gap-2">
+            <Share2 className="h-4 w-4" />
+            海报模板
           </TabsTrigger>
           ) : null}
           <TabsTrigger value="appearance" className="gap-2">
@@ -1308,6 +1569,12 @@ export default function SettingsPage() {
         {isAdmin ? (
         <TabsContent value="support">
           <SupportTab />
+        </TabsContent>
+        ) : null}
+
+        {isAdmin ? (
+        <TabsContent value="poster">
+          <PosterTemplateTab />
         </TabsContent>
         ) : null}
 

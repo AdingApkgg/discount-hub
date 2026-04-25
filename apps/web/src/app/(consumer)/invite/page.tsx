@@ -1,9 +1,9 @@
 "use client";
 
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, Copy, Crown, Download, Gift, Image, Link2, ShoppingCart } from "lucide-react";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { useSession } from "@/lib/auth-client";
 import { useTRPC } from "@/trpc/client";
@@ -63,12 +63,72 @@ export default function InvitePage() {
     return `${window.location.origin}/login?inviteCode=${encodeURIComponent(inviteCode)}`;
   }, [inviteCode]);
 
+  const { data: posterTemplates } = useQuery({
+    ...trpc.share.listActivePosterTemplates.queryOptions({ kind: "invite" }),
+    enabled: !!session?.user,
+  });
+  const activePoster = posterTemplates?.[0];
+
+  const createShortLinkMutation = useMutation(
+    trpc.share.createShortLink.mutationOptions(),
+  );
+  const [shortUrl, setShortUrl] = useState<string>("");
+  const [qrDataUrl, setQrDataUrl] = useState<string>("");
+  const shortLinkRequested = useRef(false);
+
+  useEffect(() => {
+    if (!inviteLink || !inviteCode || inviteCode === "暂未生成") return;
+    if (shortLinkRequested.current) return;
+    shortLinkRequested.current = true;
+    let cancelled = false;
+    (async () => {
+      try {
+        const result = await createShortLinkMutation.mutateAsync({
+          targetUrl: inviteLink,
+          kind: "invite",
+          expiresInDays: 90,
+        });
+        if (cancelled || typeof window === "undefined") return;
+        setShortUrl(`${window.location.origin}/s/${result.code}`);
+      } catch {
+        // Fallback to plain invite link if short link generation fails.
+        if (!cancelled) setShortUrl(inviteLink);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [inviteLink, inviteCode, createShortLinkMutation]);
+
+  useEffect(() => {
+    const target = shortUrl || inviteLink;
+    if (!target) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const QRCode = await import("qrcode");
+        const dataUrl = await QRCode.toDataURL(target, {
+          margin: 1,
+          width: 200,
+          color: { dark: "#1f2937", light: "#ffffff" },
+        });
+        if (!cancelled) setQrDataUrl(dataUrl);
+      } catch (err) {
+        console.error("QR code generation failed", err);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [shortUrl, inviteLink]);
+
   const handleCopyLink = useCallback(async () => {
+    const target = shortUrl || inviteLink || inviteCode;
     try {
-      await navigator.clipboard.writeText(inviteLink || inviteCode);
-      toast.success("邀请链接已复制");
+      await navigator.clipboard.writeText(target);
+      toast.success(shortUrl ? "短链已复制" : "邀请链接已复制");
     } catch { toast.error("复制失败"); }
-  }, [inviteLink, inviteCode]);
+  }, [shortUrl, inviteLink, inviteCode]);
 
   const handleShareImage = useCallback(async () => {
     const el = shareCardRef.current;
@@ -81,7 +141,7 @@ export default function InvitePage() {
 
       if (navigator.share && navigator.canShare?.({ files: [new File([blob], "invite.png", { type: "image/png" })] })) {
         await navigator.share({
-          title: "邀请好友加入",
+          title: activePoster?.headline ?? "邀请好友加入",
           text: `使用我的邀请码 ${inviteCode} 注册，双方均可获得丰厚积分奖励！`,
           files: [new File([blob], "invite.png", { type: "image/png" })],
         });
@@ -100,7 +160,7 @@ export default function InvitePage() {
     } catch {
       toast.error("生成分享图片失败，请尝试复制链接");
     }
-  }, [inviteCode]);
+  }, [inviteCode, activePoster]);
 
   return (
     <PageTransition>
@@ -215,17 +275,45 @@ export default function InvitePage() {
                 <>
                   <div
                     ref={shareCardRef}
-                    className="overflow-hidden rounded-[22px] border border-border bg-gradient-to-br from-primary/5 via-background to-accent/5 p-6 text-center"
+                    className={`overflow-hidden rounded-[22px] border border-border bg-gradient-to-br ${activePoster?.bgGradient ?? "from-primary/5 via-background to-accent/5"} p-6 text-center`}
                   >
-                    <Gift className="mx-auto h-10 w-10 text-primary" />
-                    <div className="mt-3 text-lg font-bold text-foreground">邀请好友，一起省</div>
-                    <div className="mt-2 text-sm text-muted-foreground">使用邀请码注册，双方各得丰厚积分</div>
+                    <Gift
+                      className="mx-auto h-10 w-10"
+                      style={{ color: activePoster?.accentColor ?? undefined }}
+                    />
+                    <div className="mt-3 text-lg font-bold text-foreground">
+                      {activePoster?.headline ?? "邀请好友，一起省"}
+                    </div>
+                    <div className="mt-2 text-sm text-muted-foreground">
+                      {activePoster?.subline ?? "使用邀请码注册，双方各得丰厚积分"}
+                    </div>
+                    {qrDataUrl ? (
+                      <div className="mx-auto mt-4 inline-block rounded-2xl bg-white p-3">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={qrDataUrl} alt="QR" className="h-32 w-32" />
+                      </div>
+                    ) : (
+                      <div className="mx-auto mt-4 inline-block h-32 w-32 rounded-2xl bg-secondary/60" />
+                    )}
                     <div className="mx-auto mt-4 rounded-2xl bg-secondary/80 px-6 py-3">
                       <div className="text-xs text-muted-foreground">邀请码</div>
-                      <div className="mt-1 text-xl font-bold tracking-wider text-primary">{inviteCode}</div>
+                      <div
+                        className="mt-1 text-xl font-bold tracking-wider"
+                        style={{ color: activePoster?.accentColor ?? undefined }}
+                      >
+                        {inviteCode}
+                      </div>
                     </div>
-                    <div className="mt-3 text-xs text-muted-foreground">
-                      {typeof window !== "undefined" ? window.location.origin : ""}
+                    {activePoster?.ctaText && (
+                      <div
+                        className="mt-3 inline-block rounded-full px-5 py-2 text-sm font-bold text-white"
+                        style={{ background: activePoster.accentColor }}
+                      >
+                        {activePoster.ctaText}
+                      </div>
+                    )}
+                    <div className="mt-3 break-all text-xs text-muted-foreground">
+                      {shortUrl || (typeof window !== "undefined" ? window.location.origin : "")}
                     </div>
                   </div>
                   <Button onClick={handleShareImage} className="mt-5 w-full rounded-full">

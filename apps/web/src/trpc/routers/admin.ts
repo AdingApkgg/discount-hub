@@ -559,6 +559,39 @@ export const adminRouter = createTRPCRouter({
       return ctx.prisma.supportFaq.delete({ where: { id: input.id } });
     }),
 
+  listPosterTemplates: merchantProcedure.query(async ({ ctx }) => {
+    return ctx.prisma.posterTemplate.findMany({
+      orderBy: [{ kind: "asc" }, { sortOrder: "asc" }],
+    });
+  }),
+
+  upsertPosterTemplate: adminProcedure
+    .input(z.object({
+      id: z.string().optional(),
+      kind: z.string().min(1).max(40),
+      name: z.string().min(1).max(80),
+      headline: z.string().min(1).max(120),
+      subline: z.string().max(200).default(""),
+      ctaText: z.string().max(40).default(""),
+      bgGradient: z.string().max(200).default("from-primary/5 via-background to-accent/5"),
+      accentColor: z.string().max(40).default("#0EA5E9"),
+      isActive: z.boolean().default(true),
+      sortOrder: z.number().int().default(0),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const { id, ...data } = input;
+      if (id) {
+        return ctx.prisma.posterTemplate.update({ where: { id }, data });
+      }
+      return ctx.prisma.posterTemplate.create({ data });
+    }),
+
+  deletePosterTemplate: adminProcedure
+    .input(z.object({ id: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      return ctx.prisma.posterTemplate.delete({ where: { id: input.id } });
+    }),
+
   listAdSlots: merchantProcedure.query(async ({ ctx }) => {
     return ctx.prisma.adSlot.findMany({
       orderBy: { sortOrder: "asc" },

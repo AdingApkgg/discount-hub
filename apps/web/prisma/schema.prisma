@@ -403,6 +403,42 @@ enum TaskType {
   CUMULATIVE
 }
 
+// ─── Share / 短链 + 海报模板 ───────────────────────
+
+model ShortLink {
+  id        String    @id @default(cuid())
+  code      String    @unique
+  targetUrl String    @db.Text
+  kind      String    @default("invite")
+  userId    String?
+  clicks    Int       @default(0)
+  expiresAt DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@index([code])
+  @@index([userId])
+  @@map("short_links")
+}
+
+model PosterTemplate {
+  id            String   @id @default(cuid())
+  kind          String   @default("invite")
+  name          String
+  headline      String
+  subline       String   @default("")
+  ctaText       String   @default("")
+  bgGradient    String   @default("from-primary/5 via-background to-accent/5")
+  accentColor   String   @default("#0EA5E9")
+  isActive      Boolean  @default(true)
+  sortOrder     Int      @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([isActive, kind, sortOrder])
+  @@map("poster_templates")
+}
+
 // ─── Support / 客服配置 ────────────────────────────
 
 model SupportConfig {

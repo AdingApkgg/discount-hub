@@ -66,6 +66,14 @@ function mockPrisma() {
     supportFaq: {
       findMany: vi.fn().mockResolvedValue([]),
     },
+    shortLink: {
+      create: vi.fn(),
+      findUnique: vi.fn().mockResolvedValue(null),
+      update: vi.fn(),
+    },
+    posterTemplate: {
+      findMany: vi.fn().mockResolvedValue([]),
+    },
     taskCompletion: {
       findFirst: vi.fn().mockResolvedValue(null),
       findMany: vi.fn().mockResolvedValue([]),
@@ -1927,5 +1935,120 @@ describe("support router", () => {
     await expect(
       caller.support.askAI({ message: "hi" }),
     ).rejects.toThrow("请先登录");
+  });
+});
+
+// ════════════════════════════════════════════════════
+// Share Router
+// ════════════════════════════════════════════════════
+
+describe("share router", () => {
+  beforeEach(() => {
+    mockPrismaInstance = mockPrisma();
+    vi.clearAllMocks();
+  });
+
+  it("createShortLink stores target URL with user + kind + expiry", async () => {
+    mockPrismaInstance.shortLink.create.mockResolvedValue({
+      code: "abc1234",
+      targetUrl: "https://example.com/login?inviteCode=XYZ",
+      expiresAt: null,
+    });
+
+    const caller = makeCaller(mockConsumer);
+    const result = await caller.share.createShortLink({
+      targetUrl: "https://example.com/login?inviteCode=XYZ",
+      kind: "invite",
+      expiresInDays: 90,
+    });
+
+    expect(result.code).toBe("abc1234");
+    expect(mockPrismaInstance.shortLink.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          targetUrl: "https://example.com/login?inviteCode=XYZ",
+          kind: "invite",
+          userId: "user-1",
+          expiresAt: expect.any(Date),
+        }),
+      }),
+    );
+  });
+
+  it("createShortLink retries on unique-constraint collision", async () => {
+    const collision = Object.assign(new Error("unique"), { code: "P2002" });
+    mockPrismaInstance.shortLink.create
+      .mockRejectedValueOnce(collision)
+      .mockRejectedValueOnce(collision)
+      .mockResolvedValueOnce({
+        code: "succeed",
+        targetUrl: "https://example.com",
+        expiresAt: null,
+      });
+
+    const caller = makeCaller(mockConsumer);
+    const result = await caller.share.createShortLink({
+      targetUrl: "https://example.com",
+    });
+
+    expect(result.code).toBe("succeed");
+    expect(mockPrismaInstance.shortLink.create).toHaveBeenCalledTimes(3);
+  });
+
+  it("createShortLink rejects invalid URL input", async () => {
+    const caller = makeCaller(mockConsumer);
+    await expect(
+      caller.share.createShortLink({ targetUrl: "not-a-url" }),
+    ).rejects.toThrow();
+  });
+
+  it("createShortLink without expiry stores null expiresAt", async () => {
+    mockPrismaInstance.shortLink.create.mockResolvedValue({
+      code: "noexp7",
+      targetUrl: "https://example.com",
+      expiresAt: null,
+    });
+
+    const caller = makeCaller(mockConsumer);
+    await caller.share.createShortLink({
+      targetUrl: "https://example.com",
+    });
+
+    expect(mockPrismaInstance.shortLink.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ expiresAt: null }),
+      }),
+    );
+  });
+
+  it("listActivePosterTemplates filters by kind + isActive + sortOrder", async () => {
+    const tpls = [
+      { id: "t1", name: "节日邀请", headline: "一起省", subline: "", ctaText: "", bgGradient: "", accentColor: "#0EA5E9" },
+    ];
+    mockPrismaInstance.posterTemplate.findMany.mockResolvedValue(tpls);
+
+    const caller = makeCaller(mockConsumer);
+    const result = await caller.share.listActivePosterTemplates({ kind: "invite" });
+
+    expect(result).toEqual(tpls);
+    expect(mockPrismaInstance.posterTemplate.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { isActive: true, kind: "invite" },
+        orderBy: { sortOrder: "asc" },
+      }),
+    );
+  });
+
+  it("listActivePosterTemplates defaults kind to 'invite'", async () => {
+    mockPrismaInstance.posterTemplate.findMany.mockResolvedValue([]);
+
+    const caller = makeCaller(mockConsumer);
+    await caller.share.listActivePosterTemplates();
+
+    expect(mockPrismaInstance.posterTemplate.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { isActive: true, kind: "invite" },
+      }),
+    );
   });
 });
