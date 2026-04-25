@@ -403,6 +403,35 @@ enum TaskType {
   CUMULATIVE
 }
 
+// ─── Support / 客服配置 ────────────────────────────
+
+model SupportConfig {
+  id                  String   @id @default(cuid())
+  systemPrompt        String   @db.Text
+  modelName           String   @default("claude-haiku-4-5-20251001")
+  maxTokens           Int      @default(512)
+  transferWaitSeconds Int      @default(30)
+  isActive            Boolean  @default(true)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  @@map("support_configs")
+}
+
+model SupportFaq {
+  id        String   @id @default(cuid())
+  keywords  String[] @default([])
+  question  String   @default("")
+  answer    String   @db.Text
+  isActive  Boolean  @default(true)
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([isActive, sortOrder])
+  @@map("support_faqs")
+}
+
 // ─── Ad Slot / 广告位 ───────────────────────────────
 
 model AdSlot {

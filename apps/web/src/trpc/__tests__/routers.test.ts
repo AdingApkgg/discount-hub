@@ -60,6 +60,12 @@ function mockPrisma() {
       findUnique: vi.fn().mockResolvedValue(null),
       findMany: vi.fn().mockResolvedValue([]),
     },
+    supportConfig: {
+      findFirst: vi.fn().mockResolvedValue(null),
+    },
+    supportFaq: {
+      findMany: vi.fn().mockResolvedValue([]),
+    },
     taskCompletion: {
       findFirst: vi.fn().mockResolvedValue(null),
       findMany: vi.fn().mockResolvedValue([]),
@@ -1829,5 +1835,97 @@ describe("user router", () => {
 
     expect(result.todayRevenue).toBe(0);
     expect(result.todayOrderCount).toBe(0);
+  });
+});
+
+// ════════════════════════════════════════════════════
+// Support Router
+// ════════════════════════════════════════════════════
+
+describe("support router", () => {
+  beforeEach(() => {
+    mockPrismaInstance = mockPrisma();
+    vi.clearAllMocks();
+    delete process.env.ANTHROPIC_API_KEY;
+  });
+
+  it("askAI without API key matches DB FAQ keyword", async () => {
+    mockPrismaInstance.supportFaq.findMany.mockResolvedValue([
+      { keywords: ["积分", "签到"], answer: "签到可获得积分。" },
+      { keywords: ["退款"], answer: "未核销订单可退。" },
+    ]);
+
+    const caller = makeCaller(mockConsumer);
+    const result = await caller.support.askAI({ message: "我怎么签到？" });
+
+    expect(result.provider).toBe("faq");
+    expect(result.answer).toBe("签到可获得积分。");
+  });
+
+  it("askAI without API key falls back when no FAQ matches", async () => {
+    mockPrismaInstance.supportFaq.findMany.mockResolvedValue([
+      { keywords: ["积分"], answer: "签到可获得积分。" },
+    ]);
+
+    const caller = makeCaller(mockConsumer);
+    const result = await caller.support.askAI({ message: "支付方式有哪些？" });
+
+    expect(result.provider).toBe("faq");
+    expect(result.answer).toContain("无法回答");
+  });
+
+  it("askAI keyword matching is case-insensitive", async () => {
+    mockPrismaInstance.supportFaq.findMany.mockResolvedValue([
+      { keywords: ["VIP", "等级"], answer: "VIP 由积分决定。" },
+    ]);
+
+    const caller = makeCaller(mockConsumer);
+    const result = await caller.support.askAI({ message: "vip 怎么升？" });
+
+    expect(result.answer).toBe("VIP 由积分决定。");
+  });
+
+  it("listFaqs returns active FAQs with public fields only", async () => {
+    mockPrismaInstance.supportFaq.findMany.mockResolvedValue([
+      { id: "f1", question: "积分？", answer: "签到。" },
+    ]);
+
+    const caller = makeCaller(mockConsumer);
+    const result = await caller.support.listFaqs();
+
+    expect(result).toEqual([{ id: "f1", question: "积分？", answer: "签到。" }]);
+    expect(mockPrismaInstance.supportFaq.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { isActive: true },
+        select: { id: true, question: true, answer: true },
+      }),
+    );
+  });
+
+  it("getPublicConfig returns transferWaitSeconds from DB", async () => {
+    mockPrismaInstance.supportConfig.findFirst.mockResolvedValue({
+      transferWaitSeconds: 45,
+    });
+
+    const caller = makeCaller(mockConsumer);
+    const result = await caller.support.getPublicConfig();
+
+    expect(result.transferWaitSeconds).toBe(45);
+  });
+
+  it("getPublicConfig defaults to 30 when no config row exists", async () => {
+    mockPrismaInstance.supportConfig.findFirst.mockResolvedValue(null);
+
+    const caller = makeCaller(mockConsumer);
+    const result = await caller.support.getPublicConfig();
+
+    expect(result.transferWaitSeconds).toBe(30);
+  });
+
+  it("askAI requires authentication", async () => {
+    const caller = makeCaller(null);
+    await expect(
+      caller.support.askAI({ message: "hi" }),
+    ).rejects.toThrow("请先登录");
   });
 });

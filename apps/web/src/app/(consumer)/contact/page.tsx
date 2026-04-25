@@ -13,11 +13,20 @@ import {
   Send,
   UserRound,
 } from "lucide-react";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { useTRPC } from "@/trpc/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { appCardClassName, PageHeading, SectionHeading } from "@/components/shared";
 import {
   PageTransition,
@@ -33,34 +42,6 @@ type Message = {
   timestamp: Date;
 };
 
-const FAQ_ITEMS = [
-  { q: "积分怎么获取？", a: "您可以通过每日签到（连续7天最高获10,000积分）、完成日常任务（浏览、分享、兑换）以及邀请好友等方式获取积分。推荐优先坚持签到，这是最核心的积分来源。" },
-  { q: "如何使用优惠券？", a: "购买商品后系统会自动生成券码，您可以在「我的券包」中查看。前往对应 APP 使用即可兑换权益。" },
-  { q: "邀请好友有什么奖励？", a: "成功邀请好友注册并下单后，邀请人可获得积分和优惠券奖励，被邀请人也可获得新用户专属福利。具体奖励金额可在「邀请好友」页面查看。" },
-  { q: "会员等级怎么提升？", a: "会员等级由累计积分决定，每500积分升一级，最高VIP10。等级越高，签到奖励加成越多（VIP4可达+20%），还有限时折扣、优先购等特权。" },
-  { q: "如何申请退款？", a: "未核销的订单可以在「我的订单」中申请退款，积分将原路返还。已核销的券码无法退款。" },
-  { q: "如何联系人工客服？", a: "如果 AI 助手无法解决您的问题，您可以点击下方「转接人工客服」按钮，我们的客服团队将在工作时间内为您服务。" },
-];
-
-function matchFAQ(input: string): string | null {
-  const lower = input.toLowerCase();
-  const keywords: Record<number, string[]> = {
-    0: ["积分", "获取", "赚", "签到", "怎么得"],
-    1: ["优惠券", "券", "使用", "兑换", "核销"],
-    2: ["邀请", "好友", "推荐", "拉新"],
-    3: ["会员", "等级", "vip", "升级", "提升"],
-    4: ["退款", "退", "取消"],
-    5: ["人工", "客服", "联系"],
-  };
-
-  for (const [idx, kws] of Object.entries(keywords)) {
-    if (kws.some((kw) => lower.includes(kw))) {
-      return FAQ_ITEMS[Number(idx)].a;
-    }
-  }
-  return null;
-}
-
 const channels = [
   { icon: Mail, label: "邮件支持", desc: "support@discount-hub.com", action: "发送邮件" },
   { icon: Phone, label: "电话支持", desc: "400-888-0000", action: "拨打电话" },
@@ -68,22 +49,59 @@ const channels = [
 
 export default function ContactPage() {
   const router = useRouter();
+  const trpc = useTRPC();
+
   const [messages, setMessages] = useState<Message[]>([
     {
       id: "welcome",
       role: "ai",
-      content: "您好！我是 AI 智能助手，可以帮您解答积分、签到、优惠券、会员等级等常见问题。如有复杂问题，可随时转接人工客服。",
+      content:
+        "您好！我是 AI 智能助手，可以帮您解答积分、签到、优惠券、会员等级等常见问题。如有复杂问题，可随时转接人工客服。",
       timestamp: new Date(),
     },
   ]);
   const [input, setInput] = useState("");
-  const [isTyping, setIsTyping] = useState(false);
   const [mode, setMode] = useState<"ai" | "human">("ai");
+  const [transferOpen, setTransferOpen] = useState(false);
+  const [transferRemaining, setTransferRemaining] = useState(0);
   const scrollRef = useRef<HTMLDivElement>(null);
 
+  const { data: faqs } = useQuery(trpc.support.listFaqs.queryOptions());
+  const { data: publicConfig } = useQuery(trpc.support.getPublicConfig.queryOptions());
+  const askAI = useMutation(trpc.support.askAI.mutationOptions());
+
+  const transferWaitSeconds = publicConfig?.transferWaitSeconds ?? 30;
+
   useEffect(() => {
-    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
+    scrollRef.current?.scrollTo({
+      top: scrollRef.current.scrollHeight,
+      behavior: "smooth",
+    });
   }, [messages]);
+
+  // Transfer countdown
+  useEffect(() => {
+    if (!transferOpen) return;
+    if (transferRemaining <= 0) {
+      setTransferOpen(false);
+      setMode("human");
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: `sys-connected-${Date.now()}`,
+          role: "system",
+          content: "人工客服已为您接通。请描述您遇到的问题，客服将尽快回复。",
+          timestamp: new Date(),
+        },
+      ]);
+      toast.success("人工客服已接通");
+      return;
+    }
+    const timer = setTimeout(() => {
+      setTransferRemaining((r) => r - 1);
+    }, 1000);
+    return () => clearTimeout(timer);
+  }, [transferOpen, transferRemaining]);
 
   const sendMessage = useCallback(async () => {
     const text = input.trim();
@@ -111,37 +129,48 @@ export default function ContactPage() {
       return;
     }
 
-    setIsTyping(true);
-    await new Promise((resolve) => setTimeout(resolve, 600 + Math.random() * 800));
-
-    const faqAnswer = matchFAQ(text);
-    const aiResponse = faqAnswer
-      ?? "抱歉，我暂时无法回答这个问题。建议您点击下方「转接人工客服」获得更专业的帮助，或者换个方式描述您的问题。";
-
-    setMessages((prev) => [
-      ...prev,
-      {
-        id: `ai-${Date.now()}`,
-        role: "ai",
-        content: aiResponse,
-        timestamp: new Date(),
-      },
-    ]);
-    setIsTyping(false);
-  }, [input, mode]);
+    try {
+      const history = messages
+        .filter((m) => m.role === "user" || m.role === "ai")
+        .slice(-10)
+        .map((m) => ({
+          role: m.role as "user" | "ai",
+          content: m.content,
+        }));
+      const result = await askAI.mutateAsync({ message: text, history });
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: `ai-${Date.now()}`,
+          role: "ai",
+          content: result.answer,
+          timestamp: new Date(),
+        },
+      ]);
+    } catch (err: unknown) {
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: `sys-err-${Date.now()}`,
+          role: "system",
+          content:
+            err instanceof Error
+              ? `请求失败：${err.message}。建议转接人工客服。`
+              : "请求失败，建议转接人工客服。",
+          timestamp: new Date(),
+        },
+      ]);
+    }
+  }, [input, mode, messages, askAI]);
 
   function handleTransferToHuman() {
-    setMode("human");
-    setMessages((prev) => [
-      ...prev,
-      {
-        id: `sys-transfer-${Date.now()}`,
-        role: "system",
-        content: "已为您转接人工客服。客服人员将在工作时间内回复您的消息，请耐心等待。",
-        timestamp: new Date(),
-      },
-    ]);
-    toast.success("已转接人工客服");
+    setTransferRemaining(transferWaitSeconds);
+    setTransferOpen(true);
+  }
+
+  function handleCancelTransfer() {
+    setTransferOpen(false);
+    setTransferRemaining(0);
   }
 
   function handleSwitchToAI() {
@@ -157,11 +186,18 @@ export default function ContactPage() {
     ]);
   }
 
+  const displayedFaqs = faqs ?? [];
+  const isTyping = askAI.isPending;
+
   return (
     <PageTransition>
       <div className="space-y-4 px-4 py-4 md:space-y-6 md:px-8 md:py-8">
         <AnimatedItem>
-          <Button variant="outline" onClick={() => router.back()} className="gap-2 rounded-full">
+          <Button
+            variant="outline"
+            onClick={() => router.back()}
+            className="gap-2 rounded-full"
+          >
             <ArrowLeft className="h-4 w-4" /> 返回
           </Button>
         </AnimatedItem>
@@ -181,7 +217,10 @@ export default function ContactPage() {
 
         <AnimatedSection className="grid gap-4 xl:grid-cols-[minmax(0,1.2fr)_320px]">
           <Card className={appCardClassName}>
-            <CardContent className="flex flex-col p-0" style={{ height: "min(600px, 65vh)" }}>
+            <CardContent
+              className="flex flex-col p-0"
+              style={{ height: "min(600px, 65vh)" }}
+            >
               {/* Chat messages */}
               <div ref={scrollRef} className="flex-1 space-y-3 overflow-y-auto px-5 py-5">
                 {messages.map((msg) => (
@@ -222,19 +261,19 @@ export default function ContactPage() {
               </div>
 
               {/* Quick FAQ buttons */}
-              {mode === "ai" && messages.length <= 3 && (
+              {mode === "ai" && messages.length <= 3 && displayedFaqs.length > 0 && (
                 <div className="flex flex-wrap gap-2 border-t border-border px-5 py-3">
-                  {FAQ_ITEMS.slice(0, 4).map((faq) => (
+                  {displayedFaqs.slice(0, 4).map((faq) => (
                     <Button
-                      key={faq.q}
+                      key={faq.id}
                       variant="outline"
                       size="sm"
                       className="rounded-full text-xs"
                       onClick={() => {
-                        setInput(faq.q);
+                        setInput(faq.question);
                       }}
                     >
-                      {faq.q}
+                      {faq.question}
                     </Button>
                   ))}
                 </div>
@@ -248,6 +287,7 @@ export default function ContactPage() {
                     onChange={(e) => setInput(e.target.value)}
                     placeholder={mode === "ai" ? "输入您的问题..." : "输入留言内容..."}
                     className="h-10 rounded-full border-border bg-secondary/50 shadow-none"
+                    disabled={isTyping}
                     onKeyDown={(e) => {
                       if (e.key === "Enter" && !e.shiftKey) {
                         e.preventDefault();
@@ -258,7 +298,7 @@ export default function ContactPage() {
                   <Button
                     size="icon"
                     onClick={sendMessage}
-                    disabled={!input.trim()}
+                    disabled={!input.trim() || isTyping}
                     className="h-10 w-10 shrink-0 rounded-full"
                   >
                     <Send className="h-4 w-4" />
@@ -296,15 +336,20 @@ export default function ContactPage() {
               <CardContent className="p-5">
                 <SectionHeading title="常见问题" subtitle="点击快速查看答案" />
                 <StaggerList className="mt-4 space-y-2">
-                  {FAQ_ITEMS.map((faq) => (
-                    <AnimatedItem key={faq.q}>
+                  {displayedFaqs.length === 0 && (
+                    <div className="rounded-xl border border-dashed border-border bg-secondary/30 p-6 text-center text-xs text-muted-foreground">
+                      暂无常见问题
+                    </div>
+                  )}
+                  {displayedFaqs.map((faq) => (
+                    <AnimatedItem key={faq.id}>
                       <Button
                         variant="outline"
                         className="h-auto w-full justify-start rounded-2xl border-border bg-secondary/50 px-4 py-3 text-left text-xs text-foreground hover:bg-secondary"
-                        onClick={() => setInput(faq.q)}
+                        onClick={() => setInput(faq.question)}
                       >
                         <MessageCircle className="mr-2 h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                        {faq.q}
+                        {faq.question}
                       </Button>
                     </AnimatedItem>
                   ))}
@@ -338,6 +383,43 @@ export default function ContactPage() {
           </div>
         </AnimatedSection>
       </div>
+
+      <Dialog open={transferOpen} onOpenChange={(open) => !open && handleCancelTransfer()}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>正在为您转接人工客服</DialogTitle>
+            <DialogDescription>
+              客服正在连接，请稍候。预计在 {transferWaitSeconds} 秒内为您接通。
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col items-center gap-3 py-6">
+            <Loader2 className="h-12 w-12 animate-spin text-primary" />
+            <div className="text-4xl font-black tabular-nums text-foreground">
+              {transferRemaining}s
+            </div>
+            <div className="h-1.5 w-full overflow-hidden rounded-full bg-secondary">
+              <div
+                className="h-full bg-primary transition-all"
+                style={{
+                  width: `${
+                    transferWaitSeconds > 0
+                      ? Math.max(
+                          0,
+                          ((transferWaitSeconds - transferRemaining) / transferWaitSeconds) * 100,
+                        )
+                      : 0
+                  }%`,
+                }}
+              />
+            </div>
+          </div>
+          <div className="flex justify-end">
+            <Button variant="ghost" size="sm" onClick={handleCancelTransfer}>
+              取消转接
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </PageTransition>
   );
 }

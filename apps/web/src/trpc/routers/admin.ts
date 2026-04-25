@@ -498,6 +498,67 @@ export const adminRouter = createTRPCRouter({
       return ctx.prisma.taskTemplate.delete({ where: { id: input.id } });
     }),
 
+  getSupportConfig: merchantProcedure.query(async ({ ctx }) => {
+    const cfg = await ctx.prisma.supportConfig.findFirst({
+      where: { isActive: true },
+      orderBy: { updatedAt: "desc" },
+    });
+    return cfg ?? {
+      id: "",
+      systemPrompt: "",
+      modelName: "claude-haiku-4-5-20251001",
+      maxTokens: 512,
+      transferWaitSeconds: 30,
+      isActive: true,
+    };
+  }),
+
+  upsertSupportConfig: adminProcedure
+    .input(z.object({
+      id: z.string().optional(),
+      systemPrompt: z.string().min(1).max(8000),
+      modelName: z.string().min(1).max(100),
+      maxTokens: z.number().int().min(64).max(4096),
+      transferWaitSeconds: z.number().int().min(5).max(600),
+      isActive: z.boolean().default(true),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const { id, ...data } = input;
+      if (id) {
+        return ctx.prisma.supportConfig.update({ where: { id }, data });
+      }
+      return ctx.prisma.supportConfig.create({ data });
+    }),
+
+  listSupportFaqs: merchantProcedure.query(async ({ ctx }) => {
+    return ctx.prisma.supportFaq.findMany({
+      orderBy: { sortOrder: "asc" },
+    });
+  }),
+
+  upsertSupportFaq: adminProcedure
+    .input(z.object({
+      id: z.string().optional(),
+      question: z.string().min(1).max(200),
+      keywords: z.array(z.string().min(1).max(50)).min(1).max(20),
+      answer: z.string().min(1).max(2000),
+      isActive: z.boolean().default(true),
+      sortOrder: z.number().int().default(0),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const { id, ...data } = input;
+      if (id) {
+        return ctx.prisma.supportFaq.update({ where: { id }, data });
+      }
+      return ctx.prisma.supportFaq.create({ data });
+    }),
+
+  deleteSupportFaq: adminProcedure
+    .input(z.object({ id: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      return ctx.prisma.supportFaq.delete({ where: { id: input.id } });
+    }),
+
   listAdSlots: merchantProcedure.query(async ({ ctx }) => {
     return ctx.prisma.adSlot.findMany({
       orderBy: { sortOrder: "asc" },

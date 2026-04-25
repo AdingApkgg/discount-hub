@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ClipboardList, Image, Loader2, Plus, Save, Store, Bell, Shield, Palette, Sun, Moon, Monitor, Trash2, Zap } from "lucide-react";
+import { ClipboardList, Headphones, Image, Loader2, Plus, Save, Store, Bell, Shield, Palette, Sun, Moon, Monitor, Trash2, Zap } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTheme } from "next-themes";
 import { toast } from "sonner";
@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
+import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 
@@ -624,6 +625,338 @@ function AdSlotTab() {
   );
 }
 
+function SupportTab() {
+  const trpc = useTRPC();
+  const queryClient = useQueryClient();
+  const { data: cfg, isLoading: cfgLoading } = useQuery(
+    trpc.admin.getSupportConfig.queryOptions(),
+  );
+  const { data: faqs, isLoading: faqsLoading } = useQuery(
+    trpc.admin.listSupportFaqs.queryOptions(),
+  );
+  const upsertConfig = useMutation(trpc.admin.upsertSupportConfig.mutationOptions());
+  const upsertFaq = useMutation(trpc.admin.upsertSupportFaq.mutationOptions());
+  const deleteFaq = useMutation(trpc.admin.deleteSupportFaq.mutationOptions());
+
+  const [configForm, setConfigForm] = useState({
+    systemPrompt: "",
+    modelName: "claude-haiku-4-5-20251001",
+    maxTokens: 512,
+    transferWaitSeconds: 30,
+    isActive: true,
+  });
+
+  useEffect(() => {
+    if (cfg) {
+      setConfigForm({
+        systemPrompt: cfg.systemPrompt,
+        modelName: cfg.modelName,
+        maxTokens: cfg.maxTokens,
+        transferWaitSeconds: cfg.transferWaitSeconds,
+        isActive: cfg.isActive,
+      });
+    }
+  }, [cfg]);
+
+  const [editingFaq, setEditingFaq] = useState<string | null>(null);
+  const [faqForm, setFaqForm] = useState({
+    question: "",
+    keywords: "",
+    answer: "",
+    isActive: true,
+    sortOrder: 0,
+  });
+
+  async function handleSaveConfig() {
+    try {
+      await upsertConfig.mutateAsync({
+        ...configForm,
+        id: cfg?.id || undefined,
+      });
+      await queryClient.invalidateQueries();
+      toast.success("客服配置已保存");
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "保存失败");
+    }
+  }
+
+  function startEditFaq(f?: NonNullable<typeof faqs>[number]) {
+    if (f) {
+      setEditingFaq(f.id);
+      setFaqForm({
+        question: f.question,
+        keywords: f.keywords.join(", "),
+        answer: f.answer,
+        isActive: f.isActive,
+        sortOrder: f.sortOrder,
+      });
+    } else {
+      setEditingFaq("new");
+      setFaqForm({
+        question: "",
+        keywords: "",
+        answer: "",
+        isActive: true,
+        sortOrder: (faqs?.length ?? 0) * 10,
+      });
+    }
+  }
+
+  async function handleSaveFaq() {
+    const keywords = faqForm.keywords
+      .split(/[,，]/)
+      .map((k) => k.trim())
+      .filter(Boolean);
+    if (keywords.length === 0) {
+      toast.error("请至少填写一个关键词");
+      return;
+    }
+    try {
+      await upsertFaq.mutateAsync({
+        id: editingFaq === "new" ? undefined : editingFaq!,
+        question: faqForm.question,
+        keywords,
+        answer: faqForm.answer,
+        isActive: faqForm.isActive,
+        sortOrder: faqForm.sortOrder,
+      });
+      await queryClient.invalidateQueries();
+      setEditingFaq(null);
+      toast.success("FAQ 已保存");
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "保存失败");
+    }
+  }
+
+  async function handleDeleteFaq(id: string) {
+    try {
+      await deleteFaq.mutateAsync({ id });
+      await queryClient.invalidateQueries();
+      toast.success("已删除");
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "删除失败");
+    }
+  }
+
+  if (cfgLoading || faqsLoading) {
+    return (
+      <Card className="border-border">
+        <CardContent className="p-6">
+          <Loader2 className="h-5 w-5 animate-spin mx-auto" />
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <Card className="border-border">
+        <CardContent className="p-6 space-y-4">
+          <div>
+            <h3 className="text-sm font-medium text-foreground">AI 助手配置</h3>
+            <p className="text-xs text-muted-foreground mt-1">
+              系统提示词、模型、转人工等待时间。需配置 ANTHROPIC_API_KEY 才会调用 Claude API；未配置时降级到 FAQ 关键词匹配
+            </p>
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs">系统提示词（system prompt）</Label>
+            <Textarea
+              rows={6}
+              value={configForm.systemPrompt}
+              onChange={(e) => setConfigForm({ ...configForm, systemPrompt: e.target.value })}
+              placeholder="你是「折扣购物 APP」的 AI 客服助手..."
+            />
+          </div>
+          <div className="grid grid-cols-3 gap-3">
+            <div className="space-y-1">
+              <Label className="text-xs">模型</Label>
+              <Input
+                value={configForm.modelName}
+                onChange={(e) => setConfigForm({ ...configForm, modelName: e.target.value })}
+                placeholder="claude-haiku-4-5-20251001"
+              />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">最大输出 tokens</Label>
+              <Input
+                type="number"
+                min={64}
+                max={4096}
+                value={configForm.maxTokens}
+                onChange={(e) => setConfigForm({ ...configForm, maxTokens: Number(e.target.value) })}
+              />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">转人工等待秒数</Label>
+              <Input
+                type="number"
+                min={5}
+                max={600}
+                value={configForm.transferWaitSeconds}
+                onChange={(e) =>
+                  setConfigForm({ ...configForm, transferWaitSeconds: Number(e.target.value) })
+                }
+              />
+            </div>
+          </div>
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2">
+              <Switch
+                checked={configForm.isActive}
+                onCheckedChange={(v) => setConfigForm({ ...configForm, isActive: v })}
+              />
+              <Label className="text-xs">启用此配置</Label>
+            </div>
+            <Button
+              size="sm"
+              className="ml-auto"
+              onClick={handleSaveConfig}
+              disabled={upsertConfig.isPending || !configForm.systemPrompt.trim()}
+            >
+              {upsertConfig.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Save className="h-4 w-4" />
+              )}
+              保存配置
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card className="border-border">
+        <CardContent className="p-6 space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-sm font-medium text-foreground">FAQ 知识库</h3>
+              <p className="text-xs text-muted-foreground mt-1">
+                关键词命中时直接返回预设答案。AI 失败时也会回落到这里
+              </p>
+            </div>
+            <Button size="sm" variant="outline" onClick={() => startEditFaq()}>
+              <Plus className="h-4 w-4 mr-1" />
+              新建 FAQ
+            </Button>
+          </div>
+
+          {editingFaq && (
+            <div className="rounded-lg border border-border bg-secondary/30 p-4 space-y-3">
+              <div className="space-y-1">
+                <Label className="text-xs">问题（展示用）</Label>
+                <Input
+                  value={faqForm.question}
+                  onChange={(e) => setFaqForm({ ...faqForm, question: e.target.value })}
+                  placeholder="积分怎么获取？"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">命中关键词（逗号分隔）</Label>
+                <Input
+                  value={faqForm.keywords}
+                  onChange={(e) => setFaqForm({ ...faqForm, keywords: e.target.value })}
+                  placeholder="积分, 获取, 签到, 怎么得"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">答案</Label>
+                <Textarea
+                  rows={4}
+                  value={faqForm.answer}
+                  onChange={(e) => setFaqForm({ ...faqForm, answer: e.target.value })}
+                  placeholder="您可以通过每日签到..."
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <Label className="text-xs">排序</Label>
+                  <Input
+                    type="number"
+                    value={faqForm.sortOrder}
+                    onChange={(e) => setFaqForm({ ...faqForm, sortOrder: Number(e.target.value) })}
+                  />
+                </div>
+                <div className="flex items-center gap-2 pt-5">
+                  <Switch
+                    checked={faqForm.isActive}
+                    onCheckedChange={(v) => setFaqForm({ ...faqForm, isActive: v })}
+                  />
+                  <Label className="text-xs">启用</Label>
+                </div>
+              </div>
+              <div className="flex gap-2 justify-end">
+                <Button size="sm" variant="ghost" onClick={() => setEditingFaq(null)}>
+                  取消
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={handleSaveFaq}
+                  disabled={
+                    upsertFaq.isPending || !faqForm.question.trim() || !faqForm.answer.trim()
+                  }
+                >
+                  {upsertFaq.isPending ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Save className="h-4 w-4" />
+                  )}
+                  保存
+                </Button>
+              </div>
+            </div>
+          )}
+
+          <div className="space-y-2">
+            {faqs?.map((f) => (
+              <div
+                key={f.id}
+                className="flex items-start justify-between gap-3 rounded-lg border border-border p-3"
+              >
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium text-foreground">{f.question}</span>
+                    {!f.isActive && (
+                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-secondary text-muted-foreground">
+                        停用
+                      </span>
+                    )}
+                  </div>
+                  <div className="mt-0.5 text-xs text-muted-foreground">
+                    关键词: {f.keywords.join(", ")}
+                  </div>
+                  <div className="mt-1 text-xs text-foreground/80 line-clamp-2">{f.answer}</div>
+                </div>
+                <div className="flex shrink-0 gap-1">
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-8 w-8 p-0"
+                    onClick={() => startEditFaq(f)}
+                  >
+                    <Save className="h-3.5 w-3.5" />
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-8 w-8 p-0 text-destructive hover:text-destructive"
+                    onClick={() => handleDeleteFaq(f.id)}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              </div>
+            ))}
+            {(!faqs || faqs.length === 0) && (
+              <div className="rounded-lg border border-dashed border-border bg-secondary/30 p-8 text-center text-sm text-muted-foreground">
+                暂无 FAQ，点击上方「新建 FAQ」添加
+              </div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
 export default function SettingsPage() {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
@@ -758,6 +1091,12 @@ export default function SettingsPage() {
           <TabsTrigger value="ads" className="gap-2">
             <Image className="h-4 w-4" />
             广告位
+          </TabsTrigger>
+          ) : null}
+          {isAdmin ? (
+          <TabsTrigger value="support" className="gap-2">
+            <Headphones className="h-4 w-4" />
+            客服
           </TabsTrigger>
           ) : null}
           <TabsTrigger value="appearance" className="gap-2">
@@ -963,6 +1302,12 @@ export default function SettingsPage() {
         {isAdmin ? (
         <TabsContent value="ads">
           <AdSlotTab />
+        </TabsContent>
+        ) : null}
+
+        {isAdmin ? (
+        <TabsContent value="support">
+          <SupportTab />
         </TabsContent>
         ) : null}
 

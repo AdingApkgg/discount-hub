@@ -14,6 +14,7 @@ export const env = createEnv({
     PAYPAL_CLIENT_SECRET: z.string().min(1).optional(),
     STRIPE_SECRET_KEY: z.string().min(1).optional(),
     USDT_TRC20_RECEIVE_ADDRESS: z.string().min(1).optional(),
+    ANTHROPIC_API_KEY: z.string().min(1).optional(),
   },
   client: {
     NEXT_PUBLIC_APP_URL: z.string().url().optional(),
@@ -30,6 +31,7 @@ export const env = createEnv({
     PAYPAL_CLIENT_SECRET: process.env.PAYPAL_CLIENT_SECRET,
     STRIPE_SECRET_KEY: process.env.STRIPE_SECRET_KEY,
     USDT_TRC20_RECEIVE_ADDRESS: process.env.USDT_TRC20_RECEIVE_ADDRESS,
+    ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY,
     NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL,
   },
   skipValidation: !!process.env.SKIP_ENV_VALIDATION,
