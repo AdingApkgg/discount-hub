@@ -592,6 +592,38 @@ export const adminRouter = createTRPCRouter({
       return ctx.prisma.posterTemplate.delete({ where: { id: input.id } });
     }),
 
+  listRedemptionGuides: merchantProcedure.query(async ({ ctx }) => {
+    return ctx.prisma.redemptionGuide.findMany({
+      orderBy: { updatedAt: "desc" },
+    });
+  }),
+
+  upsertRedemptionGuide: adminProcedure
+    .input(z.object({
+      id: z.string().optional(),
+      name: z.string().min(1).max(80),
+      headline: z.string().min(1).max(120),
+      subline: z.string().max(200).default(""),
+      ctaText: z.string().min(1).max(40),
+      minPoints: z.number().int().min(0).max(1_000_000),
+      cooldownHours: z.number().int().min(0).max(720),
+      showFab: z.boolean().default(true),
+      isActive: z.boolean().default(true),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const { id, ...data } = input;
+      if (id) {
+        return ctx.prisma.redemptionGuide.update({ where: { id }, data });
+      }
+      return ctx.prisma.redemptionGuide.create({ data });
+    }),
+
+  deleteRedemptionGuide: adminProcedure
+    .input(z.object({ id: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      return ctx.prisma.redemptionGuide.delete({ where: { id: input.id } });
+    }),
+
   listAdSlots: merchantProcedure.query(async ({ ctx }) => {
     return ctx.prisma.adSlot.findMany({
       orderBy: { sortOrder: "asc" },

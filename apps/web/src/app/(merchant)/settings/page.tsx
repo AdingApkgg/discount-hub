@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ClipboardList, Headphones, Image, Loader2, Plus, Save, Share2, Store, Bell, Shield, Palette, Sun, Moon, Monitor, Trash2, Zap } from "lucide-react";
+import { ClipboardList, Gift, Headphones, Image, Loader2, Plus, Save, Share2, Store, Bell, Shield, Palette, Sun, Moon, Monitor, Trash2, Zap } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTheme } from "next-themes";
 import { toast } from "sonner";
@@ -1212,6 +1212,254 @@ function PosterTemplateTab() {
   );
 }
 
+function RedemptionGuideTab() {
+  const trpc = useTRPC();
+  const queryClient = useQueryClient();
+  const { data: guides, isLoading } = useQuery(
+    trpc.admin.listRedemptionGuides.queryOptions(),
+  );
+  const upsert = useMutation(trpc.admin.upsertRedemptionGuide.mutationOptions());
+  const remove = useMutation(trpc.admin.deleteRedemptionGuide.mutationOptions());
+
+  const [editing, setEditing] = useState<string | null>(null);
+  const [form, setForm] = useState({
+    name: "",
+    headline: "积分可兑换好礼",
+    subline: "",
+    ctaText: "立即兑换",
+    minPoints: 100,
+    cooldownHours: 24,
+    showFab: true,
+    isActive: true,
+  });
+
+  function startEdit(g?: NonNullable<typeof guides>[number]) {
+    if (g) {
+      setEditing(g.id);
+      setForm({
+        name: g.name,
+        headline: g.headline,
+        subline: g.subline,
+        ctaText: g.ctaText,
+        minPoints: g.minPoints,
+        cooldownHours: g.cooldownHours,
+        showFab: g.showFab,
+        isActive: g.isActive,
+      });
+    } else {
+      setEditing("new");
+      setForm({
+        name: "",
+        headline: "积分可兑换好礼",
+        subline: "",
+        ctaText: "立即兑换",
+        minPoints: 100,
+        cooldownHours: 24,
+        showFab: true,
+        isActive: true,
+      });
+    }
+  }
+
+  async function handleSave() {
+    try {
+      await upsert.mutateAsync({
+        ...form,
+        id: editing === "new" ? undefined : editing!,
+      });
+      await queryClient.invalidateQueries();
+      setEditing(null);
+      toast.success("兑换引导已保存");
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "保存失败");
+    }
+  }
+
+  async function handleDelete(id: string) {
+    try {
+      await remove.mutateAsync({ id });
+      await queryClient.invalidateQueries();
+      toast.success("已删除");
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "删除失败");
+    }
+  }
+
+  if (isLoading) {
+    return (
+      <Card className="border-border">
+        <CardContent className="p-6">
+          <Loader2 className="h-5 w-5 animate-spin mx-auto" />
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <Card className="border-border">
+      <CardContent className="p-6 space-y-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="text-sm font-medium text-foreground">兑换引导</h3>
+            <p className="text-xs text-muted-foreground mt-1">
+              用户积分达到阈值后弹窗提示，并可在底部固定「立即兑换」按钮。同时只有最新的 active 配置生效。
+            </p>
+          </div>
+          <Button size="sm" variant="outline" onClick={() => startEdit()}>
+            <Plus className="h-4 w-4 mr-1" />
+            新建
+          </Button>
+        </div>
+
+        {editing && (
+          <div className="rounded-lg border border-border bg-secondary/30 p-4 space-y-3">
+            <div className="space-y-1">
+              <Label className="text-xs">名称（后台标识用）</Label>
+              <Input
+                value={form.name}
+                onChange={(e) => setForm({ ...form, name: e.target.value })}
+                placeholder="春节兑换活动"
+              />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">主标题</Label>
+              <Input
+                value={form.headline}
+                onChange={(e) => setForm({ ...form, headline: e.target.value })}
+                placeholder="积分可兑换好礼"
+              />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">副标题</Label>
+              <Input
+                value={form.subline}
+                onChange={(e) => setForm({ ...form, subline: e.target.value })}
+                placeholder="你已积累 N 积分，立即看看可兑换什么"
+              />
+            </div>
+            <div className="grid grid-cols-3 gap-3">
+              <div className="space-y-1">
+                <Label className="text-xs">CTA 按钮文案</Label>
+                <Input
+                  value={form.ctaText}
+                  onChange={(e) => setForm({ ...form, ctaText: e.target.value })}
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">触发积分阈值</Label>
+                <Input
+                  type="number"
+                  min={0}
+                  value={form.minPoints}
+                  onChange={(e) => setForm({ ...form, minPoints: Number(e.target.value) })}
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">弹窗冷却（小时）</Label>
+                <Input
+                  type="number"
+                  min={0}
+                  value={form.cooldownHours}
+                  onChange={(e) => setForm({ ...form, cooldownHours: Number(e.target.value) })}
+                />
+              </div>
+            </div>
+            <div className="flex items-center gap-6">
+              <div className="flex items-center gap-2">
+                <Switch
+                  checked={form.showFab}
+                  onCheckedChange={(v) => setForm({ ...form, showFab: v })}
+                />
+                <Label className="text-xs">底部固定按钮</Label>
+              </div>
+              <div className="flex items-center gap-2">
+                <Switch
+                  checked={form.isActive}
+                  onCheckedChange={(v) => setForm({ ...form, isActive: v })}
+                />
+                <Label className="text-xs">启用</Label>
+              </div>
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button size="sm" variant="ghost" onClick={() => setEditing(null)}>
+                取消
+              </Button>
+              <Button
+                size="sm"
+                onClick={handleSave}
+                disabled={upsert.isPending || !form.name.trim() || !form.headline.trim() || !form.ctaText.trim()}
+              >
+                {upsert.isPending ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Save className="h-4 w-4" />
+                )}
+                保存
+              </Button>
+            </div>
+          </div>
+        )}
+
+        <div className="space-y-2">
+          {guides?.map((g) => (
+            <div
+              key={g.id}
+              className="flex items-start justify-between gap-3 rounded-lg border border-border p-3"
+            >
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium text-foreground">{g.name}</span>
+                  {g.isActive ? (
+                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-500">
+                      active
+                    </span>
+                  ) : (
+                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-secondary text-muted-foreground">
+                      停用
+                    </span>
+                  )}
+                  {g.showFab && (
+                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-500">
+                      FAB
+                    </span>
+                  )}
+                </div>
+                <div className="mt-0.5 text-xs text-foreground/80">{g.headline}</div>
+                <div className="mt-0.5 text-xs text-muted-foreground">
+                  阈值 {g.minPoints} 积分 · 冷却 {g.cooldownHours} 小时
+                </div>
+              </div>
+              <div className="flex shrink-0 gap-1">
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-8 w-8 p-0"
+                  onClick={() => startEdit(g)}
+                >
+                  <Save className="h-3.5 w-3.5" />
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-8 w-8 p-0 text-destructive hover:text-destructive"
+                  onClick={() => handleDelete(g.id)}
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+            </div>
+          ))}
+          {(!guides || guides.length === 0) && (
+            <div className="rounded-lg border border-dashed border-border bg-secondary/30 p-8 text-center text-sm text-muted-foreground">
+              暂无兑换引导，点击上方「新建」添加
+            </div>
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 export default function SettingsPage() {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
@@ -1358,6 +1606,12 @@ export default function SettingsPage() {
           <TabsTrigger value="poster" className="gap-2">
             <Share2 className="h-4 w-4" />
             海报模板
+          </TabsTrigger>
+          ) : null}
+          {isAdmin ? (
+          <TabsTrigger value="redemption" className="gap-2">
+            <Gift className="h-4 w-4" />
+            兑换引导
           </TabsTrigger>
           ) : null}
           <TabsTrigger value="appearance" className="gap-2">
@@ -1575,6 +1829,12 @@ export default function SettingsPage() {
         {isAdmin ? (
         <TabsContent value="poster">
           <PosterTemplateTab />
+        </TabsContent>
+        ) : null}
+
+        {isAdmin ? (
+        <TabsContent value="redemption">
+          <RedemptionGuideTab />
         </TabsContent>
         ) : null}
 

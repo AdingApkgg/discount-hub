@@ -79,6 +79,13 @@ function mockPrisma() {
       count: vi.fn().mockResolvedValue(0),
       findMany: vi.fn().mockResolvedValue([]),
     },
+    redemptionGuide: {
+      findFirst: vi.fn().mockResolvedValue(null),
+      findMany: vi.fn().mockResolvedValue([]),
+      create: vi.fn(),
+      update: vi.fn(),
+      delete: vi.fn(),
+    },
     taskCompletion: {
       findFirst: vi.fn().mockResolvedValue(null),
       findMany: vi.fn().mockResolvedValue([]),
@@ -124,12 +131,27 @@ const mockMerchant = {
   vipLevel: 0,
 };
 
+const mockAdmin = {
+  id: "admin-1",
+  email: "admin@example.com",
+  name: "Admin",
+  role: "ADMIN" as const,
+  points: 0,
+  vipLevel: 0,
+};
+
 const mockHeaders = new Headers({
   "x-forwarded-for": "127.0.0.1",
   "user-agent": "vitest",
 });
 
-function makeCaller(user: typeof mockConsumer | typeof mockMerchant | null = null) {
+function makeCaller(
+  user:
+    | typeof mockConsumer
+    | typeof mockMerchant
+    | typeof mockAdmin
+    | null = null,
+) {
   const ctx = {
     prisma: mockPrismaInstance as unknown as CallerContext["prisma"],
     redis: mockRedis as unknown as CallerContext["redis"],
@@ -2165,5 +2187,138 @@ describe("admin.inviteFunnel", () => {
         distinct: ["guestId"],
       }),
     );
+  });
+});
+
+// ════════════════════════════════════════════════════
+// Guide Router (Redemption Guide)
+// ════════════════════════════════════════════════════
+
+describe("guide router", () => {
+  beforeEach(() => {
+    mockPrismaInstance = mockPrisma();
+    vi.clearAllMocks();
+  });
+
+  it("getActiveRedemption returns latest active row's public fields", async () => {
+    mockPrismaInstance.redemptionGuide.findFirst.mockResolvedValue({
+      id: "g1",
+      headline: "积分可兑好礼",
+      subline: "现在去看看",
+      ctaText: "立即兑换",
+      minPoints: 200,
+      cooldownHours: 12,
+      showFab: true,
+    });
+
+    const caller = makeCaller(mockConsumer);
+    const result = await caller.guide.getActiveRedemption();
+
+    expect(result).toMatchObject({
+      headline: "积分可兑好礼",
+      minPoints: 200,
+      showFab: true,
+    });
+    expect(mockPrismaInstance.redemptionGuide.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { isActive: true },
+        orderBy: { updatedAt: "desc" },
+      }),
+    );
+  });
+
+  it("getActiveRedemption returns null when no row exists", async () => {
+    mockPrismaInstance.redemptionGuide.findFirst.mockResolvedValue(null);
+
+    const caller = makeCaller(mockConsumer);
+    const result = await caller.guide.getActiveRedemption();
+
+    expect(result).toBeNull();
+  });
+
+  it("getActiveRedemption requires authentication", async () => {
+    const caller = makeCaller(null);
+    await expect(caller.guide.getActiveRedemption()).rejects.toThrow("请先登录");
+  });
+});
+
+// ════════════════════════════════════════════════════
+// Admin Redemption Guide CRUD
+// ════════════════════════════════════════════════════
+
+describe("admin.redemptionGuide CRUD", () => {
+  beforeEach(() => {
+    mockPrismaInstance = mockPrisma();
+    vi.clearAllMocks();
+  });
+
+  it("listRedemptionGuides returns rows ordered by updatedAt desc", async () => {
+    const rows = [{ id: "g1", name: "默认" }];
+    mockPrismaInstance.redemptionGuide.findMany.mockResolvedValue(rows);
+
+    const caller = makeCaller(mockMerchant);
+    const result = await caller.admin.listRedemptionGuides();
+
+    expect(result).toEqual(rows);
+    expect(mockPrismaInstance.redemptionGuide.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ orderBy: { updatedAt: "desc" } }),
+    );
+  });
+
+  it("upsertRedemptionGuide creates when no id", async () => {
+    mockPrismaInstance.redemptionGuide.create.mockResolvedValue({ id: "new" });
+
+    const caller = makeCaller(mockAdmin);
+    await caller.admin.upsertRedemptionGuide({
+      name: "春节",
+      headline: "新年红包",
+      subline: "",
+      ctaText: "立即兑换",
+      minPoints: 500,
+      cooldownHours: 24,
+      showFab: true,
+      isActive: true,
+    });
+
+    expect(mockPrismaInstance.redemptionGuide.create).toHaveBeenCalled();
+    expect(mockPrismaInstance.redemptionGuide.update).not.toHaveBeenCalled();
+  });
+
+  it("upsertRedemptionGuide updates when id provided", async () => {
+    mockPrismaInstance.redemptionGuide.update.mockResolvedValue({ id: "g1" });
+
+    const caller = makeCaller(mockAdmin);
+    await caller.admin.upsertRedemptionGuide({
+      id: "g1",
+      name: "更新后",
+      headline: "更新后的引导",
+      subline: "",
+      ctaText: "立即兑换",
+      minPoints: 100,
+      cooldownHours: 24,
+      showFab: false,
+      isActive: true,
+    });
+
+    expect(mockPrismaInstance.redemptionGuide.update).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: "g1" } }),
+    );
+    expect(mockPrismaInstance.redemptionGuide.create).not.toHaveBeenCalled();
+  });
+
+  it("upsertRedemptionGuide requires admin role", async () => {
+    const caller = makeCaller(mockMerchant);
+    await expect(
+      caller.admin.upsertRedemptionGuide({
+        name: "x",
+        headline: "x",
+        subline: "",
+        ctaText: "x",
+        minPoints: 0,
+        cooldownHours: 0,
+        showFab: true,
+        isActive: true,
+      }),
+    ).rejects.toThrow();
   });
 });

@@ -403,6 +403,24 @@ enum TaskType {
   CUMULATIVE
 }
 
+// ─── Redemption Guide / 兑换引导 ───────────────────
+
+model RedemptionGuide {
+  id            String   @id @default(cuid())
+  name          String   @default("默认引导")
+  headline      String   @default("积分可兑换好礼")
+  subline       String   @default("")
+  ctaText       String   @default("立即兑换")
+  minPoints     Int      @default(100)
+  cooldownHours Int      @default(24)
+  showFab       Boolean  @default(true)
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@map("redemption_guides")
+}
+
 // ─── Invite Event / 邀请链路追踪 ───────────────────
 
 model InviteEvent {

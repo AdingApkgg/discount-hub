@@ -2,6 +2,8 @@ import Link from "next/link";
 import ConsumerNav from "@/components/ConsumerNav";
 import AndroidAppBanner from "@/components/AndroidAppBanner";
 import CheckinPrompt from "@/components/CheckinPrompt";
+import RedemptionPrompt from "@/components/RedemptionPrompt";
+import RedemptionFab from "@/components/RedemptionFab";
 import NoticeBanner from "@/components/NoticeBanner";
 
 function ConsumerFooter() {
@@ -40,6 +42,8 @@ export default function ConsumerLayout({
           {children}
         </main>
         <CheckinPrompt />
+        <RedemptionPrompt />
+        <RedemptionFab />
         <ConsumerFooter />
       </div>
     </div>
