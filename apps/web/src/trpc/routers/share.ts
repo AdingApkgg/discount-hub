@@ -13,6 +13,16 @@ function generateCode(length = 7): string {
   return out;
 }
 
+export const INVITE_EVENT_TYPES = [
+  "SHARE_LINK",
+  "SHARE_IMAGE",
+  "LINK_VISIT",
+  "REGISTER",
+  "ORDER",
+] as const;
+
+export type InviteEventType = (typeof INVITE_EVENT_TYPES)[number];
+
 export const shareRouter = createTRPCRouter({
   createShortLink: protectedProcedure
     .input(
@@ -79,5 +89,26 @@ export const shareRouter = createTRPCRouter({
           accentColor: true,
         },
       });
+    }),
+
+  recordInviteEvent: protectedProcedure
+    .input(
+      z.object({
+        eventType: z.enum(["SHARE_LINK", "SHARE_IMAGE"]),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const user = await ctx.prisma.user.findUnique({
+        where: { id: ctx.user.id },
+        select: { inviteCode: true },
+      });
+      await ctx.prisma.inviteEvent.create({
+        data: {
+          ownerId: ctx.user.id,
+          eventType: input.eventType,
+          inviteCode: user?.inviteCode ?? null,
+        },
+      });
+      return { ok: true };
     }),
 });

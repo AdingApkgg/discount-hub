@@ -127,6 +127,15 @@ export const userRouter = createTRPCRouter({
         data: { invitedById: inviter.id },
       });
 
+      await ctx.prisma.inviteEvent.create({
+        data: {
+          ownerId: inviter.id,
+          eventType: "REGISTER",
+          inviteCode: input.inviteCode,
+          guestId: ctx.user.id,
+        },
+      });
+
       return { success: true };
     }),
 

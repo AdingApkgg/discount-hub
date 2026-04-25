@@ -189,6 +189,17 @@ async function finalizeOrderPayment(params: {
       });
     }
 
+    if (order.user.invitedById) {
+      await tx.inviteEvent.create({
+        data: {
+          ownerId: order.user.invitedById,
+          eventType: "ORDER",
+          guestId: order.userId,
+          metadata: { orderId: paidOrder.id, productId: order.productId },
+        },
+      });
+    }
+
     return {
       order: paidOrder,
       coupon,

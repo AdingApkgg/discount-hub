@@ -74,6 +74,11 @@ function mockPrisma() {
     posterTemplate: {
       findMany: vi.fn().mockResolvedValue([]),
     },
+    inviteEvent: {
+      create: vi.fn(),
+      count: vi.fn().mockResolvedValue(0),
+      findMany: vi.fn().mockResolvedValue([]),
+    },
     taskCompletion: {
       findFirst: vi.fn().mockResolvedValue(null),
       findMany: vi.fn().mockResolvedValue([]),
@@ -2048,6 +2053,116 @@ describe("share router", () => {
     expect(mockPrismaInstance.posterTemplate.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: { isActive: true, kind: "invite" },
+      }),
+    );
+  });
+
+  it("recordInviteEvent stores SHARE_LINK with the user's invite code", async () => {
+    mockPrismaInstance.user.findUnique.mockResolvedValue({
+      inviteCode: "MYCODE",
+    });
+
+    const caller = makeCaller(mockConsumer);
+    await caller.share.recordInviteEvent({ eventType: "SHARE_LINK" });
+
+    expect(mockPrismaInstance.inviteEvent.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          ownerId: "user-1",
+          eventType: "SHARE_LINK",
+          inviteCode: "MYCODE",
+        }),
+      }),
+    );
+  });
+
+  it("recordInviteEvent stores SHARE_IMAGE with null inviteCode if user has none", async () => {
+    mockPrismaInstance.user.findUnique.mockResolvedValue({ inviteCode: null });
+
+    const caller = makeCaller(mockConsumer);
+    await caller.share.recordInviteEvent({ eventType: "SHARE_IMAGE" });
+
+    expect(mockPrismaInstance.inviteEvent.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          eventType: "SHARE_IMAGE",
+          inviteCode: null,
+        }),
+      }),
+    );
+  });
+
+  it("recordInviteEvent rejects unknown event types", async () => {
+    const caller = makeCaller(mockConsumer);
+    await expect(
+      // @ts-expect-error testing invalid input
+      caller.share.recordInviteEvent({ eventType: "HACK" }),
+    ).rejects.toThrow();
+  });
+});
+
+// ════════════════════════════════════════════════════
+// Admin Invite Funnel
+// ════════════════════════════════════════════════════
+
+describe("admin.inviteFunnel", () => {
+  beforeEach(() => {
+    mockPrismaInstance = mockPrisma();
+    vi.clearAllMocks();
+  });
+
+  it("returns counts from real InviteEvent rows", async () => {
+    mockPrismaInstance.user.count
+      .mockResolvedValueOnce(1000) // totalUsers
+      .mockResolvedValueOnce(800); // usersWithCode
+    mockPrismaInstance.inviteEvent.count
+      .mockResolvedValueOnce(120) // SHARE_LINK
+      .mockResolvedValueOnce(40) // SHARE_IMAGE
+      .mockResolvedValueOnce(220) // LINK_VISIT
+      .mockResolvedValueOnce(75); // REGISTER
+    mockPrismaInstance.inviteEvent.findMany.mockResolvedValue([
+      { guestId: "g1" },
+      { guestId: "g2" },
+      { guestId: "g3" },
+    ]);
+
+    const caller = makeCaller(mockMerchant);
+    const result = await caller.admin.inviteFunnel();
+
+    expect(result).toMatchObject({
+      totalUsers: 1000,
+      usersWithCode: 800,
+      shareEvents: 160,
+      shareLinkEvents: 120,
+      shareImageEvents: 40,
+      linkVisitEvents: 220,
+      registerEvents: 75,
+      invitedWithOrders: 3,
+    });
+    expect(result.steps).toEqual([
+      { label: "生成邀请码", value: 800 },
+      { label: "分享次数", value: 160 },
+      { label: "链接访问", value: 220 },
+      { label: "被邀请注册", value: 75 },
+      { label: "被邀请下单", value: 3 },
+    ]);
+  });
+
+  it("requires merchant role", async () => {
+    const caller = makeCaller(mockConsumer);
+    await expect(caller.admin.inviteFunnel()).rejects.toThrow("仅商家可访问");
+  });
+
+  it("uses distinct guestId for invitedWithOrders", async () => {
+    mockPrismaInstance.inviteEvent.findMany.mockResolvedValue([]);
+
+    const caller = makeCaller(mockMerchant);
+    await caller.admin.inviteFunnel();
+
+    expect(mockPrismaInstance.inviteEvent.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { eventType: "ORDER", guestId: { not: null } },
+        distinct: ["guestId"],
       }),
     );
   });

@@ -72,6 +72,9 @@ export default function InvitePage() {
   const createShortLinkMutation = useMutation(
     trpc.share.createShortLink.mutationOptions(),
   );
+  const recordInviteEvent = useMutation(
+    trpc.share.recordInviteEvent.mutationOptions(),
+  );
   const [shortUrl, setShortUrl] = useState<string>("");
   const [qrDataUrl, setQrDataUrl] = useState<string>("");
   const shortLinkRequested = useRef(false);
@@ -127,8 +130,9 @@ export default function InvitePage() {
     try {
       await navigator.clipboard.writeText(target);
       toast.success(shortUrl ? "短链已复制" : "邀请链接已复制");
+      recordInviteEvent.mutate({ eventType: "SHARE_LINK" });
     } catch { toast.error("复制失败"); }
-  }, [shortUrl, inviteLink, inviteCode]);
+  }, [shortUrl, inviteLink, inviteCode, recordInviteEvent]);
 
   const handleShareImage = useCallback(async () => {
     const el = shareCardRef.current;
@@ -157,10 +161,11 @@ export default function InvitePage() {
         URL.revokeObjectURL(url);
         toast.success("图片已保存，请手动发送给好友");
       }
+      recordInviteEvent.mutate({ eventType: "SHARE_IMAGE" });
     } catch {
       toast.error("生成分享图片失败，请尝试复制链接");
     }
-  }, [inviteCode, activePoster]);
+  }, [inviteCode, activePoster, recordInviteEvent]);
 
   return (
     <PageTransition>

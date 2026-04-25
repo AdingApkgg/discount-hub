@@ -403,6 +403,23 @@ enum TaskType {
   CUMULATIVE
 }
 
+// ─── Invite Event / 邀请链路追踪 ───────────────────
+
+model InviteEvent {
+  id         String   @id @default(cuid())
+  ownerId    String
+  eventType  String
+  inviteCode String?
+  guestId    String?
+  metadata   Json?
+  createdAt  DateTime @default(now())
+
+  @@index([ownerId, eventType, createdAt])
+  @@index([eventType, createdAt])
+  @@index([guestId])
+  @@map("invite_events")
+}
+
 // ─── Share / 短链 + 海报模板 ───────────────────────
 
 model ShortLink {

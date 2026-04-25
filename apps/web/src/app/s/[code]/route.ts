@@ -13,7 +13,7 @@ export async function GET(
 
   const link = await prisma.shortLink.findUnique({
     where: { code },
-    select: { targetUrl: true, expiresAt: true },
+    select: { targetUrl: true, expiresAt: true, kind: true, userId: true },
   });
 
   if (!link) {
@@ -30,6 +30,27 @@ export async function GET(
     .catch((err) => {
       console.error("[shortLink] click increment failed:", err);
     });
+
+  // Best-effort LINK_VISIT event for invite-kind links so the funnel can
+  // separate "shared the link" from "the link was actually opened".
+  if (link.kind === "invite" && link.userId) {
+    const inviteCodeMatch = link.targetUrl.match(/inviteCode=([^&]+)/);
+    const inviteCode = inviteCodeMatch
+      ? decodeURIComponent(inviteCodeMatch[1])
+      : null;
+    prisma.inviteEvent
+      .create({
+        data: {
+          ownerId: link.userId,
+          eventType: "LINK_VISIT",
+          inviteCode,
+          metadata: { code, targetUrl: link.targetUrl },
+        },
+      })
+      .catch((err) => {
+        console.error("[shortLink] LINK_VISIT record failed:", err);
+      });
+  }
 
   return NextResponse.redirect(link.targetUrl, { status: 302 });
 }

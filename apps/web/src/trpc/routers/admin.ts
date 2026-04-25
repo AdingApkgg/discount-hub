@@ -750,34 +750,48 @@ export const adminRouter = createTRPCRouter({
   }),
 
   inviteFunnel: merchantProcedure.query(async ({ ctx }) => {
-    const totalUsers = await ctx.prisma.user.count();
-    const usersWithCode = await ctx.prisma.user.count({
-      where: { inviteCode: { not: null } },
-    });
-    const usersWhoInvited = await ctx.prisma.user.count({
-      where: { referrals: { some: {} } },
-    });
-    const invitedUsers = await ctx.prisma.user.count({
-      where: { invitedById: { not: null } },
-    });
-    const invitedWithOrders = await ctx.prisma.user.count({
-      where: {
-        invitedById: { not: null },
-        orders: { some: { status: "PAID" } },
-      },
-    });
+    const [
+      totalUsers,
+      usersWithCode,
+      shareLinkEvents,
+      shareImageEvents,
+      linkVisitEvents,
+      registerEvents,
+      orderGuests,
+    ] = await Promise.all([
+      ctx.prisma.user.count(),
+      ctx.prisma.user.count({ where: { inviteCode: { not: null } } }),
+      ctx.prisma.inviteEvent.count({ where: { eventType: "SHARE_LINK" } }),
+      ctx.prisma.inviteEvent.count({ where: { eventType: "SHARE_IMAGE" } }),
+      ctx.prisma.inviteEvent.count({ where: { eventType: "LINK_VISIT" } }),
+      ctx.prisma.inviteEvent.count({ where: { eventType: "REGISTER" } }),
+      ctx.prisma.inviteEvent.findMany({
+        where: { eventType: "ORDER", guestId: { not: null } },
+        distinct: ["guestId"],
+        select: { guestId: true },
+      }),
+    ]);
+
+    const shareEvents = shareLinkEvents + shareImageEvents;
+    const invitedWithOrders = orderGuests.length;
 
     return {
       totalUsers,
       usersWithCode,
-      usersWhoInvited,
-      invitedUsers,
+      shareEvents,
+      shareLinkEvents,
+      shareImageEvents,
+      linkVisitEvents,
+      registerEvents,
       invitedWithOrders,
+      // Backwards-compat aliases the dashboard previously read.
+      usersWhoInvited: registerEvents,
+      invitedUsers: registerEvents,
       steps: [
-        { label: "总用户", value: totalUsers },
         { label: "生成邀请码", value: usersWithCode },
-        { label: "成功邀请", value: usersWhoInvited },
-        { label: "被邀请注册", value: invitedUsers },
+        { label: "分享次数", value: shareEvents },
+        { label: "链接访问", value: linkVisitEvents },
+        { label: "被邀请注册", value: registerEvents },
         { label: "被邀请下单", value: invitedWithOrders },
       ],
     };
