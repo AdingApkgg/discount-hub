@@ -46,6 +46,7 @@ model User {
   footprints       Footprint[]
   agentApplication AgentApplication?
   agentCommissions AgentCommission[]    @relation("CommissionAgent")
+  apiKeys          ApiKey[]             @relation("ApiKeyOwner")
   auditLogs        AuditLog[]           @relation("AuditActor")
   noticeReads      NoticeRead[]
 
@@ -447,6 +448,30 @@ model TaskTemplate {
 enum TaskType {
   BASIC
   CUMULATIVE
+}
+
+// ─── API Key / 开放 API 凭证 ───────────────────────
+
+model ApiKey {
+  id          String    @id @default(cuid())
+  name        String
+  prefix      String
+  hashedKey   String    @unique
+  scopes      String[]  @default([])
+  description String?
+  userId      String
+  isActive    Boolean   @default(true)
+  expiresAt   DateTime?
+  lastUsedAt  DateTime?
+  lastUsedIp  String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  user User @relation("ApiKeyOwner", fields: [userId], references: [id])
+
+  @@index([hashedKey])
+  @@index([userId, isActive])
+  @@map("api_keys")
 }
 
 // ─── Device Fingerprint / 设备风控 ─────────────────

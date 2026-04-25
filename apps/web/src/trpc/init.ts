@@ -5,15 +5,26 @@ import { redis } from "@/lib/redis";
 import { auth } from "@/lib/auth";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { readRiskHeaders } from "@/lib/device-risk";
+import { resolveApiKeyAuth, type ApiAuthResult } from "@/lib/api-key";
 
 export const createTRPCContext = async (opts: { headers: Headers }) => {
-  const session = await auth.api.getSession({ headers: opts.headers });
+  // Bearer token (API key) takes precedence: agents using a key never need
+  // a cookie. When no key is present, fall back to the cookie session.
+  const apiAuth = await resolveApiKeyAuth(prisma, opts.headers);
+  const session = apiAuth
+    ? null
+    : await auth.api.getSession({ headers: opts.headers });
+
+  const user = (apiAuth?.user ?? session?.user ?? null) as
+    | (NonNullable<ApiAuthResult>["user"] & { isBanned?: boolean })
+    | null;
 
   return {
     prisma,
     redis,
     session,
-    user: session?.user ?? null,
+    apiAuth,
+    user,
     headers: opts.headers,
     risk: readRiskHeaders(opts.headers),
   };

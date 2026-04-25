@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { CheckCircle, ClipboardList, Gift, Headphones, Image, Loader2, Lock, Plus, Save, Share2, ShieldAlert, Store, Bell, Shield, Palette, Sun, Moon, Monitor, Trash2, Unlock, Users, Zap } from "lucide-react";
+import { CheckCircle, ClipboardList, Code2, Copy, Gift, Headphones, Image, KeyRound, Loader2, Lock, Plus, Save, Share2, ShieldAlert, Store, Bell, Shield, Palette, Sun, Moon, Monitor, Trash2, Unlock, Users, Zap } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTheme } from "next-themes";
 import { toast } from "sonner";
@@ -14,6 +14,14 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 
@@ -1486,6 +1494,343 @@ function RedemptionGuideTab() {
   );
 }
 
+const SCOPE_OPTIONS = [
+  { value: "agent:read", label: "只读" },
+  { value: "agent:write", label: "读写" },
+  { value: "agent:admin", label: "管理" },
+];
+
+function ApiKeyTab() {
+  const trpc = useTRPC();
+  const queryClient = useQueryClient();
+  const { data: keys, isLoading } = useQuery(
+    trpc.admin.listApiKeys.queryOptions(),
+  );
+  const createMutation = useMutation(trpc.admin.createApiKey.mutationOptions());
+  const revokeMutation = useMutation(trpc.admin.revokeApiKey.mutationOptions());
+  const reactivateMutation = useMutation(
+    trpc.admin.reactivateApiKey.mutationOptions(),
+  );
+
+  const [creating, setCreating] = useState(false);
+  const [form, setForm] = useState<{
+    name: string;
+    description: string;
+    scopes: string[];
+    expiresInDays: number | null;
+  }>({
+    name: "",
+    description: "",
+    scopes: ["agent:read"],
+    expiresInDays: 365,
+  });
+  const [revealed, setRevealed] = useState<{ name: string; key: string } | null>(
+    null,
+  );
+
+  function toggleScope(value: string) {
+    setForm((prev) => ({
+      ...prev,
+      scopes: prev.scopes.includes(value)
+        ? prev.scopes.filter((s) => s !== value)
+        : [...prev.scopes, value],
+    }));
+  }
+
+  async function handleCreate() {
+    try {
+      const result = await createMutation.mutateAsync({
+        name: form.name,
+        description: form.description || undefined,
+        scopes: form.scopes,
+        expiresInDays: form.expiresInDays ?? undefined,
+      });
+      await queryClient.invalidateQueries();
+      setRevealed({ name: result.name, key: result.plainKey });
+      setCreating(false);
+      setForm({
+        name: "",
+        description: "",
+        scopes: ["agent:read"],
+        expiresInDays: 365,
+      });
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "创建失败");
+    }
+  }
+
+  async function handleRevoke(id: string) {
+    try {
+      await revokeMutation.mutateAsync({ id });
+      await queryClient.invalidateQueries();
+      toast.success("已撤销");
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "操作失败");
+    }
+  }
+
+  async function handleReactivate(id: string) {
+    try {
+      await reactivateMutation.mutateAsync({ id });
+      await queryClient.invalidateQueries();
+      toast.success("已恢复启用");
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "操作失败");
+    }
+  }
+
+  async function handleCopyKey() {
+    if (!revealed) return;
+    try {
+      await navigator.clipboard.writeText(revealed.key);
+      toast.success("已复制 API Key");
+    } catch {
+      toast.error("复制失败");
+    }
+  }
+
+  return (
+    <div className="space-y-4">
+      <Card className="border-border">
+        <CardContent className="p-6 space-y-3">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <h3 className="text-sm font-medium text-foreground flex items-center gap-2">
+                <KeyRound className="h-4 w-4 text-amber-500" />
+                API 访问 / Agent 接入
+              </h3>
+              <p className="text-xs text-muted-foreground mt-1">
+                生成 API Key 后，外部 Agent 可通过 <code className="px-1 bg-secondary rounded">Authorization: Bearer &lt;key&gt;</code> 调用所有 tRPC 端点 <code className="px-1 bg-secondary rounded">/api/trpc/&lt;procedure&gt;</code>。Key 等同于所有者用户的身份与权限。
+              </p>
+            </div>
+            <Button size="sm" onClick={() => setCreating(true)}>
+              <Plus className="h-4 w-4 mr-1" />
+              新建 Key
+            </Button>
+          </div>
+
+          {isLoading ? (
+            <Loader2 className="h-5 w-5 animate-spin mx-auto" />
+          ) : !keys || keys.length === 0 ? (
+            <div className="rounded-lg border border-dashed border-border bg-secondary/30 p-8 text-center text-sm text-muted-foreground">
+              暂无 API Key
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {keys.map((k) => (
+                <div
+                  key={k.id}
+                  className="rounded-lg border border-border p-3 space-y-1.5"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-sm font-medium text-foreground">
+                          {k.name}
+                        </span>
+                        {k.isActive ? (
+                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-500">
+                            active
+                          </span>
+                        ) : (
+                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-secondary text-muted-foreground">
+                            已撤销
+                          </span>
+                        )}
+                        {k.scopes.map((s) => (
+                          <span
+                            key={s}
+                            className="text-[10px] px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-500"
+                          >
+                            {s}
+                          </span>
+                        ))}
+                      </div>
+                      <div className="mt-0.5 font-mono text-xs text-muted-foreground">
+                        {k.prefix}...
+                      </div>
+                      <div className="mt-0.5 text-xs text-muted-foreground">
+                        所有者: {k.owner.name ?? k.owner.email}（{k.owner.role}）
+                        {k.lastUsedAt && (
+                          <>
+                            {" · "}最后使用: {new Date(k.lastUsedAt).toLocaleString("zh-CN")}
+                          </>
+                        )}
+                        {k.expiresAt && (
+                          <>
+                            {" · "}过期: {new Date(k.expiresAt).toLocaleDateString("zh-CN")}
+                          </>
+                        )}
+                      </div>
+                      {k.description && (
+                        <div className="mt-0.5 text-xs text-foreground/70">
+                          {k.description}
+                        </div>
+                      )}
+                    </div>
+                    <div>
+                      {k.isActive ? (
+                        <Button
+                          size="sm"
+                          variant="destructive"
+                          onClick={() => handleRevoke(k.id)}
+                          disabled={revokeMutation.isPending}
+                        >
+                          <Lock className="h-3.5 w-3.5 mr-1" />
+                          撤销
+                        </Button>
+                      ) : (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleReactivate(k.id)}
+                          disabled={reactivateMutation.isPending}
+                        >
+                          <Unlock className="h-3.5 w-3.5 mr-1" />
+                          恢复
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card className="border-border">
+        <CardContent className="p-6 space-y-3">
+          <div className="flex items-center gap-2">
+            <Code2 className="h-4 w-4 text-muted-foreground" />
+            <h3 className="text-sm font-medium text-foreground">调用示例</h3>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            tRPC 端点接受 superjson 编码的 input。最常用的查询直接 GET：
+          </p>
+          <pre className="rounded-md bg-secondary/50 p-3 text-xs overflow-x-auto">{`# 查询商品列表
+curl https://discount-hub.larx.cc/api/trpc/product.list \\
+  -H "Authorization: Bearer dh_live_xxxxxxxxxxxxxxxxxxxxxxxx" \\
+  -G --data-urlencode 'input={"json":{"category":"all"}}'
+
+# Mutation 用 POST
+curl https://discount-hub.larx.cc/api/trpc/admin.upsertSupportFaq \\
+  -H "Authorization: Bearer dh_live_xxxxxxxxxxxxxxxxxxxxxxxx" \\
+  -H "Content-Type: application/json" \\
+  -d '{"json":{"question":"...","keywords":["..."],"answer":"..."}}'
+`}</pre>
+          <p className="text-xs text-muted-foreground">
+            返回格式：<code className="px-1 bg-secondary rounded">{`{ result: { data: { json: ... } } }`}</code>。
+            可调用的 procedure 名详见仓库 <code className="px-1 bg-secondary rounded">apps/web/src/trpc/routers/</code>。
+          </p>
+        </CardContent>
+      </Card>
+
+      <Dialog open={creating} onOpenChange={(v) => !v && setCreating(false)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>新建 API Key</DialogTitle>
+            <DialogDescription>
+              该 Key 将以下方所有者的身份调用。生成后明文只显示一次，请妥善保管。
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="space-y-1">
+              <Label className="text-xs">Key 名称</Label>
+              <Input
+                value={form.name}
+                onChange={(e) => setForm({ ...form, name: e.target.value })}
+                placeholder="例如：CI 同步任务"
+              />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">用途说明（可选）</Label>
+              <Input
+                value={form.description}
+                onChange={(e) => setForm({ ...form, description: e.target.value })}
+                placeholder="例如：每日凌晨同步商品库存"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">权限标签（自定义；不影响 procedure 鉴权，记录用）</Label>
+              <div className="flex gap-1.5 flex-wrap">
+                {SCOPE_OPTIONS.map((s) => {
+                  const active = form.scopes.includes(s.value);
+                  return (
+                    <button
+                      key={s.value}
+                      type="button"
+                      onClick={() => toggleScope(s.value)}
+                      className={cn(
+                        "px-2.5 py-1 rounded-full text-xs border",
+                        active
+                          ? "bg-primary text-primary-foreground border-primary"
+                          : "border-border text-muted-foreground hover:bg-secondary",
+                      )}
+                    >
+                      {s.label} · {s.value}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">有效期（天，留空表示永不过期）</Label>
+              <Input
+                type="number"
+                min={1}
+                max={3650}
+                value={form.expiresInDays ?? ""}
+                onChange={(e) => {
+                  const v = e.target.value.trim();
+                  setForm({ ...form, expiresInDays: v ? Number(v) : null });
+                }}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setCreating(false)}>
+              取消
+            </Button>
+            <Button
+              onClick={handleCreate}
+              disabled={createMutation.isPending || !form.name.trim()}
+            >
+              {createMutation.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <KeyRound className="h-4 w-4" />
+              )}
+              生成
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!revealed} onOpenChange={(v) => !v && setRevealed(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>API Key 已生成 — 仅本次显示</DialogTitle>
+            <DialogDescription>
+              这是 {revealed?.name} 的明文。关闭后将无法再次查看，请立刻复制并保存到你的密钥管理器。
+            </DialogDescription>
+          </DialogHeader>
+          <div className="rounded-md bg-secondary/70 p-3 break-all font-mono text-xs">
+            {revealed?.key}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={handleCopyKey}>
+              <Copy className="h-4 w-4 mr-1" />
+              复制
+            </Button>
+            <Button onClick={() => setRevealed(null)}>我已保存</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
 function DeviceRiskTab() {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
@@ -2059,6 +2404,12 @@ export default function SettingsPage() {
             设备风控
           </TabsTrigger>
           ) : null}
+          {isAdmin ? (
+          <TabsTrigger value="api-keys" className="gap-2">
+            <KeyRound className="h-4 w-4" />
+            API 访问
+          </TabsTrigger>
+          ) : null}
           <TabsTrigger value="appearance" className="gap-2">
             <Palette className="h-4 w-4" />
             外观
@@ -2292,6 +2643,12 @@ export default function SettingsPage() {
         {isAdmin ? (
         <TabsContent value="device-risk">
           <DeviceRiskTab />
+        </TabsContent>
+        ) : null}
+
+        {isAdmin ? (
+        <TabsContent value="api-keys">
+          <ApiKeyTab />
         </TabsContent>
         ) : null}
 

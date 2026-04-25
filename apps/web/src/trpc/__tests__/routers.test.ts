@@ -112,6 +112,12 @@ function mockPrisma() {
       updateMany: vi.fn().mockResolvedValue({ count: 0 }),
       count: vi.fn().mockResolvedValue(0),
     },
+    apiKey: {
+      findUnique: vi.fn().mockResolvedValue(null),
+      findMany: vi.fn().mockResolvedValue([]),
+      create: vi.fn().mockResolvedValue({}),
+      update: vi.fn().mockResolvedValue({}),
+    },
     taskCompletion: {
       findFirst: vi.fn().mockResolvedValue(null),
       findMany: vi.fn().mockResolvedValue([]),
@@ -2786,6 +2792,242 @@ describe("admin device fingerprint CRUD", () => {
     const caller = makeCaller(mockMerchant);
     await expect(
       caller.admin.blockDeviceFingerprint({ visitorId: "x" }),
+    ).rejects.toThrow();
+  });
+});
+
+// ════════════════════════════════════════════════════
+// API Key
+// ════════════════════════════════════════════════════
+
+import {
+  generateApiKey,
+  hashApiKey,
+  extractBearerToken,
+  resolveApiKeyAuth,
+} from "@/lib/api-key";
+
+describe("api-key helpers", () => {
+  beforeEach(() => {
+    mockPrismaInstance = mockPrisma();
+    vi.clearAllMocks();
+  });
+
+  it("generateApiKey returns key with dh_live_ prefix and stable hash", () => {
+    const a = generateApiKey();
+    expect(a.key.startsWith("dh_live_")).toBe(true);
+    expect(a.key.length).toBeGreaterThan(20);
+    expect(a.prefix).toBe(a.key.slice(0, 16));
+    expect(a.hashedKey).toBe(hashApiKey(a.key));
+    // hash same key twice → identical, hash different keys → different
+    const b = generateApiKey();
+    expect(b.hashedKey).not.toBe(a.hashedKey);
+  });
+
+  it("extractBearerToken accepts well-formed Authorization header", () => {
+    const h = new Headers({
+      authorization: "Bearer dh_live_abcdefghijklmnopqrstuvwxyzABCD",
+    });
+    expect(extractBearerToken(h)).toBe("dh_live_abcdefghijklmnopqrstuvwxyzABCD");
+  });
+
+  it("extractBearerToken rejects missing/wrong scheme/wrong prefix", () => {
+    expect(extractBearerToken(new Headers())).toBeNull();
+    expect(extractBearerToken(new Headers({ authorization: "Basic abc" }))).toBeNull();
+    expect(
+      extractBearerToken(new Headers({ authorization: "Bearer not_a_dh_key_xx" })),
+    ).toBeNull();
+    expect(extractBearerToken(new Headers({ authorization: "Bearer dh_live_x" }))).toBeNull();
+  });
+
+  it("resolveApiKeyAuth returns null when no token present", async () => {
+    const result = await resolveApiKeyAuth(
+      mockPrismaInstance as never,
+      new Headers(),
+    );
+    expect(result).toBeNull();
+    expect(mockPrismaInstance.apiKey.findUnique).not.toHaveBeenCalled();
+  });
+
+  it("resolveApiKeyAuth returns null when key is unknown", async () => {
+    mockPrismaInstance.apiKey.findUnique.mockResolvedValue(null);
+    const result = await resolveApiKeyAuth(
+      mockPrismaInstance as never,
+      new Headers({
+        authorization: "Bearer dh_live_abcdefghijklmnopqrstuvwxyz12",
+      }),
+    );
+    expect(result).toBeNull();
+  });
+
+  it("resolveApiKeyAuth rejects inactive / expired / banned-owner keys", async () => {
+    const headers = new Headers({
+      authorization: "Bearer dh_live_aaaaaaaaaaaaaaaaaaaaaaaa",
+    });
+
+    mockPrismaInstance.apiKey.findUnique.mockResolvedValueOnce({
+      id: "k1",
+      isActive: false,
+      expiresAt: null,
+      user: { isBanned: false },
+    });
+    expect(
+      await resolveApiKeyAuth(mockPrismaInstance as never, headers),
+    ).toBeNull();
+
+    mockPrismaInstance.apiKey.findUnique.mockResolvedValueOnce({
+      id: "k2",
+      isActive: true,
+      expiresAt: new Date(Date.now() - 1000),
+      user: { isBanned: false },
+    });
+    expect(
+      await resolveApiKeyAuth(mockPrismaInstance as never, headers),
+    ).toBeNull();
+
+    mockPrismaInstance.apiKey.findUnique.mockResolvedValueOnce({
+      id: "k3",
+      isActive: true,
+      expiresAt: null,
+      user: { isBanned: true },
+    });
+    expect(
+      await resolveApiKeyAuth(mockPrismaInstance as never, headers),
+    ).toBeNull();
+  });
+
+  it("resolveApiKeyAuth returns user + scopes on a valid key", async () => {
+    mockPrismaInstance.apiKey.findUnique.mockResolvedValue({
+      id: "k1",
+      prefix: "dh_live_aaaa....",
+      scopes: ["agent:read"],
+      userId: "u1",
+      isActive: true,
+      expiresAt: null,
+      user: {
+        id: "u1",
+        email: "owner@x",
+        name: "Owner",
+        role: "ADMIN",
+        points: 0,
+        vipLevel: 0,
+        isBanned: false,
+      },
+    });
+
+    const result = await resolveApiKeyAuth(
+      mockPrismaInstance as never,
+      new Headers({
+        authorization: "Bearer dh_live_validtokenvalidtokenvalid",
+      }),
+    );
+
+    expect(result?.apiKey.scopes).toEqual(["agent:read"]);
+    expect(result?.user.id).toBe("u1");
+  });
+});
+
+describe("admin api-key CRUD", () => {
+  beforeEach(() => {
+    mockPrismaInstance = mockPrisma();
+    vi.clearAllMocks();
+  });
+
+  it("createApiKey returns plainKey exactly once", async () => {
+    mockPrismaInstance.user.findUnique.mockResolvedValue({
+      id: "admin-1",
+      role: "ADMIN",
+      isBanned: false,
+    });
+    mockPrismaInstance.apiKey.create.mockImplementation(
+      async ({ data, select: _ }: { data: Record<string, unknown> }) => ({
+        id: "k1",
+        name: data.name,
+        prefix: data.prefix,
+        scopes: data.scopes,
+        description: data.description,
+        expiresAt: data.expiresAt,
+        createdAt: new Date(),
+      }),
+    );
+
+    const caller = makeCaller(mockAdmin);
+    const result = await caller.admin.createApiKey({
+      name: "test",
+      scopes: ["agent:read"],
+      expiresInDays: 30,
+    });
+
+    expect(result.plainKey.startsWith("dh_live_")).toBe(true);
+    expect(mockPrismaInstance.apiKey.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          hashedKey: expect.any(String),
+          prefix: expect.stringMatching(/^dh_live_/),
+        }),
+      }),
+    );
+    // hashedKey must be the sha256 of plainKey
+    const callArgs = mockPrismaInstance.apiKey.create.mock.calls[0][0];
+    expect(callArgs.data.hashedKey).toBe(hashApiKey(result.plainKey));
+  });
+
+  it("createApiKey rejects banned owner", async () => {
+    mockPrismaInstance.user.findUnique.mockResolvedValue({
+      id: "u1",
+      role: "MERCHANT",
+      isBanned: true,
+    });
+    const caller = makeCaller(mockAdmin);
+    await expect(
+      caller.admin.createApiKey({
+        name: "x",
+        scopes: [],
+        ownerId: "u1",
+      }),
+    ).rejects.toThrow("已封禁");
+  });
+
+  it("listApiKeys never leaks hashedKey", async () => {
+    mockPrismaInstance.apiKey.findMany.mockResolvedValue([
+      {
+        id: "k1",
+        name: "test",
+        prefix: "dh_live_aaaa",
+        scopes: [],
+        description: null,
+        isActive: true,
+        expiresAt: null,
+        lastUsedAt: null,
+        lastUsedIp: null,
+        createdAt: new Date(),
+        user: { name: "A", email: "a@a", role: "ADMIN" },
+      },
+    ]);
+
+    const caller = makeCaller(mockAdmin);
+    const result = await caller.admin.listApiKeys();
+
+    expect(result[0]).not.toHaveProperty("hashedKey");
+    expect(result[0].prefix).toBe("dh_live_aaaa");
+  });
+
+  it("revokeApiKey sets isActive=false", async () => {
+    mockPrismaInstance.apiKey.update.mockResolvedValue({});
+    const caller = makeCaller(mockAdmin);
+    await caller.admin.revokeApiKey({ id: "k1" });
+    expect(mockPrismaInstance.apiKey.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "k1" },
+        data: { isActive: false },
+      }),
+    );
+  });
+
+  it("createApiKey requires admin role", async () => {
+    const caller = makeCaller(mockMerchant);
+    await expect(
+      caller.admin.createApiKey({ name: "x", scopes: [] }),
     ).rejects.toThrow();
   });
 });

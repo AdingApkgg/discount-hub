@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
+import { generateApiKey } from "@/lib/api-key";
 import {
   createTRPCRouter,
   adminProcedure,
@@ -844,6 +845,111 @@ export const adminRouter = createTRPCRouter({
           blockReason: null,
           suspicious: false,
         },
+      });
+    }),
+
+  listApiKeys: adminProcedure.query(async ({ ctx }) => {
+    const rows = await ctx.prisma.apiKey.findMany({
+      orderBy: { createdAt: "desc" },
+      include: {
+        user: { select: { name: true, email: true, role: true } },
+      },
+    });
+    // Never include hashedKey in responses.
+    return rows.map((r) => ({
+      id: r.id,
+      name: r.name,
+      prefix: r.prefix,
+      scopes: r.scopes,
+      description: r.description,
+      isActive: r.isActive,
+      expiresAt: r.expiresAt,
+      lastUsedAt: r.lastUsedAt,
+      lastUsedIp: r.lastUsedIp,
+      createdAt: r.createdAt,
+      owner: {
+        name: r.user.name,
+        email: r.user.email,
+        role: r.user.role,
+      },
+    }));
+  }),
+
+  createApiKey: adminProcedure
+    .input(
+      z.object({
+        name: z.string().min(1).max(80),
+        description: z.string().max(500).optional(),
+        scopes: z.array(z.string().min(1).max(40)).max(20).default([]),
+        expiresInDays: z.number().int().min(1).max(3650).optional(),
+        ownerId: z.string().optional(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const ownerId = input.ownerId ?? ctx.user.id;
+
+      const owner = await ctx.prisma.user.findUnique({
+        where: { id: ownerId },
+        select: { id: true, role: true, isBanned: true },
+      });
+      if (!owner) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "未找到指定的所有者用户",
+        });
+      }
+      if (owner.isBanned) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "无法为已封禁用户签发 API Key",
+        });
+      }
+
+      const { key, prefix, hashedKey } = generateApiKey();
+      const expiresAt = input.expiresInDays
+        ? new Date(Date.now() + input.expiresInDays * 24 * 60 * 60 * 1000)
+        : null;
+
+      const created = await ctx.prisma.apiKey.create({
+        data: {
+          name: input.name,
+          description: input.description ?? null,
+          scopes: input.scopes,
+          prefix,
+          hashedKey,
+          userId: ownerId,
+          expiresAt,
+        },
+        select: {
+          id: true,
+          name: true,
+          prefix: true,
+          scopes: true,
+          description: true,
+          expiresAt: true,
+          createdAt: true,
+        },
+      });
+
+      // Plain key returned exactly once; the caller must store it now.
+      return { ...created, plainKey: key };
+    }),
+
+  revokeApiKey: adminProcedure
+    .input(z.object({ id: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      return ctx.prisma.apiKey.update({
+        where: { id: input.id },
+        data: { isActive: false },
+      });
+    }),
+
+  reactivateApiKey: adminProcedure
+    .input(z.object({ id: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      return ctx.prisma.apiKey.update({
+        where: { id: input.id },
+        data: { isActive: true },
       });
     }),
 
