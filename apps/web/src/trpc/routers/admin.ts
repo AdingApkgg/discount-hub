@@ -624,6 +624,163 @@ export const adminRouter = createTRPCRouter({
       return ctx.prisma.redemptionGuide.delete({ where: { id: input.id } });
     }),
 
+  getAgentCommissionConfig: merchantProcedure.query(async ({ ctx }) => {
+    const cfg = await ctx.prisma.agentCommissionConfig.findFirst({
+      where: { isActive: true },
+      orderBy: { updatedAt: "desc" },
+    });
+    return cfg ?? {
+      id: "",
+      level1Rate: 0.1,
+      level2Rate: 0.05,
+      level3Rate: 0,
+      maxLevels: 2,
+      isActive: true,
+    };
+  }),
+
+  upsertAgentCommissionConfig: adminProcedure
+    .input(z.object({
+      id: z.string().optional(),
+      level1Rate: z.number().min(0).max(1),
+      level2Rate: z.number().min(0).max(1),
+      level3Rate: z.number().min(0).max(1),
+      maxLevels: z.number().int().min(1).max(3),
+      isActive: z.boolean().default(true),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const { id, ...data } = input;
+      if (id) {
+        return ctx.prisma.agentCommissionConfig.update({ where: { id }, data });
+      }
+      return ctx.prisma.agentCommissionConfig.create({ data });
+    }),
+
+  listAgents: merchantProcedure
+    .input(
+      z
+        .object({
+          page: z.number().int().min(1).default(1),
+          pageSize: z.number().int().min(1).max(50).default(20),
+        })
+        .optional(),
+    )
+    .query(async ({ ctx, input }) => {
+      const page = input?.page ?? 1;
+      const pageSize = input?.pageSize ?? 20;
+      const [agents, total] = await Promise.all([
+        ctx.prisma.user.findMany({
+          where: { role: "AGENT" },
+          orderBy: { createdAt: "desc" },
+          skip: (page - 1) * pageSize,
+          take: pageSize,
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            createdAt: true,
+            parentAgentId: true,
+            _count: { select: { downline: true, agentCommissions: true } },
+          },
+        }),
+        ctx.prisma.user.count({ where: { role: "AGENT" } }),
+      ]);
+
+      const agentIds = agents.map((a) => a.id);
+      const sums = agentIds.length
+        ? await ctx.prisma.agentCommission.groupBy({
+            by: ["agentId", "status"],
+            where: { agentId: { in: agentIds } },
+            _sum: { amount: true },
+          })
+        : [];
+
+      const totalsByAgent = new Map<
+        string,
+        { pending: number; paid: number }
+      >();
+      for (const s of sums) {
+        const cur = totalsByAgent.get(s.agentId) ?? { pending: 0, paid: 0 };
+        if (s.status === "PENDING") cur.pending = Number(s._sum.amount ?? 0);
+        if (s.status === "PAID") cur.paid = Number(s._sum.amount ?? 0);
+        totalsByAgent.set(s.agentId, cur);
+      }
+
+      return {
+        agents: agents.map((a) => ({
+          ...a,
+          pendingAmount: totalsByAgent.get(a.id)?.pending ?? 0,
+          paidAmount: totalsByAgent.get(a.id)?.paid ?? 0,
+        })),
+        total,
+        page,
+        pageSize,
+      };
+    }),
+
+  listAgentCommissions: merchantProcedure
+    .input(
+      z
+        .object({
+          status: z.enum(["PENDING", "PAID", "REVOKED"]).optional(),
+          agentId: z.string().optional(),
+          page: z.number().int().min(1).default(1),
+          pageSize: z.number().int().min(1).max(100).default(30),
+        })
+        .optional(),
+    )
+    .query(async ({ ctx, input }) => {
+      const page = input?.page ?? 1;
+      const pageSize = input?.pageSize ?? 30;
+      const where = {
+        ...(input?.status ? { status: input.status } : {}),
+        ...(input?.agentId ? { agentId: input.agentId } : {}),
+      };
+      const [rows, total] = await Promise.all([
+        ctx.prisma.agentCommission.findMany({
+          where,
+          orderBy: { createdAt: "desc" },
+          skip: (page - 1) * pageSize,
+          take: pageSize,
+          include: {
+            agent: { select: { id: true, name: true, email: true } },
+            order: { select: { id: true, productId: true, cashPaid: true } },
+          },
+        }),
+        ctx.prisma.agentCommission.count({ where }),
+      ]);
+      return { rows, total, page, pageSize };
+    }),
+
+  markAgentCommissionPaid: adminProcedure
+    .input(z.object({ id: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      return ctx.prisma.agentCommission.update({
+        where: { id: input.id },
+        data: { status: "PAID", paidAt: new Date() },
+      });
+    }),
+
+  setUserParentAgent: adminProcedure
+    .input(
+      z.object({
+        userId: z.string(),
+        parentAgentId: z.string().nullable(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      if (input.parentAgentId === input.userId) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "不能将自己设为上级代理",
+        });
+      }
+      return ctx.prisma.user.update({
+        where: { id: input.userId },
+        data: { parentAgentId: input.parentAgentId },
+      });
+    }),
+
   listAdSlots: merchantProcedure.query(async ({ ctx }) => {
     return ctx.prisma.adSlot.findMany({
       orderBy: { sortOrder: "asc" },

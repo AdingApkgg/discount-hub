@@ -86,6 +86,25 @@ function mockPrisma() {
       update: vi.fn(),
       delete: vi.fn(),
     },
+    agentCommissionConfig: {
+      findFirst: vi.fn().mockResolvedValue(null),
+      create: vi.fn(),
+      update: vi.fn(),
+    },
+    agentCommission: {
+      findMany: vi.fn().mockResolvedValue([]),
+      count: vi.fn().mockResolvedValue(0),
+      create: vi.fn(),
+      update: vi.fn(),
+      aggregate: vi.fn().mockResolvedValue({ _sum: { amount: null }, _count: 0 }),
+      groupBy: vi.fn().mockResolvedValue([]),
+    },
+    agentApplication: {
+      findUnique: vi.fn().mockResolvedValue(null),
+      update: vi.fn(),
+      create: vi.fn(),
+      findMany: vi.fn().mockResolvedValue([]),
+    },
     taskCompletion: {
       findFirst: vi.fn().mockResolvedValue(null),
       findMany: vi.fn().mockResolvedValue([]),
@@ -145,13 +164,13 @@ const mockHeaders = new Headers({
   "user-agent": "vitest",
 });
 
-function makeCaller(
-  user:
-    | typeof mockConsumer
-    | typeof mockMerchant
-    | typeof mockAdmin
-    | null = null,
-) {
+type AnyMockUser =
+  | typeof mockConsumer
+  | typeof mockMerchant
+  | typeof mockAdmin
+  | { id: string; email: string; name: string; role: "AGENT"; points: number; vipLevel: number };
+
+function makeCaller(user: AnyMockUser | null = null) {
   const ctx = {
     prisma: mockPrismaInstance as unknown as CallerContext["prisma"],
     redis: mockRedis as unknown as CallerContext["redis"],
@@ -2320,5 +2339,171 @@ describe("admin.redemptionGuide CRUD", () => {
         isActive: true,
       }),
     ).rejects.toThrow();
+  });
+});
+
+// ════════════════════════════════════════════════════
+// Agent Commission
+// ════════════════════════════════════════════════════
+
+const mockAgent = {
+  id: "agent-1",
+  email: "agent@example.com",
+  name: "Agent",
+  role: "AGENT" as const,
+  points: 0,
+  vipLevel: 0,
+};
+
+describe("agent router commissions", () => {
+  beforeEach(() => {
+    mockPrismaInstance = mockPrisma();
+    vi.clearAllMocks();
+  });
+
+  it("commissionSummary aggregates pending + paid + downline", async () => {
+    mockPrismaInstance.agentCommission.aggregate
+      .mockResolvedValueOnce({ _sum: { amount: 123.45 }, _count: 5 })
+      .mockResolvedValueOnce({ _sum: { amount: 678.9 }, _count: 12 });
+    mockPrismaInstance.user.count.mockResolvedValue(8);
+
+    const caller = makeCaller(mockAgent);
+    const result = await caller.agent.commissionSummary();
+
+    expect(result).toEqual({
+      pendingAmount: 123.45,
+      pendingCount: 5,
+      paidAmount: 678.9,
+      paidCount: 12,
+      downlineCount: 8,
+    });
+  });
+
+  it("commissionSummary handles null sum as zero", async () => {
+    mockPrismaInstance.agentCommission.aggregate
+      .mockResolvedValueOnce({ _sum: { amount: null }, _count: 0 })
+      .mockResolvedValueOnce({ _sum: { amount: null }, _count: 0 });
+    mockPrismaInstance.user.count.mockResolvedValue(0);
+
+    const caller = makeCaller(mockAgent);
+    const result = await caller.agent.commissionSummary();
+
+    expect(result.pendingAmount).toBe(0);
+    expect(result.paidAmount).toBe(0);
+  });
+
+  it("myCommissions filters by status", async () => {
+    mockPrismaInstance.agentCommission.findMany.mockResolvedValue([]);
+
+    const caller = makeCaller(mockAgent);
+    await caller.agent.myCommissions({ status: "PAID", limit: 50 });
+
+    expect(mockPrismaInstance.agentCommission.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { agentId: "agent-1", status: "PAID" },
+      }),
+    );
+  });
+
+  it("myDownline lists users where parentAgentId matches", async () => {
+    mockPrismaInstance.user.findMany.mockResolvedValue([
+      { id: "u2", email: "x@y.com", role: "CONSUMER", createdAt: new Date() },
+    ]);
+
+    const caller = makeCaller(mockAgent);
+    const result = await caller.agent.myDownline();
+
+    expect(result).toHaveLength(1);
+    expect(mockPrismaInstance.user.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { parentAgentId: "agent-1" },
+      }),
+    );
+  });
+
+  it("commissionSummary requires AGENT or ADMIN role", async () => {
+    const caller = makeCaller(mockConsumer);
+    await expect(caller.agent.commissionSummary()).rejects.toThrow("仅代理商可访问");
+  });
+});
+
+describe("admin agent commission CRUD", () => {
+  beforeEach(() => {
+    mockPrismaInstance = mockPrisma();
+    vi.clearAllMocks();
+  });
+
+  it("getAgentCommissionConfig returns defaults when no row", async () => {
+    mockPrismaInstance.agentCommissionConfig.findFirst.mockResolvedValue(null);
+
+    const caller = makeCaller(mockMerchant);
+    const result = await caller.admin.getAgentCommissionConfig();
+
+    expect(result.level1Rate).toBe(0.1);
+    expect(result.level2Rate).toBe(0.05);
+    expect(result.maxLevels).toBe(2);
+  });
+
+  it("upsertAgentCommissionConfig creates when no id", async () => {
+    mockPrismaInstance.agentCommissionConfig.create.mockResolvedValue({ id: "new" });
+
+    const caller = makeCaller(mockAdmin);
+    await caller.admin.upsertAgentCommissionConfig({
+      level1Rate: 0.15,
+      level2Rate: 0.05,
+      level3Rate: 0,
+      maxLevels: 2,
+      isActive: true,
+    });
+
+    expect(mockPrismaInstance.agentCommissionConfig.create).toHaveBeenCalled();
+  });
+
+  it("markAgentCommissionPaid sets status PAID and paidAt", async () => {
+    mockPrismaInstance.agentCommission.update.mockResolvedValue({});
+
+    const caller = makeCaller(mockAdmin);
+    await caller.admin.markAgentCommissionPaid({ id: "c1" });
+
+    expect(mockPrismaInstance.agentCommission.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "c1" },
+        data: expect.objectContaining({ status: "PAID" }),
+      }),
+    );
+  });
+
+  it("setUserParentAgent rejects setting self as parent", async () => {
+    const caller = makeCaller(mockAdmin);
+    await expect(
+      caller.admin.setUserParentAgent({ userId: "u1", parentAgentId: "u1" }),
+    ).rejects.toThrow("不能将自己设为上级代理");
+  });
+
+  it("listAgents includes pending+paid amounts per agent", async () => {
+    mockPrismaInstance.user.findMany.mockResolvedValue([
+      {
+        id: "a1",
+        name: "Agent 1",
+        email: "a@a",
+        createdAt: new Date(),
+        parentAgentId: null,
+        _count: { downline: 2, agentCommissions: 5 },
+      },
+    ]);
+    mockPrismaInstance.user.count.mockResolvedValue(1);
+    mockPrismaInstance.agentCommission.groupBy.mockResolvedValue([
+      { agentId: "a1", status: "PENDING", _sum: { amount: 50 } },
+      { agentId: "a1", status: "PAID", _sum: { amount: 200 } },
+    ]);
+
+    const caller = makeCaller(mockMerchant);
+    const result = await caller.admin.listAgents();
+
+    expect(result.agents).toHaveLength(1);
+    expect(result.agents[0]).toMatchObject({
+      pendingAmount: 50,
+      paidAmount: 200,
+    });
   });
 });

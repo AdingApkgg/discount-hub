@@ -200,6 +200,41 @@ async function finalizeOrderPayment(params: {
       });
     }
 
+    if (order.user.parentAgentId) {
+      const cfg = await tx.agentCommissionConfig.findFirst({
+        where: { isActive: true },
+        orderBy: { updatedAt: "desc" },
+      });
+      if (cfg) {
+        const cashBase = Number(order.cashPaid);
+        const rates = [cfg.level1Rate, cfg.level2Rate, cfg.level3Rate];
+        const maxLevels = Math.min(cfg.maxLevels, 3);
+        let currentParentId: string | null = order.user.parentAgentId;
+        for (let level = 1; level <= maxLevels && currentParentId; level++) {
+          const rate = rates[level - 1] ?? 0;
+          const amount = Math.round(cashBase * rate * 100) / 100;
+          if (rate > 0 && amount > 0) {
+            await tx.agentCommission.create({
+              data: {
+                agentId: currentParentId,
+                orderId: paidOrder.id,
+                buyerId: order.userId,
+                level,
+                amount,
+                rate,
+              },
+            });
+          }
+          const parent: { parentAgentId: string | null } | null =
+            await tx.user.findUnique({
+              where: { id: currentParentId },
+              select: { parentAgentId: true },
+            });
+          currentParentId = parent?.parentAgentId ?? null;
+        }
+      }
+    }
+
     return {
       order: paidOrder,
       coupon,

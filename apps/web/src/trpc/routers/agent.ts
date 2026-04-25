@@ -107,4 +107,68 @@ export const agentRouter = createTRPCRouter({
 
       return application;
     }),
+
+  myCommissions: agentProcedure
+    .input(
+      z
+        .object({
+          status: z.enum(["PENDING", "PAID", "REVOKED"]).optional(),
+          limit: z.number().int().min(1).max(100).default(50),
+        })
+        .optional(),
+    )
+    .query(async ({ ctx, input }) => {
+      return ctx.prisma.agentCommission.findMany({
+        where: {
+          agentId: ctx.user.id,
+          ...(input?.status ? { status: input.status } : {}),
+        },
+        orderBy: { createdAt: "desc" },
+        take: input?.limit ?? 50,
+        include: {
+          order: { select: { id: true, productId: true, cashPaid: true } },
+        },
+      });
+    }),
+
+  commissionSummary: agentProcedure.query(async ({ ctx }) => {
+    const [pending, paid, downlineCount] = await Promise.all([
+      ctx.prisma.agentCommission.aggregate({
+        where: { agentId: ctx.user.id, status: "PENDING" },
+        _sum: { amount: true },
+        _count: true,
+      }),
+      ctx.prisma.agentCommission.aggregate({
+        where: { agentId: ctx.user.id, status: "PAID" },
+        _sum: { amount: true },
+        _count: true,
+      }),
+      ctx.prisma.user.count({
+        where: { parentAgentId: ctx.user.id },
+      }),
+    ]);
+
+    return {
+      pendingAmount: Number(pending._sum.amount ?? 0),
+      pendingCount: pending._count,
+      paidAmount: Number(paid._sum.amount ?? 0),
+      paidCount: paid._count,
+      downlineCount,
+    };
+  }),
+
+  myDownline: agentProcedure.query(async ({ ctx }) => {
+    return ctx.prisma.user.findMany({
+      where: { parentAgentId: ctx.user.id },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        createdAt: true,
+      },
+      orderBy: { createdAt: "desc" },
+      take: 100,
+    });
+  }),
 });

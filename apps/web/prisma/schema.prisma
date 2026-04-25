@@ -24,6 +24,9 @@ model User {
   invitedById   String?
   invitedBy     User?     @relation("Referral", fields: [invitedById], references: [id])
   referrals     User[]    @relation("Referral")
+  parentAgentId String?
+  parentAgent   User?     @relation("AgentDownline", fields: [parentAgentId], references: [id])
+  downline      User[]    @relation("AgentDownline")
   isBanned      Boolean   @default(false)
   banReason     String?
   bannedAt      DateTime?
@@ -42,6 +45,7 @@ model User {
   favorites        Favorite[]
   footprints       Footprint[]
   agentApplication AgentApplication?
+  agentCommissions AgentCommission[]    @relation("CommissionAgent")
   auditLogs        AuditLog[]           @relation("AuditActor")
   noticeReads      NoticeRead[]
 
@@ -171,6 +175,7 @@ model Order {
   product Product  @relation(fields: [productId], references: [id])
   coupon  Coupon?
   coupons Coupon[] @relation("BulkCoupons")
+  agentCommissions AgentCommission[]
 
   @@index([userId, status])
   @@index([productId])
@@ -359,6 +364,46 @@ model AgentApplication {
   user User @relation(fields: [userId], references: [id])
 
   @@map("agent_applications")
+}
+
+// ─── Agent Commission / 代理佣金 ───────────────────
+
+enum AgentCommissionStatus {
+  PENDING
+  PAID
+  REVOKED
+}
+
+model AgentCommissionConfig {
+  id         String   @id @default(cuid())
+  level1Rate Float    @default(0.1)
+  level2Rate Float    @default(0.05)
+  level3Rate Float    @default(0.0)
+  maxLevels  Int      @default(2)
+  isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@map("agent_commission_configs")
+}
+
+model AgentCommission {
+  id        String                @id @default(cuid())
+  agentId   String
+  agent     User                  @relation("CommissionAgent", fields: [agentId], references: [id])
+  orderId   String
+  order     Order                 @relation(fields: [orderId], references: [id])
+  buyerId   String
+  level     Int
+  amount    Decimal               @db.Decimal(10, 2)
+  rate      Float
+  status    AgentCommissionStatus @default(PENDING)
+  paidAt    DateTime?
+  createdAt DateTime              @default(now())
+
+  @@index([agentId, status, createdAt])
+  @@index([orderId])
+  @@map("agent_commissions")
 }
 
 // ─── Incentive Config / 激励策略配置 ────────────────

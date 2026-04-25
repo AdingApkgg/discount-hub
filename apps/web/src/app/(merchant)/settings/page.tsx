@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ClipboardList, Gift, Headphones, Image, Loader2, Plus, Save, Share2, Store, Bell, Shield, Palette, Sun, Moon, Monitor, Trash2, Zap } from "lucide-react";
+import { CheckCircle, ClipboardList, Gift, Headphones, Image, Loader2, Plus, Save, Share2, Store, Bell, Shield, Palette, Sun, Moon, Monitor, Trash2, Users, Zap } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTheme } from "next-themes";
 import { toast } from "sonner";
@@ -1460,6 +1460,255 @@ function RedemptionGuideTab() {
   );
 }
 
+function AgentCommissionTab() {
+  const trpc = useTRPC();
+  const queryClient = useQueryClient();
+  const { data: cfg, isLoading: cfgLoading } = useQuery(
+    trpc.admin.getAgentCommissionConfig.queryOptions(),
+  );
+  const { data: agentsResp, isLoading: agentsLoading } = useQuery(
+    trpc.admin.listAgents.queryOptions(),
+  );
+  const { data: pendingResp, isLoading: pendingLoading } = useQuery(
+    trpc.admin.listAgentCommissions.queryOptions({
+      status: "PENDING",
+      page: 1,
+      pageSize: 30,
+    }),
+  );
+  const upsertConfig = useMutation(trpc.admin.upsertAgentCommissionConfig.mutationOptions());
+  const markPaid = useMutation(trpc.admin.markAgentCommissionPaid.mutationOptions());
+
+  const [form, setForm] = useState({
+    level1Rate: 0.1,
+    level2Rate: 0.05,
+    level3Rate: 0,
+    maxLevels: 2,
+    isActive: true,
+  });
+
+  useEffect(() => {
+    if (cfg) {
+      setForm({
+        level1Rate: cfg.level1Rate,
+        level2Rate: cfg.level2Rate,
+        level3Rate: cfg.level3Rate,
+        maxLevels: cfg.maxLevels,
+        isActive: cfg.isActive,
+      });
+    }
+  }, [cfg]);
+
+  async function handleSaveConfig() {
+    try {
+      await upsertConfig.mutateAsync({
+        ...form,
+        id: cfg?.id || undefined,
+      });
+      await queryClient.invalidateQueries();
+      toast.success("佣金规则已保存");
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "保存失败");
+    }
+  }
+
+  async function handleMarkPaid(id: string) {
+    try {
+      await markPaid.mutateAsync({ id });
+      await queryClient.invalidateQueries();
+      toast.success("已标记为已支付");
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "操作失败");
+    }
+  }
+
+  return (
+    <div className="space-y-4">
+      <Card className="border-border">
+        <CardContent className="p-6 space-y-4">
+          <div>
+            <h3 className="text-sm font-medium text-foreground">佣金规则</h3>
+            <p className="text-xs text-muted-foreground mt-1">
+              订单支付完成时按下方比例计算各级代理佣金。比例 0–1，例如 0.1 = 10%。基数为订单现金支付额。
+            </p>
+          </div>
+          {cfgLoading ? (
+            <Loader2 className="h-5 w-5 animate-spin mx-auto" />
+          ) : (
+            <>
+              <div className="grid grid-cols-3 gap-3">
+                <div className="space-y-1">
+                  <Label className="text-xs">一级佣金率</Label>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    min={0}
+                    max={1}
+                    value={form.level1Rate}
+                    onChange={(e) => setForm({ ...form, level1Rate: Number(e.target.value) })}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">二级佣金率</Label>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    min={0}
+                    max={1}
+                    value={form.level2Rate}
+                    onChange={(e) => setForm({ ...form, level2Rate: Number(e.target.value) })}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">三级佣金率</Label>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    min={0}
+                    max={1}
+                    value={form.level3Rate}
+                    onChange={(e) => setForm({ ...form, level3Rate: Number(e.target.value) })}
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-3 gap-3 items-end">
+                <div className="space-y-1">
+                  <Label className="text-xs">最大分润层级</Label>
+                  <Input
+                    type="number"
+                    min={1}
+                    max={3}
+                    value={form.maxLevels}
+                    onChange={(e) => setForm({ ...form, maxLevels: Number(e.target.value) })}
+                  />
+                </div>
+                <div className="flex items-center gap-2">
+                  <Switch
+                    checked={form.isActive}
+                    onCheckedChange={(v) => setForm({ ...form, isActive: v })}
+                  />
+                  <Label className="text-xs">启用</Label>
+                </div>
+                <Button
+                  size="sm"
+                  className="ml-auto"
+                  onClick={handleSaveConfig}
+                  disabled={upsertConfig.isPending}
+                >
+                  {upsertConfig.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                  保存规则
+                </Button>
+              </div>
+            </>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card className="border-border">
+        <CardContent className="p-6 space-y-3">
+          <div className="flex items-center gap-2">
+            <Users className="h-4 w-4 text-muted-foreground" />
+            <h3 className="text-sm font-medium text-foreground">代理商列表</h3>
+            {agentsResp && (
+              <span className="text-xs text-muted-foreground">
+                共 {agentsResp.total} 人
+              </span>
+            )}
+          </div>
+          {agentsLoading ? (
+            <Loader2 className="h-5 w-5 animate-spin mx-auto" />
+          ) : !agentsResp || agentsResp.agents.length === 0 ? (
+            <div className="rounded-lg border border-dashed border-border bg-secondary/30 p-8 text-center text-sm text-muted-foreground">
+              暂无代理商
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {agentsResp.agents.map((a) => (
+                <div
+                  key={a.id}
+                  className="flex items-center justify-between rounded-lg border border-border p-3"
+                >
+                  <div className="min-w-0">
+                    <div className="text-sm font-medium text-foreground">
+                      {a.name ?? a.email}
+                    </div>
+                    <div className="mt-0.5 text-xs text-muted-foreground">
+                      下级 {a._count.downline} 人 · 总佣金条数 {a._count.agentCommissions}
+                    </div>
+                  </div>
+                  <div className="text-right text-xs">
+                    <div className="text-amber-500">
+                      待支付 ¥{a.pendingAmount.toFixed(2)}
+                    </div>
+                    <div className="text-emerald-500 mt-0.5">
+                      已支付 ¥{a.paidAmount.toFixed(2)}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card className="border-border">
+        <CardContent className="p-6 space-y-3">
+          <div className="flex items-center gap-2">
+            <h3 className="text-sm font-medium text-foreground">待支付佣金</h3>
+            {pendingResp && (
+              <span className="text-xs text-muted-foreground">
+                共 {pendingResp.total} 条
+              </span>
+            )}
+          </div>
+          {pendingLoading ? (
+            <Loader2 className="h-5 w-5 animate-spin mx-auto" />
+          ) : !pendingResp || pendingResp.rows.length === 0 ? (
+            <div className="rounded-lg border border-dashed border-border bg-secondary/30 p-8 text-center text-sm text-muted-foreground">
+              暂无待支付佣金
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {pendingResp.rows.map((c) => (
+                <div
+                  key={c.id}
+                  className="flex items-center justify-between rounded-lg border border-border p-3"
+                >
+                  <div className="min-w-0">
+                    <div className="text-sm font-medium text-foreground">
+                      {c.agent.name ?? c.agent.email}
+                      <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-500">
+                        L{c.level}
+                      </span>
+                    </div>
+                    <div className="mt-0.5 text-xs text-muted-foreground">
+                      订单 {c.orderId.slice(-8)} · 比例 {Math.round(c.rate * 100)}% · {new Date(c.createdAt).toLocaleString("zh-CN")}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <div className="text-sm font-bold text-amber-600">
+                      ¥{Number(c.amount).toFixed(2)}
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => handleMarkPaid(c.id)}
+                      disabled={markPaid.isPending}
+                    >
+                      <CheckCircle className="h-3.5 w-3.5 mr-1" />
+                      标记已付
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
 export default function SettingsPage() {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
@@ -1612,6 +1861,12 @@ export default function SettingsPage() {
           <TabsTrigger value="redemption" className="gap-2">
             <Gift className="h-4 w-4" />
             兑换引导
+          </TabsTrigger>
+          ) : null}
+          {isAdmin ? (
+          <TabsTrigger value="agent-commission" className="gap-2">
+            <Users className="h-4 w-4" />
+            代理佣金
           </TabsTrigger>
           ) : null}
           <TabsTrigger value="appearance" className="gap-2">
@@ -1835,6 +2090,12 @@ export default function SettingsPage() {
         {isAdmin ? (
         <TabsContent value="redemption">
           <RedemptionGuideTab />
+        </TabsContent>
+        ) : null}
+
+        {isAdmin ? (
+        <TabsContent value="agent-commission">
+          <AgentCommissionTab />
         </TabsContent>
         ) : null}
 
