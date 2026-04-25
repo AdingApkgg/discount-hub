@@ -1444,16 +1444,51 @@ describe("user router", () => {
       _count: { referrals: 0, orders: 3, coupons: 2 },
     };
     mockPrismaInstance.user.findUnique.mockResolvedValue(profile);
-    mockPrismaInstance.order.aggregate.mockResolvedValue({
-      _sum: { pointsPaid: null },
-    });
+    mockPrismaInstance.order.findMany.mockResolvedValue([]);
 
     const caller = makeCaller(mockConsumer);
     const result = await caller.user.me();
 
     expect(result).toEqual({
       ...profile,
+      totalSavingsCents: 0,
       totalSavingsPoints: 0,
+    });
+  });
+
+  it("me computes savings as originalCashPrice * qty - cashPaid", async () => {
+    const profile = {
+      id: "user-1",
+      _count: { referrals: 0, orders: 2, coupons: 0 },
+    };
+    mockPrismaInstance.user.findUnique.mockResolvedValue(profile);
+    mockPrismaInstance.order.findMany.mockResolvedValue([
+      {
+        qty: 2,
+        cashPaid: 30,
+        pointsPaid: 5000,
+        product: { originalCashPrice: 50, cashPrice: 20 },
+      },
+      {
+        qty: 1,
+        cashPaid: 10,
+        pointsPaid: 0,
+        product: { originalCashPrice: null, cashPrice: 10 },
+      },
+      {
+        qty: 1,
+        cashPaid: 80,
+        pointsPaid: 0,
+        product: { originalCashPrice: 60, cashPrice: 60 },
+      },
+    ]);
+
+    const caller = makeCaller(mockConsumer);
+    const result = await caller.user.me();
+
+    expect(result).toMatchObject({
+      totalSavingsCents: 7000,
+      totalSavingsPoints: 5000,
     });
   });
 

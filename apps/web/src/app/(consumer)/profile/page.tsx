@@ -70,10 +70,9 @@ function ProfileHeader({
   const vipLevel = profile?.vipLevel ?? 0;
   const vipLabel = vipLevel <= 0 ? "普通会员" : `VIP${vipLevel}`;
   const points = profile?.points ?? 0;
-  const savingsPts =
-    (profile as { totalSavingsPoints?: number } | undefined)
-      ?.totalSavingsPoints ?? 0;
-  const savingsYuan = savingsPts / 100;
+  const savingsCents = profile?.totalSavingsCents ?? 0;
+  const savingsYuan = savingsCents / 100;
+  const savingsPts = profile?.totalSavingsPoints ?? 0;
 
   return (
     <div className="relative overflow-hidden rounded-2xl bg-[linear-gradient(135deg,#FE2C55_0%,#FF4D6A_50%,#FF6E37_100%)] px-4 pb-3 pt-4 text-white shadow-[0_10px_24px_rgba(254,44,85,0.22)]">

@@ -23,14 +23,30 @@ export const userRouter = createTRPCRouter({
     });
     if (!user) return null;
 
-    const savings = await ctx.prisma.order.aggregate({
+    const paidOrders = await ctx.prisma.order.findMany({
       where: { userId: ctx.user.id, status: "PAID" },
-      _sum: { pointsPaid: true },
+      select: {
+        qty: true,
+        cashPaid: true,
+        pointsPaid: true,
+        product: { select: { originalCashPrice: true, cashPrice: true } },
+      },
     });
+
+    let totalSavingsCents = 0;
+    let totalPointsPaid = 0;
+    for (const o of paidOrders) {
+      totalPointsPaid += o.pointsPaid;
+      const original = o.product.originalCashPrice ?? o.product.cashPrice;
+      const originalTotal = Number(original) * o.qty;
+      const saved = originalTotal - Number(o.cashPaid);
+      if (saved > 0) totalSavingsCents += Math.round(saved * 100);
+    }
 
     return {
       ...user,
-      totalSavingsPoints: savings._sum.pointsPaid ?? 0,
+      totalSavingsCents,
+      totalSavingsPoints: totalPointsPaid,
     };
   }),
 
