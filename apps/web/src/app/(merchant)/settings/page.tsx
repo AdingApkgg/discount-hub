@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { CheckCircle, ClipboardList, Code2, Copy, Gift, Headphones, Image, KeyRound, Loader2, Lock, Plus, Save, Share2, ShieldAlert, Store, Bell, Shield, Palette, Sun, Moon, Monitor, Trash2, Unlock, Users, Zap } from "lucide-react";
+import { CheckCircle, ClipboardList, Code2, Copy, FileText, Gift, Headphones, Image, KeyRound, Loader2, Lock, Plus, Save, Share2, ShieldAlert, Store, Bell, Shield, Palette, Sun, Moon, Monitor, Trash2, Unlock, Users, Zap } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTheme } from "next-themes";
 import { toast } from "sonner";
@@ -59,6 +59,42 @@ const themeOptions = [
   },
 ] as const;
 
+function parseNumberList(input: string): number[] {
+  return input
+    .split(/[,\n]/)
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .map((s) => Number(s))
+    .filter((n) => Number.isFinite(n) && n >= 0)
+    .map((n) => Math.round(n));
+}
+
+function parseNumberMap(input: string): Record<string, number> {
+  const out: Record<string, number> = {};
+  for (const line of input.split(/\n/)) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+    const [k, v] = trimmed.split(/[:=]/).map((s) => s.trim());
+    if (!k) continue;
+    const num = Number(v);
+    if (Number.isFinite(num)) out[k] = num;
+  }
+  return out;
+}
+
+function stringifyNumberList(arr: unknown): string {
+  if (!Array.isArray(arr)) return "";
+  return arr.filter((v) => typeof v === "number").join(", ");
+}
+
+function stringifyNumberMap(obj: unknown): string {
+  if (!obj || typeof obj !== "object" || Array.isArray(obj)) return "";
+  return Object.entries(obj as Record<string, unknown>)
+    .filter(([, v]) => typeof v === "number")
+    .map(([k, v]) => `${k}: ${v}`)
+    .join("\n");
+}
+
 function IncentiveTab() {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
@@ -74,6 +110,20 @@ function IncentiveTab() {
       referralReward: config?.referralReward ?? 1000,
       refereeReward: config?.refereeReward ?? 500,
       streakBonusThreshold: config?.streakBonusThreshold ?? 3,
+      vipPointsPerLevel: (config as { vipPointsPerLevel?: number } | undefined)?.vipPointsPerLevel ?? 500,
+      vipMaxLevel: (config as { vipMaxLevel?: number } | undefined)?.vipMaxLevel ?? 10,
+      checkinRewardsText: stringifyNumberList(
+        (config as { checkinRewards?: unknown } | undefined)?.checkinRewards,
+      ) || "200, 3000, 300, 500, 800, 1200, 10000",
+      vipCheckinBonusText: stringifyNumberMap(
+        (config as { vipCheckinBonusByLevel?: unknown } | undefined)?.vipCheckinBonusByLevel,
+      ) || "0: 0\n1: 0.05\n2: 0.10\n3: 0.15\n4: 0.20",
+      taskRewardsText: stringifyNumberMap(
+        (config as { taskRewards?: unknown } | undefined)?.taskRewards,
+      ) || "browse: 100\npurchase: 100\nshare: 80\nc1: 30\nc2: 30\nc3: 40\nc4: 50",
+      inviteVipBonusText: stringifyNumberMap(
+        (config as { inviteVipBonusByLevel?: unknown } | undefined)?.inviteVipBonusByLevel,
+      ) || "1: 300\n2: 200\n3: 200\n4: 100\n5: 100",
     }),
     [config],
   );
@@ -92,8 +142,32 @@ function IncentiveTab() {
   }
 
   async function handleSave() {
+    const checkinRewards = parseNumberList(form.checkinRewardsText);
+    const vipCheckinBonusByLevel = parseNumberMap(form.vipCheckinBonusText);
+    const taskRewards = parseNumberMap(form.taskRewardsText);
+    const inviteVipBonusByLevel = parseNumberMap(form.inviteVipBonusText);
+
+    if (checkinRewards.length === 0) {
+      toast.error("签到奖励数组不能为空");
+      return;
+    }
+
     try {
-      await saveMutation.mutateAsync(form);
+      await saveMutation.mutateAsync({
+        newUserBonusPoints: form.newUserBonusPoints,
+        newUserBonusDays: form.newUserBonusDays,
+        newUserCheckinMulti: form.newUserCheckinMulti,
+        oldUserCheckinMulti: form.oldUserCheckinMulti,
+        referralReward: form.referralReward,
+        refereeReward: form.refereeReward,
+        streakBonusThreshold: form.streakBonusThreshold,
+        vipPointsPerLevel: form.vipPointsPerLevel,
+        vipMaxLevel: form.vipMaxLevel,
+        checkinRewards,
+        vipCheckinBonusByLevel,
+        taskRewards,
+        inviteVipBonusByLevel,
+      });
       await queryClient.invalidateQueries();
       setDirty(false);
       toast.success("激励策略已更新");
@@ -208,6 +282,110 @@ function IncentiveTab() {
               0 = 关闭；签到天数 ≥ 此值后每多此值天 +1 级
             </p>
           </div>
+        </div>
+
+        <Separator />
+
+        <div>
+          <h3 className="text-sm font-medium text-foreground">VIP 等级</h3>
+          <p className="mt-1 text-xs text-muted-foreground">
+            积分自动晋级 VIP 的规则。每攒满 N 积分自动 +1 级，封顶为最高等级。
+          </p>
+        </div>
+
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="space-y-2">
+            <Label>每级所需积分</Label>
+            <Input
+              type="number"
+              min={1}
+              value={form.vipPointsPerLevel}
+              onChange={(e) => update("vipPointsPerLevel", Number(e.target.value))}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>VIP 最高等级</Label>
+            <Input
+              type="number"
+              min={1}
+              max={100}
+              value={form.vipMaxLevel}
+              onChange={(e) => update("vipMaxLevel", Number(e.target.value))}
+            />
+          </div>
+        </div>
+
+        <Separator />
+
+        <div>
+          <h3 className="text-sm font-medium text-foreground">每日签到奖励</h3>
+          <p className="mt-1 text-xs text-muted-foreground">
+            一个签到周期内每天奖励的积分（按数组顺序），数组长度 = 周期天数。可用逗号或换行分隔。
+          </p>
+        </div>
+
+        <div className="space-y-2">
+          <Label>签到奖励数组</Label>
+          <Textarea
+            rows={2}
+            value={form.checkinRewardsText}
+            onChange={(e) => update("checkinRewardsText", e.target.value)}
+            placeholder="200, 3000, 300, 500, 800, 1200, 10000"
+          />
+          <p className="text-xs text-muted-foreground">
+            示例：<code>200, 3000, 300, 500, 800, 1200, 10000</code>（7 天周期）
+          </p>
+        </div>
+
+        <div className="space-y-2">
+          <Label>VIP 等级签到加成（每行 “等级: 加成比例”）</Label>
+          <Textarea
+            rows={5}
+            value={form.vipCheckinBonusText}
+            onChange={(e) => update("vipCheckinBonusText", e.target.value)}
+            placeholder={"0: 0\n1: 0.05\n2: 0.10"}
+          />
+          <p className="text-xs text-muted-foreground">
+            示例：<code>2: 0.10</code> 表示 VIP2 用户签到奖励 ×1.10。未列出的等级使用最高已配置值。
+          </p>
+        </div>
+
+        <Separator />
+
+        <div>
+          <h3 className="text-sm font-medium text-foreground">任务奖励</h3>
+          <p className="mt-1 text-xs text-muted-foreground">
+            服务端权威的每日任务奖励（taskId: 积分）。已在「任务模板」里单独配置 reward 的会优先使用。
+          </p>
+        </div>
+
+        <div className="space-y-2">
+          <Label>任务奖励表（每行 “任务ID: 积分”）</Label>
+          <Textarea
+            rows={6}
+            value={form.taskRewardsText}
+            onChange={(e) => update("taskRewardsText", e.target.value)}
+            placeholder={"browse: 100\npurchase: 100\nshare: 80"}
+          />
+        </div>
+
+        <Separator />
+
+        <div>
+          <h3 className="text-sm font-medium text-foreground">邀请阶梯奖励</h3>
+          <p className="mt-1 text-xs text-muted-foreground">
+            邀请页展示的「VIP 等级 → 奖励积分」阶梯。前端只展示，不直接发放（实际下发用上面的「邀请人/被邀请人积分」）。
+          </p>
+        </div>
+
+        <div className="space-y-2">
+          <Label>邀请阶梯奖励（每行 “VIP等级: 积分”）</Label>
+          <Textarea
+            rows={5}
+            value={form.inviteVipBonusText}
+            onChange={(e) => update("inviteVipBonusText", e.target.value)}
+            placeholder={"1: 300\n2: 200\n3: 200"}
+          />
         </div>
 
         <div className="flex justify-end">
@@ -2278,6 +2456,254 @@ function AgentCommissionTab() {
   );
 }
 
+type SiteContentValueType = "string" | "text" | "number" | "boolean" | "array" | "object";
+
+type SiteContentItem = {
+  key: string;
+  value: unknown;
+  category: string;
+  label: string;
+  description: string;
+  valueType: SiteContentValueType;
+  sortOrder: number;
+  isOverridden: boolean;
+};
+
+function valueToInput(value: unknown, type: SiteContentValueType): string {
+  if (value === null || value === undefined) return "";
+  switch (type) {
+    case "string":
+    case "text":
+      return typeof value === "string" ? value : String(value);
+    case "number":
+      return typeof value === "number" ? String(value) : String(value ?? "");
+    case "boolean":
+      return value ? "true" : "false";
+    case "array":
+      return Array.isArray(value) ? JSON.stringify(value, null, 2) : "[]";
+    case "object":
+      return typeof value === "object" ? JSON.stringify(value, null, 2) : "{}";
+  }
+}
+
+function inputToValue(input: string, type: SiteContentValueType): { ok: true; value: unknown } | { ok: false; error: string } {
+  switch (type) {
+    case "string":
+    case "text":
+      return { ok: true, value: input };
+    case "number": {
+      const n = Number(input);
+      if (!Number.isFinite(n)) return { ok: false, error: "需要数字" };
+      return { ok: true, value: n };
+    }
+    case "boolean":
+      return { ok: true, value: input === "true" };
+    case "array":
+    case "object": {
+      try {
+        const parsed = JSON.parse(input);
+        if (type === "array" && !Array.isArray(parsed)) return { ok: false, error: "需要 JSON 数组" };
+        if (type === "object" && (typeof parsed !== "object" || Array.isArray(parsed))) {
+          return { ok: false, error: "需要 JSON 对象" };
+        }
+        return { ok: true, value: parsed };
+      } catch {
+        return { ok: false, error: "JSON 解析失败" };
+      }
+    }
+  }
+}
+
+function SiteContentTab() {
+  const trpc = useTRPC();
+  const queryClient = useQueryClient();
+  const { data, isLoading } = useQuery(trpc.admin.listSiteContents.queryOptions(undefined));
+  const saveMutation = useMutation(trpc.admin.bulkUpsertSiteContent.mutationOptions());
+
+  const [edits, setEdits] = useState<Record<string, string>>({});
+  const [activeCategory, setActiveCategory] = useState<string>("");
+
+  const items: SiteContentItem[] = (data?.items as SiteContentItem[] | undefined) ?? [];
+  const categories = data?.categories ?? [];
+
+  const dataKey = useMemo(() => items.map((i) => i.key).join("|"), [items]);
+  const lastDataKeyRef = useRef("");
+  if (dataKey !== lastDataKeyRef.current) {
+    lastDataKeyRef.current = dataKey;
+    if (!activeCategory && categories.length > 0) {
+      setActiveCategory(categories[0].id);
+    }
+  }
+
+  const itemsByCategory = useMemo(() => {
+    const map: Record<string, SiteContentItem[]> = {};
+    for (const item of items) {
+      (map[item.category] ??= []).push(item);
+    }
+    return map;
+  }, [items]);
+
+  function getDraft(item: SiteContentItem): string {
+    return edits[item.key] !== undefined ? edits[item.key] : valueToInput(item.value, item.valueType);
+  }
+
+  function setDraft(key: string, raw: string) {
+    setEdits((prev) => ({ ...prev, [key]: raw }));
+  }
+
+  async function handleSave() {
+    const changed = Object.entries(edits);
+    if (changed.length === 0) {
+      toast.message("没有变更");
+      return;
+    }
+    const payload: { key: string; value: unknown }[] = [];
+    for (const [key, raw] of changed) {
+      const item = items.find((i) => i.key === key);
+      if (!item) continue;
+      const parsed = inputToValue(raw, item.valueType);
+      if (!parsed.ok) {
+        toast.error(`${item.label || item.key}：${parsed.error}`);
+        return;
+      }
+      payload.push({ key, value: parsed.value });
+    }
+    try {
+      await saveMutation.mutateAsync({ items: payload });
+      await queryClient.invalidateQueries();
+      setEdits({});
+      toast.success(`已更新 ${payload.length} 项文案`);
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "保存失败");
+    }
+  }
+
+  if (isLoading) {
+    return (
+      <Card className="border-border">
+        <CardContent className="p-6 flex justify-center">
+          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        </CardContent>
+      </Card>
+    );
+  }
+
+  const dirtyCount = Object.keys(edits).length;
+  const activeItems = (itemsByCategory[activeCategory] ?? []).slice().sort(
+    (a, b) => a.sortOrder - b.sortOrder,
+  );
+  const activeCategoryMeta = categories.find((c) => c.id === activeCategory);
+
+  return (
+    <Card className="border-border">
+      <CardContent className="p-6 space-y-6">
+        <div>
+          <h3 className="text-sm font-medium text-foreground">站点文案</h3>
+          <p className="mt-1 text-xs text-muted-foreground">
+            前台页面的标题、副标题、邀请话术、客服联系方式等。未保存到数据库的项使用代码内置的默认值。
+          </p>
+        </div>
+
+        <div className="flex flex-wrap gap-2">
+          {categories.map((cat) => {
+            const active = cat.id === activeCategory;
+            const count = itemsByCategory[cat.id]?.length ?? 0;
+            return (
+              <button
+                key={cat.id}
+                type="button"
+                onClick={() => setActiveCategory(cat.id)}
+                className={cn(
+                  "rounded-full border px-3 py-1.5 text-xs transition-all",
+                  active
+                    ? "border-primary bg-primary/10 text-primary"
+                    : "border-border text-muted-foreground hover:bg-secondary/50",
+                )}
+              >
+                {cat.label} <span className="ml-1 opacity-60">{count}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        {activeCategoryMeta ? (
+          <p className="text-xs text-muted-foreground">{activeCategoryMeta.description}</p>
+        ) : null}
+
+        <div className="space-y-5">
+          {activeItems.map((item) => {
+            const draft = getDraft(item);
+            const isDirty = edits[item.key] !== undefined;
+            return (
+              <div key={item.key} className="space-y-2">
+                <div className="flex items-center justify-between gap-2">
+                  <Label className="flex items-center gap-2 text-xs">
+                    <span className="font-medium text-foreground">{item.label || item.key}</span>
+                    <code className="rounded bg-secondary/60 px-1.5 py-0.5 text-[10px] text-muted-foreground">
+                      {item.key}
+                    </code>
+                    {!item.isOverridden ? (
+                      <span className="text-[10px] text-muted-foreground">（默认值）</span>
+                    ) : null}
+                    {isDirty ? (
+                      <span className="text-[10px] text-orange-500">已修改</span>
+                    ) : null}
+                  </Label>
+                </div>
+                {item.description ? (
+                  <p className="text-[11px] text-muted-foreground">{item.description}</p>
+                ) : null}
+                {item.valueType === "string" ? (
+                  <Input value={draft} onChange={(e) => setDraft(item.key, e.target.value)} />
+                ) : item.valueType === "number" ? (
+                  <Input
+                    type="number"
+                    value={draft}
+                    onChange={(e) => setDraft(item.key, e.target.value)}
+                  />
+                ) : item.valueType === "boolean" ? (
+                  <div className="flex items-center gap-2">
+                    <Switch
+                      checked={draft === "true"}
+                      onCheckedChange={(v) => setDraft(item.key, v ? "true" : "false")}
+                    />
+                    <span className="text-xs text-muted-foreground">{draft === "true" ? "开启" : "关闭"}</span>
+                  </div>
+                ) : (
+                  <Textarea
+                    rows={item.valueType === "text" ? 3 : 5}
+                    value={draft}
+                    onChange={(e) => setDraft(item.key, e.target.value)}
+                    className={item.valueType === "array" || item.valueType === "object" ? "font-mono text-xs" : ""}
+                  />
+                )}
+              </div>
+            );
+          })}
+        </div>
+
+        <div className="flex items-center justify-between border-t border-border pt-4">
+          <span className="text-xs text-muted-foreground">
+            {dirtyCount > 0 ? `${dirtyCount} 项待保存` : "无未保存修改"}
+          </span>
+          <Button
+            onClick={handleSave}
+            disabled={dirtyCount === 0 || saveMutation.isPending}
+            className="gap-2"
+          >
+            {saveMutation.isPending ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Save className="h-4 w-4" />
+            )}
+            保存文案
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 export default function SettingsPage() {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
@@ -2448,6 +2874,12 @@ export default function SettingsPage() {
           <TabsTrigger value="api-keys" className="gap-2">
             <KeyRound className="h-4 w-4" />
             API 访问
+          </TabsTrigger>
+          ) : null}
+          {isAdmin ? (
+          <TabsTrigger value="site-content" className="gap-2">
+            <FileText className="h-4 w-4" />
+            站点文案
           </TabsTrigger>
           ) : null}
           <TabsTrigger value="appearance" className="gap-2">
@@ -2689,6 +3121,12 @@ export default function SettingsPage() {
         {isAdmin ? (
         <TabsContent value="api-keys">
           <ApiKeyTab />
+        </TabsContent>
+        ) : null}
+
+        {isAdmin ? (
+        <TabsContent value="site-content">
+          <SiteContentTab />
         </TabsContent>
         ) : null}
 

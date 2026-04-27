@@ -6,6 +6,7 @@ import { ArrowLeft, Check, Clock, Loader2, Send } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { useTRPC } from "@/trpc/client";
+import { useSiteContent, asString, asArray } from "@/hooks/use-site-content";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -14,7 +15,7 @@ import { Progress } from "@/components/ui/progress";
 import { appCardClassName, PageHeading } from "@/components/shared";
 import { PageTransition, AnimatedItem, AnimatedSection } from "@/components/motion";
 
-const STEPS = ["填写资料", "审批中", "审核通过", "完成"];
+const FALLBACK_STEPS = ["填写资料", "审批中", "审核通过", "完成"];
 
 function stepIndex(status?: string | null): number {
   if (!status) return 0;
@@ -28,6 +29,12 @@ export default function ApplyAgentPage() {
   const router = useRouter();
   const trpc = useTRPC();
   const queryClient = useQueryClient();
+  const agentContent = useSiteContent("agent");
+  const stepsFromContent = asArray<string>(agentContent["agent.application_steps"]);
+  const STEPS = stepsFromContent.length > 0 ? stepsFromContent : FALLBACK_STEPS;
+  const regionPlaceholder = asString(agentContent["agent.region_placeholder"], "如：中国, 北京, 朝阳");
+  const platformsPlaceholder = asString(agentContent["agent.platforms_placeholder"], "如 YOUTUBE, TikTok, X, Instagram");
+  const approvedMessage = asString(agentContent["agent.approved_message"], "恭喜成为官方代理商！");
   const [form, setForm] = useState({ realName: "", region: "", platforms: "" });
 
   const { data: application, isLoading } = useQuery({
@@ -112,11 +119,11 @@ export default function ApplyAgentPage() {
                 </div>
                 <div className="space-y-2">
                   <Label className="text-xs text-muted-foreground">区域</Label>
-                  <Input value={form.region} onChange={(e) => setForm({ ...form, region: e.target.value })} placeholder="如：中国, 北京, 朝阳" className="rounded-2xl bg-secondary/50" />
+                  <Input value={form.region} onChange={(e) => setForm({ ...form, region: e.target.value })} placeholder={regionPlaceholder} className="rounded-2xl bg-secondary/50" />
                 </div>
                 <div className="space-y-2">
                   <Label className="text-xs text-muted-foreground">代理平台</Label>
-                  <Input value={form.platforms} onChange={(e) => setForm({ ...form, platforms: e.target.value })} placeholder="如 YOUTUBE, TikTok, X, Instagram" className="rounded-2xl bg-secondary/50" />
+                  <Input value={form.platforms} onChange={(e) => setForm({ ...form, platforms: e.target.value })} placeholder={platformsPlaceholder} className="rounded-2xl bg-secondary/50" />
                 </div>
                 <Button onClick={handleSubmit} disabled={applyMutation.isPending} className="w-full rounded-2xl py-6">
                   {applyMutation.isPending ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />提交中</> : <><Send className="mr-2 h-4 w-4" />提交申请</>}
@@ -152,7 +159,7 @@ export default function ApplyAgentPage() {
                   <Check className="h-8 w-8 text-emerald-500" />
                 </div>
                 <div className="mt-4 text-lg font-semibold text-foreground">审核通过</div>
-                <p className="mt-2 text-sm text-muted-foreground">恭喜成为官方代理商！</p>
+                <p className="mt-2 text-sm text-muted-foreground">{approvedMessage}</p>
                 <Button onClick={() => router.push("/agent")} className="mt-6 rounded-full px-8">
                   进入代理商首页
                 </Button>

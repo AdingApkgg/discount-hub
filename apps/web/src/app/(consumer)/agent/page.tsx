@@ -5,6 +5,7 @@ import { ArrowLeft, Coins, ShieldCheck, Users, Wallet } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { useSession } from "@/lib/auth-client";
 import { useTRPC } from "@/trpc/client";
+import { useSiteContent, asString } from "@/hooks/use-site-content";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -20,6 +21,12 @@ export default function AgentCenterPage() {
   const router = useRouter();
   const trpc = useTRPC();
   const { data: session } = useSession();
+  const agentContent = useSiteContent("agent");
+  const notAgentTitle = asString(agentContent["agent.not_agent_title"], "您还不是代理商");
+  const notAgentSubtitle = asString(
+    agentContent["agent.not_agent_subtitle"],
+    "成为代理商后可在此查看下级与佣金",
+  );
 
   const isAgentLike =
     session?.user?.role === "AGENT" || session?.user?.role === "ADMIN";
@@ -61,10 +68,10 @@ export default function AgentCenterPage() {
             <CardContent className="p-8 text-center space-y-3">
               <ShieldCheck className="mx-auto h-10 w-10 text-muted-foreground" />
               <div className="text-sm font-semibold text-foreground">
-                您还不是代理商
+                {notAgentTitle}
               </div>
               <div className="text-xs text-muted-foreground">
-                成为代理商后可在此查看下级与佣金
+                {notAgentSubtitle}
               </div>
               <Button onClick={() => router.push("/apply-agent")} className="rounded-full">
                 立即申请

@@ -7,12 +7,13 @@ import { useQuery } from "@tanstack/react-query";
 import { openApp } from "@discount-hub/shared";
 import { useSession } from "@/lib/auth-client";
 import { useTRPC } from "@/trpc/client";
+import { useSiteContent, asString, asArray } from "@/hooks/use-site-content";
 import type { RouterOutputs } from "@/trpc/types";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
-import { banners, earnContents, hotPosts } from "@/data/mock";
+import { banners } from "@/data/mock";
 import { pickAdSlotImage } from "@/lib/ad-slot-image";
 import { cn } from "@/lib/utils";
 import {
@@ -48,12 +49,14 @@ function TopBar({
   onLogin,
   onSearch,
   isAuthed,
+  searchTagline,
 }: {
   profile: UserProfile | undefined;
   onGoMember: () => void;
   onLogin: () => void;
   onSearch: () => void;
   isAuthed: boolean;
+  searchTagline: string;
 }) {
   const points = profile?.points ?? 0;
   const name = profile?.name ?? "游客";
@@ -86,7 +89,7 @@ function TopBar({
       >
         <Search className="h-4 w-4 text-[var(--brand-red)]" strokeWidth={2.6} />
         <span className="flex-1 text-left font-semibold text-muted-foreground">
-          搜神券 · 省到抽筋
+          {searchTagline}
         </span>
         <span className="rounded-full bg-[var(--brand-red)] px-2 py-0.5 text-[10px] font-black text-white">
           搜索
@@ -453,20 +456,39 @@ function DoubleBanners({
 }
 
 /* ============ 金刚区 ============ */
-const SHORTCUTS = [
-  { id: "video", emoji: "🎬", label: "视频VIP", tone: "red" as const, badge: "HOT" },
-  { id: "music", emoji: "🎵", label: "音乐会员", tone: "pink" as const },
-  { id: "game", emoji: "🎮", label: "游戏直充", tone: "red" as const, badge: "-90%" },
-  { id: "phone", emoji: "📱", label: "话费充值", tone: "orange" as const },
-  { id: "food", emoji: "🍜", label: "外卖美食", tone: "orange" as const },
-  { id: "shop", emoji: "🛍️", label: "品牌券包", tone: "pink" as const, badge: "新" },
-  { id: "learn", emoji: "📚", label: "学习知识", tone: "gold" as const },
-  { id: "rebate", emoji: "🎁", label: "邀请返利", tone: "gold" as const, badge: "¥100" },
-  { id: "zero", emoji: "💎", label: "0元兑", tone: "gradient" as const, badge: "爆" },
-  { id: "all", emoji: "🧭", label: "全部分类", tone: "orange" as const },
-] as const;
+type ShortcutItem = {
+  id: string;
+  emoji: string;
+  label: string;
+  tone: "red" | "pink" | "orange" | "gold" | "gradient";
+  badge?: string;
+};
 
-function ShortcutGrid({ onSelect }: { onSelect: (id: string) => void }) {
+function buildShortcuts(rebateLabel: string, rebateBadge: string): ShortcutItem[] {
+  return [
+    { id: "video", emoji: "🎬", label: "视频VIP", tone: "red", badge: "HOT" },
+    { id: "music", emoji: "🎵", label: "音乐会员", tone: "pink" },
+    { id: "game", emoji: "🎮", label: "游戏直充", tone: "red", badge: "-90%" },
+    { id: "phone", emoji: "📱", label: "话费充值", tone: "orange" },
+    { id: "food", emoji: "🍜", label: "外卖美食", tone: "orange" },
+    { id: "shop", emoji: "🛍️", label: "品牌券包", tone: "pink", badge: "新" },
+    { id: "learn", emoji: "📚", label: "学习知识", tone: "gold" },
+    { id: "rebate", emoji: "🎁", label: rebateLabel, tone: "gold", badge: rebateBadge },
+    { id: "zero", emoji: "💎", label: "0元兑", tone: "gradient", badge: "爆" },
+    { id: "all", emoji: "🧭", label: "全部分类", tone: "orange" },
+  ];
+}
+
+function ShortcutGrid({
+  onSelect,
+  rebateLabel,
+  rebateBadge,
+}: {
+  onSelect: (id: string) => void;
+  rebateLabel: string;
+  rebateBadge: string;
+}) {
+  const SHORTCUTS = buildShortcuts(rebateLabel, rebateBadge);
   return (
     <div className="grid grid-cols-5 gap-y-3">
       {SHORTCUTS.map((s, i) => (
@@ -863,12 +885,21 @@ function ProductGridSkeleton({ count = 4 }: { count?: number }) {
   );
 }
 
+type EarnContent = {
+  id: string;
+  title: string;
+  subtitle: string;
+  app: string;
+  rewardPoints: number;
+  gradient?: string;
+};
+
 /* ============ 刷积分内容卡 ============ */
 function EarnContentCard({
   content,
   onClick,
 }: {
-  content: (typeof earnContents)[number];
+  content: EarnContent;
   onClick: () => void;
 }) {
   return (
@@ -922,6 +953,24 @@ const DANMU_ITEMS = [
 export default function HomePage() {
   const router = useRouter();
   const trpc = useTRPC();
+  const homepageContent = useSiteContent("homepage");
+  const earnContent = useSiteContent("earn");
+  const searchTagline = asString(
+    homepageContent["homepage.search_tagline"],
+    "搜神券 · 省到抽筋",
+  );
+  const inviteBadgeLabel = asString(
+    homepageContent["homepage.invite_badge_text"],
+    "邀请返利",
+  );
+  const inviteBadgeAmount = asString(
+    homepageContent["homepage.invite_badge_amount"],
+    "¥100",
+  );
+  const earnContents = asArray<EarnContent>(earnContent["earn.contents"]);
+  const hotPosts = asArray<{ id: string; title: string; excerpt: string; likeText: string; app: string }>(
+    homepageContent["homepage.hot_posts"],
+  );
   const [activeCat, setActiveCat] = useState<CategoryId>("limited");
   const [activeFilter, setActiveFilter] = useState<FilterId>("recommend");
 
@@ -1010,6 +1059,7 @@ export default function HomePage() {
             onGoMember={() => router.push("/member")}
             onLogin={() => router.push("/login")}
             onSearch={() => router.push("/member")}
+            searchTagline={searchTagline}
           />
         </AnimatedItem>
 
@@ -1019,7 +1069,11 @@ export default function HomePage() {
 
         <AnimatedItem>
           <div className="rounded-2xl bg-[var(--app-card)] p-2.5 shadow-[0_4px_14px_rgba(122,60,30,0.06)]">
-            <ShortcutGrid onSelect={() => router.push("/member")} />
+            <ShortcutGrid
+              onSelect={() => router.push("/member")}
+              rebateLabel={inviteBadgeLabel}
+              rebateBadge={inviteBadgeAmount}
+            />
           </div>
         </AnimatedItem>
 

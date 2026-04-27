@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   ArrowLeft,
@@ -16,6 +16,7 @@ import {
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { useTRPC } from "@/trpc/client";
+import { useSiteContent, asString } from "@/hooks/use-site-content";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -42,21 +43,38 @@ type Message = {
   timestamp: Date;
 };
 
-const channels = [
-  { icon: Mail, label: "邮件支持", desc: "support@discount-hub.com", action: "发送邮件" },
-  { icon: Phone, label: "电话支持", desc: "400-888-0000", action: "拨打电话" },
-];
-
 export default function ContactPage() {
   const router = useRouter();
   const trpc = useTRPC();
+  const content = useSiteContent("support");
+
+  const aiWelcome = asString(
+    content["support.ai_welcome"],
+    "您好！我是 AI 智能助手，可以帮您解答积分、签到、优惠券、会员等级等常见问题。如有复杂问题，可随时转接人工客服。",
+  );
+  const humanRecorded = asString(
+    content["support.human_recorded"],
+    "已记录您的留言，人工客服将尽快回复。工作时间：工作日 9:00-18:00",
+  );
+  const pageTitle = asString(content["support.page_title"], "智能客服");
+  const supportEmail = asString(content["support.email"], "support@discount-hub.com");
+  const supportEmailLabel = asString(content["support.email_label"], "邮件支持");
+  const supportPhone = asString(content["support.phone"], "400-888-0000");
+  const supportPhoneLabel = asString(content["support.phone_label"], "电话支持");
+
+  const channels = useMemo(
+    () => [
+      { icon: Mail, label: supportEmailLabel, desc: supportEmail },
+      { icon: Phone, label: supportPhoneLabel, desc: supportPhone },
+    ],
+    [supportEmail, supportEmailLabel, supportPhone, supportPhoneLabel],
+  );
 
   const [messages, setMessages] = useState<Message[]>([
     {
       id: "welcome",
       role: "ai",
-      content:
-        "您好！我是 AI 智能助手，可以帮您解答积分、签到、优惠券、会员等级等常见问题。如有复杂问题，可随时转接人工客服。",
+      content: aiWelcome,
       timestamp: new Date(),
     },
   ]);
@@ -122,7 +140,7 @@ export default function ContactPage() {
         {
           id: `sys-${Date.now()}`,
           role: "system",
-          content: "已记录您的留言，人工客服将尽快回复。工作时间：工作日 9:00-18:00",
+          content: humanRecorded,
           timestamp: new Date(),
         },
       ]);
@@ -161,7 +179,7 @@ export default function ContactPage() {
         },
       ]);
     }
-  }, [input, mode, messages, askAI]);
+  }, [input, mode, messages, askAI, humanRecorded]);
 
   function handleTransferToHuman() {
     setTransferRemaining(transferWaitSeconds);
@@ -205,7 +223,7 @@ export default function ContactPage() {
         <AnimatedItem>
           <PageHeading
             label="Contact"
-            title="智能客服"
+            title={pageTitle}
             action={
               <Badge variant="outline" className="gap-1.5 rounded-full border-border">
                 {mode === "ai" ? <Bot className="h-3.5 w-3.5" /> : <UserRound className="h-3.5 w-3.5" />}

@@ -410,17 +410,27 @@ model AgentCommission {
 // ─── Incentive Config / 激励策略配置 ────────────────
 
 model IncentiveConfig {
-  id                   String   @id @default(cuid())
-  newUserBonusPoints   Int      @default(500)
-  newUserBonusDays     Int      @default(7)
-  newUserCheckinMulti  Float    @default(2.0)
-  oldUserCheckinMulti  Float    @default(1.0)
-  referralReward       Int      @default(1000)
-  refereeReward        Int      @default(500)
-  streakBonusThreshold Int      @default(3)
-  isActive             Boolean  @default(true)
-  createdAt            DateTime @default(now())
-  updatedAt            DateTime @updatedAt
+  id                     String   @id @default(cuid())
+  newUserBonusPoints     Int      @default(500)
+  newUserBonusDays       Int      @default(7)
+  newUserCheckinMulti    Float    @default(2.0)
+  oldUserCheckinMulti    Float    @default(1.0)
+  referralReward         Int      @default(1000)
+  refereeReward          Int      @default(500)
+  streakBonusThreshold   Int      @default(3)
+  // Daily 7-day checkin reward cycle. Length defines the cycle.
+  checkinRewards         Json     @default("[200, 3000, 300, 500, 800, 1200, 10000]")
+  // VIP-level checkin bonus rate map: { "0": 0, "1": 0.05, "2": 0.10, ... }
+  vipCheckinBonusByLevel Json     @default("{\"0\":0,\"1\":0.05,\"2\":0.10,\"3\":0.15,\"4\":0.20}")
+  vipPointsPerLevel      Int      @default(500)
+  vipMaxLevel            Int      @default(10)
+  // Server-authoritative task reward map: { "browse": 100, "purchase": 100, ... }
+  taskRewards            Json     @default("{\"browse\":100,\"purchase\":100,\"share\":80,\"c1\":30,\"c2\":30,\"c3\":40,\"c4\":50}")
+  // Invite reward by inviter VIP level: { "1": 300, "2": 200, ... }
+  inviteVipBonusByLevel  Json     @default("{\"1\":300,\"2\":200,\"3\":200,\"4\":100,\"5\":100}")
+  isActive               Boolean  @default(true)
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
 
   @@map("incentive_configs")
 }
@@ -687,4 +697,25 @@ model NoticeRead {
   @@unique([userId, noticeId])
   @@index([userId, readAt])
   @@map("notice_reads")
+}
+
+// ─── Site Content / 站点文案 ───────────────────────
+// Generic key/value store for admin-editable strings, arrays, lists
+// (company info, support info, homepage copy, invite copy, member taglines, etc.).
+// Value is JSON to support strings, arrays, or objects without schema churn.
+
+model SiteContent {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  value       Json     @default("\"\"")
+  category    String   @default("general")
+  label       String   @default("")
+  description String   @default("")
+  valueType   String   @default("string")
+  sortOrder   Int      @default(0)
+  updatedAt   DateTime @updatedAt
+  createdAt   DateTime @default(now())
+
+  @@index([category, sortOrder])
+  @@map("site_contents")
 }

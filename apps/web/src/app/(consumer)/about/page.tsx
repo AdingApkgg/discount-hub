@@ -7,9 +7,28 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { appCardClassName, PageHeading } from "@/components/shared";
 import { PageTransition, AnimatedItem } from "@/components/motion";
+import { useSiteContent, asString } from "@/hooks/use-site-content";
 
 export default function AboutPage() {
   const router = useRouter();
+  const content = useSiteContent("company");
+
+  const name = asString(content["company.name"], "Discount Hub");
+  const description = asString(
+    content["company.description_long"],
+    "Discount Hub 是一个折扣权益交易平台，致力于为用户提供最优质的数字权益兑换服务。",
+  );
+  const valueProp = asString(
+    content["company.value_proposition"],
+    "我们通过积分+现金的混合支付模式，让用户以更低的价格获取各类数字产品和服务权益。",
+  );
+  const payments = asString(
+    content["company.supported_payment_methods"],
+    "平台支持多种支付方式，包括支付宝、微信支付、银联卡、PayPal 及加密货币等。",
+  );
+  const version = asString(content["company.version"], "1.0.0");
+  const copyrightYear = asString(content["company.copyright_year"], "2026");
+
   return (
     <PageTransition>
       <div className="space-y-4 px-4 py-4 md:space-y-6 md:px-8 md:py-8">
@@ -24,16 +43,16 @@ export default function AboutPage() {
             <CardContent className="p-5 md:p-6">
               <div className="flex items-center gap-3">
                 <Shield className="h-8 w-8 text-primary" />
-                <div className="text-xl font-bold text-foreground">Discount Hub</div>
+                <div className="text-xl font-bold text-foreground">{name}</div>
               </div>
               <Separator className="my-5" />
               <div className="space-y-4 text-sm leading-relaxed text-muted-foreground">
-                <p>Discount Hub 是一个折扣权益交易平台，致力于为用户提供最优质的数字权益兑换服务。</p>
-                <p>我们通过积分+现金的混合支付模式，让用户以更低的价格获取各类数字产品和服务权益。</p>
-                <p>平台支持多种支付方式，包括支付宝、微信支付、银联卡、PayPal 及加密货币等。</p>
+                <p>{description}</p>
+                <p>{valueProp}</p>
+                <p>{payments}</p>
               </div>
               <Separator className="my-5" />
-              <div className="text-xs text-muted-foreground">版本 1.0.0 · © 2026 Discount Hub</div>
+              <div className="text-xs text-muted-foreground">版本 {version} · © {copyrightYear} {name}</div>
             </CardContent>
           </Card>
         </AnimatedItem>

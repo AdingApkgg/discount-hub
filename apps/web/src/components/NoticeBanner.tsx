@@ -6,6 +6,7 @@ import { Megaphone, X } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { useTRPC } from "@/trpc/client";
+import { useSiteContent, asNumber } from "@/hooks/use-site-content";
 import { cn } from "@/lib/utils";
 
 const LEVEL_STYLES: Record<string, string> = {
@@ -19,6 +20,12 @@ export default function NoticeBanner() {
   const trpc = useTRPC();
   const qc = useQueryClient();
   const [dismissed, setDismissed] = useState<Set<string>>(new Set());
+  const noticeContent = useSiteContent("notice");
+  const criticalToastDuration = asNumber(
+    noticeContent["notice.critical_toast_duration_ms"],
+    12000,
+  );
+  const maxVisible = asNumber(noticeContent["notice.max_visible_banners"], 1);
 
   const { data } = useQuery(trpc.notice.listActive.queryOptions());
   const markRead = useMutation(trpc.notice.markRead.mutationOptions());
@@ -33,19 +40,19 @@ export default function NoticeBanner() {
         sessionStorage.setItem(key, "1");
         toast.error(n.title, {
           description: n.content,
-          duration: 12_000,
+          duration: criticalToastDuration,
         });
       } catch {
         /* sessionStorage unavailable */
       }
     }
-  }, [data]);
+  }, [data, criticalToastDuration]);
 
   const visible = useMemo(() => {
     return (data ?? [])
       .filter((n) => n.pinned && !n.read && !dismissed.has(n.id))
-      .slice(0, 2);
-  }, [data, dismissed]);
+      .slice(0, Math.max(1, maxVisible));
+  }, [data, dismissed, maxVisible]);
 
   if (visible.length === 0) return null;
 

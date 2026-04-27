@@ -395,6 +395,12 @@ export const adminRouter = createTRPCRouter({
       referralReward: 1000,
       refereeReward: 500,
       streakBonusThreshold: 3,
+      checkinRewards: [200, 3000, 300, 500, 800, 1200, 10000],
+      vipCheckinBonusByLevel: { "0": 0, "1": 0.05, "2": 0.10, "3": 0.15, "4": 0.20 },
+      vipPointsPerLevel: 500,
+      vipMaxLevel: 10,
+      taskRewards: { browse: 100, purchase: 100, share: 80, c1: 30, c2: 30, c3: 40, c4: 50 },
+      inviteVipBonusByLevel: { "1": 300, "2": 200, "3": 200, "4": 100, "5": 100 },
       isActive: true,
     };
   }),
@@ -408,6 +414,12 @@ export const adminRouter = createTRPCRouter({
       referralReward: z.number().int().min(0).max(50000),
       refereeReward: z.number().int().min(0).max(50000),
       streakBonusThreshold: z.number().int().min(0).max(30),
+      checkinRewards: z.array(z.number().int().min(0).max(1_000_000)).min(1).max(31),
+      vipCheckinBonusByLevel: z.record(z.string(), z.number().min(0).max(5)),
+      vipPointsPerLevel: z.number().int().min(1).max(1_000_000),
+      vipMaxLevel: z.number().int().min(1).max(100),
+      taskRewards: z.record(z.string(), z.number().int().min(0).max(1_000_000)),
+      inviteVipBonusByLevel: z.record(z.string(), z.number().int().min(0).max(1_000_000)),
     }))
     .mutation(async ({ ctx, input }) => {
       await ctx.prisma.incentiveConfig.updateMany({
@@ -1312,6 +1324,157 @@ export const adminRouter = createTRPCRouter({
         targetType: "SystemNotice",
         targetId: input.id,
         summary: "删除公告",
+        headers: ctx.headers,
+      });
+      return { success: true };
+    }),
+
+  listSiteContents: adminProcedure
+    .input(z.object({ category: z.string().optional() }).optional())
+    .query(async ({ ctx, input }) => {
+      const { SITE_CONTENT_DEFAULTS, SITE_CONTENT_CATEGORIES } = await import(
+        "@/lib/site-content-defaults"
+      );
+
+      const dbRows = await ctx.prisma.siteContent.findMany({
+        where: input?.category ? { category: input.category } : undefined,
+        orderBy: [{ category: "asc" }, { sortOrder: "asc" }, { key: "asc" }],
+      });
+      const dbByKey = new Map(dbRows.map((r) => [r.key, r] as const));
+
+      // Merge: every default key is returned with either DB value or default value;
+      // unknown DB-only keys are also returned at the end.
+      const items = SITE_CONTENT_DEFAULTS
+        .filter((d) => !input?.category || d.category === input.category)
+        .map((d) => {
+          const row = dbByKey.get(d.key);
+          dbByKey.delete(d.key);
+          return {
+            id: row?.id ?? null,
+            key: d.key,
+            value: row ? row.value : d.default,
+            category: d.category,
+            label: d.label,
+            description: d.description ?? "",
+            valueType: d.valueType,
+            sortOrder: d.sortOrder ?? 0,
+            isOverridden: !!row,
+          };
+        });
+
+      // Append any orphan DB rows that aren't in the defaults catalog.
+      for (const row of dbByKey.values()) {
+        items.push({
+          id: row.id,
+          key: row.key,
+          value: row.value,
+          category: row.category,
+          label: row.label,
+          description: row.description,
+          valueType: (row.valueType ?? "string") as "string" | "text" | "number" | "boolean" | "array" | "object",
+          sortOrder: row.sortOrder,
+          isOverridden: true,
+        });
+      }
+
+      return {
+        items,
+        categories: SITE_CONTENT_CATEGORIES.filter(
+          (c) => !input?.category || c.id === input.category,
+        ),
+      };
+    }),
+
+  upsertSiteContent: adminProcedure
+    .input(z.object({
+      key: z.string().min(1).max(120),
+      value: z.unknown(),
+      category: z.string().min(1).max(60).default("general"),
+      label: z.string().max(120).default(""),
+      description: z.string().max(500).default(""),
+      valueType: z.enum(["string", "text", "number", "boolean", "array", "object"]).default("string"),
+      sortOrder: z.number().int().default(0),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const saved = await ctx.prisma.siteContent.upsert({
+        where: { key: input.key },
+        update: {
+          value: input.value as never,
+          category: input.category,
+          label: input.label,
+          description: input.description,
+          valueType: input.valueType,
+          sortOrder: input.sortOrder,
+        },
+        create: {
+          key: input.key,
+          value: input.value as never,
+          category: input.category,
+          label: input.label,
+          description: input.description,
+          valueType: input.valueType,
+          sortOrder: input.sortOrder,
+        },
+      });
+      await writeAuditLog({
+        actorId: ctx.user.id,
+        action: "site_content.upsert",
+        targetType: "SiteContent",
+        targetId: saved.id,
+        summary: `更新站点文案「${input.key}」`,
+        headers: ctx.headers,
+      });
+      return saved;
+    }),
+
+  bulkUpsertSiteContent: adminProcedure
+    .input(z.object({
+      items: z.array(z.object({
+        key: z.string().min(1).max(120),
+        value: z.unknown(),
+      })).min(1).max(200),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const { getSiteContentDefault } = await import("@/lib/site-content-defaults");
+      const results = await ctx.prisma.$transaction(
+        input.items.map((item) => {
+          const def = getSiteContentDefault(item.key);
+          return ctx.prisma.siteContent.upsert({
+            where: { key: item.key },
+            update: { value: item.value as never },
+            create: {
+              key: item.key,
+              value: item.value as never,
+              category: def?.category ?? "general",
+              label: def?.label ?? item.key,
+              description: def?.description ?? "",
+              valueType: def?.valueType ?? "string",
+              sortOrder: def?.sortOrder ?? 0,
+            },
+          });
+        }),
+      );
+      await writeAuditLog({
+        actorId: ctx.user.id,
+        action: "site_content.bulk_update",
+        targetType: "SiteContent",
+        targetId: null,
+        summary: `批量更新 ${input.items.length} 项站点文案`,
+        headers: ctx.headers,
+      });
+      return { count: results.length };
+    }),
+
+  deleteSiteContent: adminProcedure
+    .input(z.object({ key: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      await ctx.prisma.siteContent.delete({ where: { key: input.key } });
+      await writeAuditLog({
+        actorId: ctx.user.id,
+        action: "site_content.delete",
+        targetType: "SiteContent",
+        targetId: input.key,
+        summary: `删除站点文案「${input.key}」`,
         headers: ctx.headers,
       });
       return { success: true };

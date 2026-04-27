@@ -10,8 +10,8 @@ import {
 } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { openApp } from "@discount-hub/shared";
-import { earnContents } from "@/data/mock";
 import { useTRPC } from "@/trpc/client";
+import { useSiteContent, asString, asArray } from "@/hooks/use-site-content";
 import type { RouterOutputs } from "@/trpc/types";
 import { Button } from "@/components/ui/button";
 import {
@@ -39,12 +39,12 @@ type UserProfile = RouterOutputs["user"]["me"];
 type OrderRecord = RouterOutputs["order"]["myOrders"][number];
 type ReferralRecord = RouterOutputs["user"]["referrals"][number];
 
-const VIP_BENEFITS: Record<number, string[]> = {
-  0: ["基础兑换权益"],
-  1: ["每日签到奖励 +5%", "基础兑换权益"],
-  2: ["每日签到奖励 +10%", "限时折扣", "基础兑换权益"],
-  3: ["每日签到奖励 +15%", "优先购资格", "限时折扣", "专属折扣"],
-  4: ["每日签到奖励 +20%", "抢先看特权", "双倍积分日", "所有 VIP3 权益"],
+const FALLBACK_VIP_BENEFITS: Record<string, string[]> = {
+  "0": ["基础兑换权益"],
+  "1": ["每日签到奖励 +5%", "基础兑换权益"],
+  "2": ["每日签到奖励 +10%", "限时折扣", "基础兑换权益"],
+  "3": ["每日签到奖励 +15%", "优先购资格", "限时折扣", "专属折扣"],
+  "4": ["每日签到奖励 +20%", "抢先看特权", "双倍积分日", "所有 VIP3 权益"],
 };
 
 type DailyTask = {
@@ -64,13 +64,22 @@ const FALLBACK_DAILY_TASKS: DailyTask[] = [
   { id: "share", emoji: "💌", title: "分享 APP 给好友", desc: "去完成", reward: 80, type: "BASIC", targetCount: 1 },
 ];
 
-function buildVipTiers(pointsPerLevel: number) {
-  return [0, 1, 2, 3].map((level) => ({
-    level,
-    name: level === 0 ? "VIP" : `VIP${level}`,
-    minPoints: level * pointsPerLevel,
-    benefits: VIP_BENEFITS[level] ?? [`所有 VIP${level - 1} 权益`, "更多特权"],
-  }));
+function buildVipTiers(
+  pointsPerLevel: number,
+  benefitsByLevel: Record<string, unknown>,
+) {
+  return [0, 1, 2, 3].map((level) => {
+    const fromContent = benefitsByLevel[String(level)];
+    const benefits = Array.isArray(fromContent)
+      ? (fromContent as string[]).filter((s) => typeof s === "string")
+      : (FALLBACK_VIP_BENEFITS[String(level)] ?? [`所有 VIP${level - 1} 权益`, "更多特权"]);
+    return {
+      level,
+      name: level === 0 ? "VIP" : `VIP${level}`,
+      minPoints: level * pointsPerLevel,
+      benefits,
+    };
+  });
 }
 
 function isToday(value: string | Date | null | undefined) {
@@ -96,11 +105,19 @@ function MemberSkeleton() {
 }
 
 /* ============ 顶部会员头卡 ============ */
-function MemberTopCard({ profile }: { profile: UserProfile | undefined }) {
+function MemberTopCard({
+  profile,
+  regularLabel,
+  tagline,
+}: {
+  profile: UserProfile | undefined;
+  regularLabel: string;
+  tagline: string;
+}) {
   const name = profile?.name ?? "游客";
   const points = profile?.points ?? 0;
   const vipLevel = profile?.vipLevel ?? 0;
-  const vipLabel = vipLevel <= 0 ? "普通会员" : `VIP${vipLevel}`;
+  const vipLabel = vipLevel <= 0 ? regularLabel : `VIP${vipLevel}`;
 
   return (
     <div className="relative overflow-hidden rounded-2xl bg-[linear-gradient(135deg,#7A1E2E_0%,#B8252F_55%,#F5B800_120%)] px-4 py-3.5 text-white shadow-[0_10px_24px_rgba(122,30,46,0.28)]">
@@ -122,7 +139,7 @@ function MemberTopCard({ profile }: { profile: UserProfile | undefined }) {
             </HotSticker>
           </div>
           <div className="mt-0.5 text-[11px] font-semibold text-white/85">
-            刷任务、签到、邀请 · 积分当钱花
+            {tagline}
           </div>
         </div>
         <CoinBadge value={points.toLocaleString("zh-CN")} size="md" />
@@ -136,6 +153,24 @@ export default function MemberPage() {
   const router = useRouter();
   const trpc = useTRPC();
   const queryClient = useQueryClient();
+  const memberContent = useSiteContent("member");
+  const earnContent = useSiteContent("earn");
+  const tagline = asString(memberContent["member.tagline"], "刷任务、签到、邀请 · 积分当钱花");
+  const regularLabel = asString(memberContent["member.regular_label"], "普通会员");
+  const benefitsTitle = asString(memberContent["member.benefits_title"], "会员权益");
+  const checkinTitle = asString(memberContent["member.checkin_title"], "连续签到");
+  const vipBenefitsByLevel = useMemo(
+    () => (memberContent["member.vip_benefits_by_level"] as Record<string, unknown>) ?? {},
+    [memberContent],
+  );
+  const earnContents = asArray<{
+    id: string;
+    title: string;
+    subtitle: string;
+    app: string;
+    rewardPoints: number;
+    gradient?: string;
+  }>(earnContent["earn.contents"]);
   const [busyTaskId, setBusyTaskId] = useState<string | null>(null);
   const [checkinResult, setCheckinResult] = useState<{
     reward: number;
@@ -191,8 +226,8 @@ export default function MemberPage() {
   const checkinCycle = status?.checkinCycle ?? 7;
 
   const vipTiers = useMemo(
-    () => buildVipTiers(status?.vipPointsPerLevel ?? 500),
-    [status?.vipPointsPerLevel],
+    () => buildVipTiers(status?.vipPointsPerLevel ?? 500, vipBenefitsByLevel),
+    [status?.vipPointsPerLevel, vipBenefitsByLevel],
   );
   const currentLevel = profile?.vipLevel ?? 0;
   const shownTierLevel = activeTier ?? Math.min(currentLevel, 3);
@@ -298,13 +333,13 @@ export default function MemberPage() {
     <PageTransition>
       <div className="space-y-3 px-3 py-3 md:space-y-4 md:px-6 md:py-4">
         <AnimatedItem>
-          <MemberTopCard profile={profile} />
+          <MemberTopCard profile={profile} regularLabel={regularLabel} tagline={tagline} />
         </AnimatedItem>
 
         {/* VIP 等级 */}
         <AnimatedItem>
           <div className="space-y-2">
-            <FloorHeader emoji="👑" title="会员权益" subtitle="积分越多权益越香" tone="gold" />
+            <FloorHeader emoji="👑" title={benefitsTitle} subtitle="积分越多权益越香" tone="gold" />
             <div className="flex items-center gap-1 overflow-x-auto pb-1">
               {vipTiers.map((tier) => {
                 const isActive = tier.level === shownTierLevel;
@@ -378,7 +413,7 @@ export default function MemberPage() {
 
         {/* 签到日历 */}
         <AnimatedSection className="space-y-2">
-          <FloorHeader emoji="📅" title="连续签到" subtitle={
+          <FloorHeader emoji="📅" title={checkinTitle} subtitle={
             completedCheckinDays >= checkinCycle
               ? "本轮已满 · 明天新周期"
               : `已连 ${completedCheckinDays} 天 · 第 ${checkinCycle} 天爆奖 ${checkinRewards[checkinCycle - 1]?.toLocaleString("zh-CN")}`

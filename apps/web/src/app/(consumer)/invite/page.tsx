@@ -7,7 +7,7 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { useSession } from "@/lib/auth-client";
 import { useTRPC } from "@/trpc/client";
-import { inviteBenefits } from "@/data/mock";
+import { useSiteContent, asString, asArray, asNumber } from "@/hooks/use-site-content";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -26,26 +26,17 @@ import {
   HoverScale,
 } from "@/components/motion";
 
-const VIP_REWARDS = [
-  { level: 1, label: "VIP1", bonus: 300 },
-  { level: 2, label: "VIP2", bonus: 200 },
-  { level: 3, label: "VIP3", bonus: 200 },
-  { level: 4, label: "VIP4", bonus: 100 },
-  { level: 5, label: "VIP5", bonus: 100 },
-];
-
-const INVITE_REWARDS = [
-  { label: "邀请成功", value: "¥10000 积分" },
-  { label: "优惠券", value: "专属折扣券" },
-  { label: "30 钻石", value: "虚拟货币奖励" },
-];
-
 export default function InvitePage() {
   const router = useRouter();
   const trpc = useTRPC();
   const { data: session } = useSession();
   const [shareMode, setShareMode] = useState<"link" | "image">("link");
   const shareCardRef = useRef<HTMLDivElement>(null);
+
+  const content = useSiteContent("invite");
+  const { data: vipRewards } = useQuery(
+    trpc.points.getPublicInviteRewards.queryOptions(),
+  );
 
   const { data: profile } = useQuery({
     ...trpc.user.me.queryOptions(),
@@ -85,6 +76,7 @@ export default function InvitePage() {
   const [qrDataUrl, setQrDataUrl] = useState<string>("");
   const shortLinkRequested = useRef(false);
 
+  const shortLinkExpiry = asNumber(content["invite.short_link_expiry_days"], 90);
   useEffect(() => {
     if (!inviteLink || !inviteCode || inviteCode === "暂未生成") return;
     if (shortLinkRequested.current) return;
@@ -95,7 +87,7 @@ export default function InvitePage() {
         const result = await createShortLinkMutation.mutateAsync({
           targetUrl: inviteLink,
           kind: "invite",
-          expiresInDays: 90,
+          expiresInDays: shortLinkExpiry,
         });
         if (cancelled || typeof window === "undefined") return;
         setShortUrl(`${window.location.origin}/s/${result.code}`);
@@ -107,7 +99,7 @@ export default function InvitePage() {
     return () => {
       cancelled = true;
     };
-  }, [inviteLink, inviteCode, createShortLinkMutation]);
+  }, [inviteLink, inviteCode, createShortLinkMutation, shortLinkExpiry]);
 
   useEffect(() => {
     const target = shortUrl || inviteLink;
@@ -150,9 +142,10 @@ export default function InvitePage() {
       if (!blob) { toast.error("生成图片失败"); return; }
 
       if (navigator.share && navigator.canShare?.({ files: [new File([blob], "invite.png", { type: "image/png" })] })) {
+        const tmpl = asString(content["invite.share_text_template"], "使用我的邀请码 {code} 注册，双方均可获得丰厚积分奖励！");
         await navigator.share({
           title: activePoster?.headline ?? "邀请好友加入",
-          text: `使用我的邀请码 ${inviteCode} 注册，双方均可获得丰厚积分奖励！`,
+          text: tmpl.replace(/\{code\}/g, inviteCode),
           files: [new File([blob], "invite.png", { type: "image/png" })],
         });
         toast.success("分享成功");
@@ -171,7 +164,22 @@ export default function InvitePage() {
     } catch {
       toast.error("生成分享图片失败，请尝试复制链接");
     }
-  }, [inviteCode, activePoster, recordInviteEvent]);
+  }, [inviteCode, activePoster, recordInviteEvent, content]);
+
+  const tiers = useMemo(() => {
+    if (vipRewards && vipRewards.length > 0) return vipRewards;
+    return [
+      { level: 1, label: "VIP1", bonus: 300 },
+      { level: 2, label: "VIP2", bonus: 200 },
+      { level: 3, label: "VIP3", bonus: 200 },
+      { level: 4, label: "VIP4", bonus: 100 },
+      { level: 5, label: "VIP5", bonus: 100 },
+    ];
+  }, [vipRewards]);
+
+  const inviteRewards = asArray<{ label: string; value: string }>(content["invite.reward_descriptions"]);
+  const inviteBenefitTags = asArray<string>(content["invite.benefit_tags"]);
+  const inviteSteps = asArray<string>(content["invite.steps"]);
 
   return (
     <PageTransition>
@@ -184,14 +192,20 @@ export default function InvitePage() {
         </AnimatedItem>
 
         <AnimatedItem>
-          <PageHeading label="Invite Friends" title="邀请好友" action={<Gift className="h-5 w-5 text-muted-foreground" />} />
-          <p className="mt-2 text-sm text-muted-foreground">邀请好友注册并下单，双方均可获得丰厚奖励</p>
+          <PageHeading
+            label="Invite Friends"
+            title={asString(content["invite.page_title"], "邀请好友")}
+            action={<Gift className="h-5 w-5 text-muted-foreground" />}
+          />
+          <p className="mt-2 text-sm text-muted-foreground">
+            {asString(content["invite.page_subtitle"], "邀请好友注册并下单，双方均可获得丰厚奖励")}
+          </p>
         </AnimatedItem>
 
         <AnimatedSection>
           <ScrollArea className="w-full">
             <div className="flex gap-3 pb-2">
-              {VIP_REWARDS.map((tier) => (
+              {tiers.map((tier) => (
                 <Card key={tier.level} className="w-[120px] shrink-0 gap-0 rounded-[22px] border-border py-0 text-center">
                   <CardContent className="p-4">
                     <Crown className="mx-auto h-5 w-5 text-primary" />
@@ -210,7 +224,7 @@ export default function InvitePage() {
             <CardContent className="p-5 md:p-6">
               <div className="text-sm font-semibold text-foreground">邀请奖励</div>
               <div className="mt-4 space-y-3">
-                {INVITE_REWARDS.map((r) => (
+                {inviteRewards.map((r) => (
                   <div key={r.label} className="flex items-center justify-between rounded-2xl bg-secondary/50 px-4 py-3">
                     <span className="flex items-center gap-2 text-sm text-foreground">
                       <span className="text-primary">●</span> {r.label}
@@ -221,9 +235,9 @@ export default function InvitePage() {
               </div>
               <Separator className="my-5" />
               <div className="space-y-2 text-xs leading-5 text-muted-foreground">
-                <p>1. 分享邀请链接或图片给好友</p>
-                <p>2. 好友通过您的邀请码注册并完成首单</p>
-                <p>3. 双方各获得对应积分和优惠券奖励</p>
+                {inviteSteps.map((step, idx) => (
+                  <p key={idx}>{idx + 1}. {step}</p>
+                ))}
               </div>
             </CardContent>
           </Card>
@@ -273,7 +287,7 @@ export default function InvitePage() {
                     </Card>
                   </div>
                   <div className="mt-4 flex flex-wrap gap-2">
-                    {inviteBenefits.map((b) => (
+                    {inviteBenefitTags.map((b) => (
                       <Badge key={b} variant="outline" className="rounded-full border-border bg-background text-muted-foreground">{b}</Badge>
                     ))}
                   </div>
