@@ -58,10 +58,16 @@ export default function InvitePage() {
   });
 
   const inviteCode = (profile as { inviteCode?: string | null } | undefined)?.inviteCode ?? "暂未生成";
+  // Origin is read after mount so SSR and first client render both produce empty strings
+  // (any text derived from window.location during render would otherwise hydrate-mismatch).
+  const [origin, setOrigin] = useState("");
+  useEffect(() => {
+    setOrigin(window.location.origin);
+  }, []);
   const inviteLink = useMemo(() => {
-    if (typeof window === "undefined") return "";
-    return `${window.location.origin}/login?inviteCode=${encodeURIComponent(inviteCode)}`;
-  }, [inviteCode]);
+    if (!origin) return "";
+    return `${origin}/login?inviteCode=${encodeURIComponent(inviteCode)}`;
+  }, [inviteCode, origin]);
 
   const { data: posterTemplates } = useQuery({
     ...trpc.share.listActivePosterTemplates.queryOptions({ kind: "invite" }),
@@ -318,7 +324,7 @@ export default function InvitePage() {
                       </div>
                     )}
                     <div className="mt-3 break-all text-xs text-muted-foreground">
-                      {shortUrl || (typeof window !== "undefined" ? window.location.origin : "")}
+                      {shortUrl || origin}
                     </div>
                   </div>
                   <Button onClick={handleShareImage} className="mt-5 w-full rounded-full">

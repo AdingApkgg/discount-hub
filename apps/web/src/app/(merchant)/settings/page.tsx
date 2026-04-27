@@ -1494,10 +1494,18 @@ function RedemptionGuideTab() {
   );
 }
 
-const SCOPE_OPTIONS = [
-  { value: "agent:read", label: "只读" },
-  { value: "agent:write", label: "读写" },
-  { value: "agent:admin", label: "管理" },
+const SCOPE_OPTIONS: { value: string; label: string; group: string }[] = [
+  // REST /api/v1 — 实际生效的 scope（在 lib/rest/scopes.ts 中校验）
+  { value: "cms:read", label: "CMS 只读", group: "REST · CMS" },
+  { value: "cms:write", label: "CMS 写入", group: "REST · CMS" },
+  { value: "promo:read", label: "推广只读", group: "REST · 推广" },
+  { value: "promo:write", label: "推广写入", group: "REST · 推广" },
+  { value: "users:read", label: "用户只读", group: "REST · 用户管理" },
+  { value: "users:write", label: "用户写入", group: "REST · 用户管理" },
+  // Legacy 标签（仅作记录，tRPC procedure 仍按 user.role 鉴权）
+  { value: "agent:read", label: "代理只读", group: "tRPC · 兼容标签" },
+  { value: "agent:write", label: "代理读写", group: "tRPC · 兼容标签" },
+  { value: "agent:admin", label: "代理管理", group: "tRPC · 兼容标签" },
 ];
 
 function ApiKeyTab() {
@@ -1521,7 +1529,7 @@ function ApiKeyTab() {
   }>({
     name: "",
     description: "",
-    scopes: ["agent:read"],
+    scopes: ["cms:read"],
     expiresInDays: 365,
   });
   const [revealed, setRevealed] = useState<{ name: string; key: string } | null>(
@@ -1551,7 +1559,7 @@ function ApiKeyTab() {
       setForm({
         name: "",
         description: "",
-        scopes: ["agent:read"],
+        scopes: ["cms:read"],
         expiresInDays: 365,
       });
     } catch (err: unknown) {
@@ -1601,6 +1609,27 @@ function ApiKeyTab() {
               </h3>
               <p className="text-xs text-muted-foreground mt-1">
                 生成 API Key 后，外部 Agent 可通过 <code className="px-1 bg-secondary rounded">Authorization: Bearer &lt;key&gt;</code> 调用所有 tRPC 端点 <code className="px-1 bg-secondary rounded">/api/trpc/&lt;procedure&gt;</code>。Key 等同于所有者用户的身份与权限。
+              </p>
+              <p className="text-xs text-muted-foreground mt-1">
+                REST 接口及 OpenAPI 文档：
+                {" "}
+                <a
+                  href="/api/v1/docs"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-primary hover:underline"
+                >
+                  /api/v1/docs
+                </a>
+                {" · "}
+                <a
+                  href="/api/v1/openapi.json"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-primary hover:underline"
+                >
+                  /api/v1/openapi.json
+                </a>
               </p>
             </div>
             <Button size="sm" onClick={() => setCreating(true)}>
@@ -1751,28 +1780,39 @@ curl https://discount-hub.larx.cc/api/trpc/admin.upsertSupportFaq \\
                 placeholder="例如：每日凌晨同步商品库存"
               />
             </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs">权限标签（自定义；不影响 procedure 鉴权，记录用）</Label>
-              <div className="flex gap-1.5 flex-wrap">
-                {SCOPE_OPTIONS.map((s) => {
-                  const active = form.scopes.includes(s.value);
-                  return (
-                    <button
-                      key={s.value}
-                      type="button"
-                      onClick={() => toggleScope(s.value)}
-                      className={cn(
-                        "px-2.5 py-1 rounded-full text-xs border",
-                        active
-                          ? "bg-primary text-primary-foreground border-primary"
-                          : "border-border text-muted-foreground hover:bg-secondary",
-                      )}
-                    >
-                      {s.label} · {s.value}
-                    </button>
-                  );
-                })}
-              </div>
+            <div className="space-y-2">
+              <Label className="text-xs">
+                权限 scope · REST 类强制校验，tRPC 类仅作记录（procedure 仍按 user.role 鉴权）
+              </Label>
+              {Array.from(
+                new Map(SCOPE_OPTIONS.map((s) => [s.group, s.group])).keys(),
+              ).map((group) => (
+                <div key={group} className="space-y-1">
+                  <div className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                    {group}
+                  </div>
+                  <div className="flex gap-1.5 flex-wrap">
+                    {SCOPE_OPTIONS.filter((s) => s.group === group).map((s) => {
+                      const active = form.scopes.includes(s.value);
+                      return (
+                        <button
+                          key={s.value}
+                          type="button"
+                          onClick={() => toggleScope(s.value)}
+                          className={cn(
+                            "px-2.5 py-1 rounded-full text-xs border",
+                            active
+                              ? "bg-primary text-primary-foreground border-primary"
+                              : "border-border text-muted-foreground hover:bg-secondary",
+                          )}
+                        >
+                          {s.label} · {s.value}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
             </div>
             <div className="space-y-1">
               <Label className="text-xs">有效期（天，留空表示永不过期）</Label>

@@ -176,7 +176,7 @@ export function FloorHeader({
   onCtaClick,
   tone = "red",
 }: {
-  emoji: string;
+  emoji: ReactNode;
   title: string;
   subtitle?: string;
   cta?: string;
@@ -449,7 +449,7 @@ export function SaleHighlightStrip({
 }: {
   title: string;
   timer?: ReactNode;
-  emoji?: string;
+  emoji?: ReactNode;
 }) {
   return (
     <div className="relative flex items-center justify-between gap-2 overflow-hidden rounded-xl bg-[linear-gradient(90deg,#FE2C55_0%,#FF4D6A_50%,#FF6E37_100%)] px-3 py-2 text-white shadow-[0_6px_20px_rgba(254,44,85,0.28)]">
