@@ -114,6 +114,18 @@ export const productRouter = createTRPCRouter({
             .enum(["all", "ACTIVE", "SOLD_OUT", "EXPIRED", "DRAFT"])
             .default("all"),
           search: z.string().trim().optional(),
+          sortBy: z
+            .enum([
+              "createdAt-desc",
+              "createdAt-asc",
+              "stock-asc",
+              "stock-desc",
+              "cashPrice-asc",
+              "cashPrice-desc",
+              "expiresAt-asc",
+              "expiresAt-desc",
+            ])
+            .default("createdAt-desc"),
         })
         .optional(),
     )
@@ -133,9 +145,15 @@ export const productRouter = createTRPCRouter({
         ];
       }
 
+      const sortBy = input?.sortBy ?? "createdAt-desc";
+      const [field, direction] = sortBy.split("-") as [
+        "createdAt" | "stock" | "cashPrice" | "expiresAt",
+        "asc" | "desc",
+      ];
+
       const products = await ctx.prisma.product.findMany({
         where,
-        orderBy: [{ createdAt: "desc" }],
+        orderBy: [{ [field]: direction }],
       });
 
       return products.map(normalizeProduct);
@@ -193,6 +211,83 @@ export const productRouter = createTRPCRouter({
       await invalidateProductCaches(ctx.redis ?? null, [input.id]);
 
       return { success: true };
+    }),
+
+  duplicate: merchantProcedure
+    .input(z.object({ id: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      const source = await ctx.prisma.product.findUnique({
+        where: { id: input.id },
+      });
+      if (!source) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "源商品不存在" });
+      }
+      const copy = await ctx.prisma.product.create({
+        data: {
+          app: source.app,
+          title: `${source.title}(副本)`,
+          subtitle: source.subtitle,
+          description: source.description,
+          category: source.category,
+          imageUrl: source.imageUrl,
+          coverImage: source.coverImage,
+          pointsPrice: source.pointsPrice,
+          cashPrice: source.cashPrice,
+          originalCashPrice: source.originalCashPrice,
+          stock: 0,
+          minAmount: source.minAmount,
+          minQuantity: source.minQuantity,
+          purchaseNotes: source.purchaseNotes,
+          usageNotes: source.usageNotes,
+          agentPrice: source.agentPrice,
+          agentMinQty: source.agentMinQty,
+          expiresAt: source.expiresAt,
+          tags: source.tags,
+          status: "DRAFT",
+        },
+      });
+      await invalidateProductCaches(ctx.redis ?? null, []);
+      return copy;
+    }),
+
+  bulkDelete: merchantProcedure
+    .input(z.object({ ids: z.array(z.string()).min(1).max(MAX_BULK_IDS) }))
+    .mutation(async ({ ctx, input }) => {
+      const blockers = await ctx.prisma.order.groupBy({
+        by: ["productId"],
+        where: {
+          productId: { in: input.ids },
+          status: { in: ["PENDING", "PAID"] },
+        },
+        _count: { _all: true },
+      });
+      const blockedIds = new Set(blockers.map((b) => b.productId));
+      const deletableIds = input.ids.filter((id) => !blockedIds.has(id));
+
+      if (deletableIds.length === 0) {
+        return { deleted: 0, skipped: input.ids.length };
+      }
+
+      await ctx.prisma.$transaction(async (tx) => {
+        await tx.verificationRecord.deleteMany({
+          where: { coupon: { productId: { in: deletableIds } } },
+        });
+        await tx.coupon.deleteMany({
+          where: { productId: { in: deletableIds } },
+        });
+        await tx.order.deleteMany({
+          where: { productId: { in: deletableIds } },
+        });
+        await tx.product.deleteMany({
+          where: { id: { in: deletableIds } },
+        });
+      });
+
+      await invalidateProductCaches(ctx.redis ?? null, deletableIds);
+      return {
+        deleted: deletableIds.length,
+        skipped: input.ids.length - deletableIds.length,
+      };
     }),
 
   bulkSetStatus: merchantProcedure

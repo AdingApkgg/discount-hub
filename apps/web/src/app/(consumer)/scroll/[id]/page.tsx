@@ -4,6 +4,8 @@ import { use, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   ArrowLeft,
+  BookOpen,
+  CheckCircle2,
   ClipboardList,
   FileText,
   Flame,
@@ -496,6 +498,43 @@ export default function ScrollDetailPage({
             <div className="rounded-2xl bg-[var(--app-card)] p-3.5 shadow-[0_4px_14px_rgba(122,60,30,0.06)]">
               <p className="whitespace-pre-line text-[12px] leading-5 text-muted-foreground">
                 {item.description}
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* 购买须知 */}
+        {item.purchaseNotes && item.purchaseNotes.length > 0 && (
+          <div className="space-y-2">
+            <FloorHeader
+              emoji={<CheckCircle2 className="h-5 w-5 text-[var(--brand-gold)]" />}
+              title="购买须知"
+              tone="gold"
+            />
+            <div className="rounded-2xl bg-[var(--app-card)] p-3.5 shadow-[0_4px_14px_rgba(122,60,30,0.06)]">
+              <ul className="space-y-1.5 text-[12px] leading-5 text-muted-foreground">
+                {(item.purchaseNotes as string[]).map((note: string, idx: number) => (
+                  <li key={idx} className="flex gap-2">
+                    <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--brand-red)]" />
+                    <span>{note}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        )}
+
+        {/* 使用说明 */}
+        {item.usageNotes && (
+          <div className="space-y-2">
+            <FloorHeader
+              emoji={<BookOpen className="h-5 w-5 text-[var(--brand-pink)]" />}
+              title="使用说明"
+              tone="pink"
+            />
+            <div className="rounded-2xl bg-[var(--app-card)] p-3.5 shadow-[0_4px_14px_rgba(122,60,30,0.06)]">
+              <p className="whitespace-pre-line text-[12px] leading-5 text-muted-foreground">
+                {item.usageNotes}
               </p>
             </div>
           </div>

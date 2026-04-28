@@ -3,6 +3,10 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import {
+  AlertTriangle,
+  ArrowUpDown,
+  Clock,
+  Copy,
   ImagePlus,
   Loader2,
   Package,
@@ -63,7 +67,31 @@ type MerchantProduct = RouterOutputs["product"]["manageList"][number];
 type ProductStatusFilter = "all" | "ACTIVE" | "SOLD_OUT" | "EXPIRED" | "DRAFT";
 type ProductStatus = MerchantProduct["status"];
 
-type BulkDialogKind = "status" | "stock" | "delta" | "price" | "csv";
+type BulkDialogKind = "status" | "stock" | "delta" | "price" | "csv" | "delete";
+
+type ProductSortKey =
+  | "createdAt-desc"
+  | "createdAt-asc"
+  | "stock-asc"
+  | "stock-desc"
+  | "cashPrice-asc"
+  | "cashPrice-desc"
+  | "expiresAt-asc"
+  | "expiresAt-desc";
+
+const SORT_OPTIONS: { value: ProductSortKey; label: string }[] = [
+  { value: "createdAt-desc", label: "最新创建" },
+  { value: "createdAt-asc", label: "最早创建" },
+  { value: "stock-asc", label: "库存（少→多）" },
+  { value: "stock-desc", label: "库存（多→少）" },
+  { value: "cashPrice-asc", label: "现金价（低→高）" },
+  { value: "cashPrice-desc", label: "现金价（高→低）" },
+  { value: "expiresAt-asc", label: "过期（最近）" },
+  { value: "expiresAt-desc", label: "过期（最远）" },
+];
+
+const LOW_STOCK_THRESHOLD = 10;
+const EXPIRING_SOON_DAYS = 7;
 
 type ProductFormState = {
   app: string;
@@ -71,10 +99,16 @@ type ProductFormState = {
   subtitle: string;
   description: string;
   imageUrl: string;
+  coverImage: string;
+  category: string;
   pointsPrice: string;
   cashPrice: string;
   originalCashPrice: string;
   stock: string;
+  minAmount: string;
+  minQuantity: string;
+  purchaseNotes: string;
+  usageNotes: string;
   expiresAt: string;
   tags: string;
   status: ProductStatus;
@@ -86,14 +120,36 @@ const DEFAULT_FORM: ProductFormState = {
   subtitle: "",
   description: "",
   imageUrl: "",
+  coverImage: "",
+  category: "",
   pointsPrice: "0",
   cashPrice: "0",
   originalCashPrice: "",
   stock: "0",
+  minAmount: "",
+  minQuantity: "",
+  purchaseNotes: "",
+  usageNotes: "",
   expiresAt: "",
   tags: "",
   status: "ACTIVE",
 };
+
+function useDebouncedValue<T>(value: T, delayMs: number): T {
+  const [debounced, setDebounced] = useState(value);
+  useEffect(() => {
+    const id = window.setTimeout(() => setDebounced(value), delayMs);
+    return () => window.clearTimeout(id);
+  }, [value, delayMs]);
+  return debounced;
+}
+
+function daysUntil(value: string | Date) {
+  const d = typeof value === "string" ? new Date(value) : value;
+  if (Number.isNaN(d.getTime())) return Number.POSITIVE_INFINITY;
+  const now = Date.now();
+  return Math.ceil((d.getTime() - now) / (1000 * 60 * 60 * 24));
+}
 
 function formatDateInput(value: string | Date) {
   const d = typeof value === "string" ? new Date(value) : value;
@@ -133,6 +189,8 @@ function buildForm(product?: MerchantProduct | null): ProductFormState {
     subtitle: product.subtitle,
     description: product.description,
     imageUrl: product.imageUrl ?? "",
+    coverImage: product.coverImage ?? "",
+    category: product.category ?? "",
     pointsPrice: String(product.pointsPrice),
     cashPrice: String(Number(product.cashPrice)),
     originalCashPrice:
@@ -140,6 +198,11 @@ function buildForm(product?: MerchantProduct | null): ProductFormState {
         ? ""
         : String(Number(product.originalCashPrice)),
     stock: String(product.stock),
+    minAmount:
+      product.minAmount == null ? "" : String(Number(product.minAmount)),
+    minQuantity: product.minQuantity == null ? "" : String(product.minQuantity),
+    purchaseNotes: (product.purchaseNotes ?? []).join("\n"),
+    usageNotes: product.usageNotes ?? "",
     expiresAt: formatDateInput(product.expiresAt),
     tags: product.tags.join(", "),
     status: product.status,
@@ -180,12 +243,15 @@ export default function ProductsPage() {
   const queryClient = useQueryClient();
   const [status, setStatus] = useState<ProductStatusFilter>("all");
   const [search, setSearch] = useState("");
+  const debouncedSearch = useDebouncedValue(search.trim(), 300);
+  const [sortBy, setSortBy] = useState<ProductSortKey>("createdAt-desc");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<MerchantProduct | null>(null);
   const [form, setForm] = useState<ProductFormState>(DEFAULT_FORM);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<MerchantProduct | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [coverUploading, setCoverUploading] = useState(false);
 
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [bulkDialog, setBulkDialog] = useState<BulkDialogKind | null>(null);
@@ -196,10 +262,13 @@ export default function ProductsPage() {
   const [bulkPointsInput, setBulkPointsInput] = useState("");
   const [bulkCsvText, setBulkCsvText] = useState("");
 
+  const productPathFilter = trpc.product.pathFilter();
+
   const { data, isLoading } = useQuery(
     trpc.product.manageList.queryOptions({
       status,
-      search: search.trim() || undefined,
+      search: debouncedSearch || undefined,
+      sortBy,
     }),
   );
   const products = useMemo(
@@ -210,6 +279,7 @@ export default function ProductsPage() {
   const createMutation = useMutation(trpc.product.create.mutationOptions());
   const updateMutation = useMutation(trpc.product.update.mutationOptions());
   const deleteMutation = useMutation(trpc.product.delete.mutationOptions());
+  const duplicateMutation = useMutation(trpc.product.duplicate.mutationOptions());
   const bulkSetStatusMutation = useMutation(trpc.product.bulkSetStatus.mutationOptions());
   const bulkSetStockMutation = useMutation(trpc.product.bulkSetStock.mutationOptions());
   const bulkAdjustStockMutation = useMutation(trpc.product.bulkAdjustStock.mutationOptions());
@@ -217,13 +287,15 @@ export default function ProductsPage() {
   const bulkImportStockMutation = useMutation(
     trpc.product.bulkImportStockRows.mutationOptions(),
   );
+  const bulkDeleteMutation = useMutation(trpc.product.bulkDelete.mutationOptions());
 
   const bulkBusy =
     bulkSetStatusMutation.isPending ||
     bulkSetStockMutation.isPending ||
     bulkAdjustStockMutation.isPending ||
     bulkSetPricesMutation.isPending ||
-    bulkImportStockMutation.isPending;
+    bulkImportStockMutation.isPending ||
+    bulkDeleteMutation.isPending;
 
   const summary = useMemo(() => {
     const activeCount = products.filter((item) => item.status === "ACTIVE").length;
@@ -248,7 +320,7 @@ export default function ProductsPage() {
   }, [products]);
 
   async function afterBulkSuccess() {
-    await queryClient.invalidateQueries();
+    await queryClient.invalidateQueries(productPathFilter);
     setSelectedIds([]);
     setBulkDialog(null);
   }
@@ -387,7 +459,7 @@ export default function ProductsPage() {
       toast.success(
         `导入完成：更新 ${r.updated} 条，跳过 ${r.skipped} 条`,
       );
-      await queryClient.invalidateQueries();
+      await queryClient.invalidateQueries(productPathFilter);
       setBulkDialog(null);
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "导入失败");
@@ -410,8 +482,12 @@ export default function ProductsPage() {
     setForm((prev) => ({ ...prev, [key]: value }));
   }
 
-  async function handleImageUpload(file: File) {
-    setUploading(true);
+  async function handleImageUpload(
+    file: File,
+    field: "imageUrl" | "coverImage" = "imageUrl",
+  ) {
+    const setBusy = field === "coverImage" ? setCoverUploading : setUploading;
+    setBusy(true);
     try {
       const body = new FormData();
       body.append("file", file);
@@ -421,11 +497,11 @@ export default function ProductsPage() {
         toast.error(json.error ?? "上传失败");
         return;
       }
-      updateForm("imageUrl", json.url);
+      updateForm(field, json.url);
     } catch {
       toast.error("上传失败，请稍后重试");
     } finally {
-      setUploading(false);
+      setBusy(false);
     }
   }
 
@@ -442,7 +518,7 @@ export default function ProductsPage() {
   }
 
   async function refreshAll() {
-    await queryClient.invalidateQueries();
+    await queryClient.invalidateQueries(productPathFilter);
   }
 
   async function handleSubmit() {
@@ -451,18 +527,33 @@ export default function ProductsPage() {
       return;
     }
 
+    const minAmount = form.minAmount.trim() ? Number(form.minAmount) : undefined;
+    const minQuantity = form.minQuantity.trim()
+      ? Number.parseInt(form.minQuantity, 10)
+      : undefined;
+    const purchaseNotes = form.purchaseNotes
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter(Boolean);
+
     const payload = {
       app: form.app.trim(),
       title: form.title.trim(),
       subtitle: form.subtitle.trim() || undefined,
       description: form.description.trim() || undefined,
       imageUrl: form.imageUrl || undefined,
+      coverImage: form.coverImage || undefined,
+      category: form.category.trim() || undefined,
       pointsPrice: Number(form.pointsPrice),
       cashPrice: Number(form.cashPrice),
       originalCashPrice: form.originalCashPrice
         ? Number(form.originalCashPrice)
         : undefined,
       stock: Number(form.stock),
+      minAmount,
+      minQuantity,
+      purchaseNotes,
+      usageNotes: form.usageNotes.trim() || undefined,
       expiresAt: new Date(form.expiresAt),
       tags: form.tags
         .split(",")
@@ -475,9 +566,11 @@ export default function ProductsPage() {
       Number.isNaN(payload.pointsPrice) ||
       Number.isNaN(payload.cashPrice) ||
       Number.isNaN(payload.stock) ||
-      Number.isNaN(payload.expiresAt.getTime())
+      Number.isNaN(payload.expiresAt.getTime()) ||
+      (minAmount !== undefined && Number.isNaN(minAmount)) ||
+      (minQuantity !== undefined && (!Number.isFinite(minQuantity) || minQuantity < 1))
     ) {
-      toast.error("价格、库存和时间格式不正确");
+      toast.error("价格、库存、起购数量或时间格式不正确");
       return;
     }
 
@@ -491,10 +584,16 @@ export default function ProductsPage() {
             subtitle: payload.subtitle,
             description: payload.description,
             imageUrl: payload.imageUrl ?? null,
+            coverImage: payload.coverImage ?? null,
+            category: payload.category,
             pointsPrice: payload.pointsPrice,
             cashPrice: payload.cashPrice,
             originalCashPrice: payload.originalCashPrice ?? null,
             stock: payload.stock,
+            minAmount: payload.minAmount ?? null,
+            minQuantity: payload.minQuantity ?? null,
+            purchaseNotes: payload.purchaseNotes,
+            usageNotes: payload.usageNotes ?? null,
             expiresAt: payload.expiresAt,
             tags: payload.tags,
             status: payload.status,
@@ -515,6 +614,37 @@ export default function ProductsPage() {
       setForm(DEFAULT_FORM);
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "保存失败，请稍后重试");
+    }
+  }
+
+  async function handleDuplicate(product: MerchantProduct) {
+    setBusyId(product.id);
+    try {
+      await duplicateMutation.mutateAsync({ id: product.id });
+      toast.success(`已复制「${product.title}」为草稿`);
+      await refreshAll();
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "复制失败");
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  async function runBulkDelete() {
+    if (selectedIds.length === 0) {
+      toast.error("请先勾选商品");
+      return;
+    }
+    try {
+      const r = await bulkDeleteMutation.mutateAsync({ ids: selectedIds });
+      toast.success(
+        r.skipped > 0
+          ? `已删除 ${r.deleted} 个，${r.skipped} 个含未完结订单已跳过`
+          : `已删除 ${r.deleted} 个商品`,
+      );
+      await afterBulkSuccess();
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "批量删除失败");
     }
   }
 
@@ -599,7 +729,7 @@ export default function ProductsPage() {
               </TabsList>
             </Tabs>
 
-            <div className="flex w-full flex-col gap-3 sm:flex-row sm:items-center sm:justify-end lg:max-w-xl">
+            <div className="flex w-full flex-col gap-3 sm:flex-row sm:items-center sm:justify-end lg:max-w-2xl">
               <Button
                 type="button"
                 variant="outline"
@@ -609,6 +739,22 @@ export default function ProductsPage() {
               >
                 粘贴导入库存
               </Button>
+              <Select
+                value={sortBy}
+                onValueChange={(value) => setSortBy(value as ProductSortKey)}
+              >
+                <SelectTrigger className="w-full sm:w-44">
+                  <ArrowUpDown className="mr-1 h-3.5 w-3.5 text-muted-foreground" />
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {SORT_OPTIONS.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               <div className="relative w-full sm:max-w-sm">
                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
@@ -635,6 +781,16 @@ export default function ProductsPage() {
               </Button>
               <Button size="sm" variant="outline" type="button" onClick={() => openBulk("price")}>
                 调价
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                type="button"
+                className="gap-1.5 text-rose-400 hover:text-rose-300 hover:border-rose-400/50"
+                onClick={() => openBulk("delete")}
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+                批量删除
               </Button>
               <Button
                 size="sm"
@@ -674,6 +830,7 @@ export default function ProductsPage() {
                         aria-label="全选当前页"
                       />
                     </TableHead>
+                    <TableHead className="w-14 px-0">图</TableHead>
                     <TableHead>商品</TableHead>
                     <TableHead>状态</TableHead>
                     <TableHead className="text-right">积分价</TableHead>
@@ -685,7 +842,18 @@ export default function ProductsPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {products.map((product) => (
+                  {products.map((product) => {
+                    const days = daysUntil(product.expiresAt);
+                    const isExpiringSoon =
+                      product.status === "ACTIVE" &&
+                      days <= EXPIRING_SOON_DAYS &&
+                      days >= 0;
+                    const isExpiredAlready = days < 0;
+                    const isLowStock =
+                      product.status === "ACTIVE" &&
+                      product.stock <= LOW_STOCK_THRESHOLD;
+                    const isOutOfStock = product.stock === 0;
+                    return (
                     <TableRow key={product.id} className="border-border">
                       <TableCell className="w-10 align-top pt-4">
                         <Checkbox
@@ -694,6 +862,20 @@ export default function ProductsPage() {
                           onClick={(e) => e.stopPropagation()}
                           aria-label={`选择 ${product.title}`}
                         />
+                      </TableCell>
+                      <TableCell className="w-14 px-0 align-top pt-3">
+                        {product.imageUrl ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={product.imageUrl}
+                            alt={product.title}
+                            className="h-12 w-12 rounded-md border border-border object-cover"
+                          />
+                        ) : (
+                          <div className="flex h-12 w-12 items-center justify-center rounded-md border border-dashed border-border bg-secondary/30 text-muted-foreground">
+                            <Package className="h-4 w-4" />
+                          </div>
+                        )}
                       </TableCell>
                       <TableCell className="min-w-[240px]">
                         <div className="font-semibold text-foreground">{product.title}</div>
@@ -708,11 +890,38 @@ export default function ProductsPage() {
                       <TableCell className="text-right text-foreground">
                         ¥{Number(product.cashPrice).toFixed(2)}
                       </TableCell>
-                      <TableCell className="text-right text-muted-foreground">
-                        {product.stock}
+                      <TableCell className="text-right">
+                        <span
+                          className={
+                            isOutOfStock
+                              ? "font-semibold text-rose-300"
+                              : isLowStock
+                                ? "inline-flex items-center gap-1 font-semibold text-amber-300"
+                                : "text-muted-foreground"
+                          }
+                        >
+                          {isLowStock && !isOutOfStock ? (
+                            <AlertTriangle className="h-3.5 w-3.5" />
+                          ) : null}
+                          {product.stock}
+                        </span>
                       </TableCell>
-                      <TableCell className="text-muted-foreground">
-                        {formatDateText(product.expiresAt)}
+                      <TableCell>
+                        <span
+                          className={
+                            isExpiredAlready
+                              ? "inline-flex items-center gap-1 text-slate-400"
+                              : isExpiringSoon
+                                ? "inline-flex items-center gap-1 font-medium text-amber-300"
+                                : "text-muted-foreground"
+                          }
+                        >
+                          {isExpiringSoon ? <Clock className="h-3.5 w-3.5" /> : null}
+                          {formatDateText(product.expiresAt)}
+                          {isExpiringSoon ? (
+                            <span className="text-[10px]">（{days}天）</span>
+                          ) : null}
+                        </span>
                       </TableCell>
                       <TableCell className="min-w-[180px]">
                         <div className="flex flex-wrap gap-1">
@@ -787,6 +996,20 @@ export default function ProductsPage() {
                           <Button
                             size="sm"
                             variant="outline"
+                            className="gap-1.5"
+                            disabled={busyId === product.id || duplicateMutation.isPending}
+                            onClick={() => void handleDuplicate(product)}
+                          >
+                            {busyId === product.id && duplicateMutation.isPending ? (
+                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                            ) : (
+                              <Copy className="h-3.5 w-3.5" />
+                            )}
+                            复制
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
                             className="gap-1.5 text-rose-400 hover:text-rose-300 hover:border-rose-400/50"
                             onClick={() => setDeleteTarget(product)}
                           >
@@ -796,7 +1019,8 @@ export default function ProductsPage() {
                         </div>
                       </TableCell>
                     </TableRow>
-                  ))}
+                  );
+                  })}
                 </TableBody>
               </Table>
             </div>
@@ -805,7 +1029,7 @@ export default function ProductsPage() {
       </Card>
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="max-w-2xl bg-card border-border">
+        <DialogContent className="max-w-2xl bg-card border-border max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{editing ? "编辑商品" : "新增商品"}</DialogTitle>
           </DialogHeader>
@@ -958,6 +1182,115 @@ export default function ProductsPage() {
                 C 端分类依赖标签：`限时`、`今日推荐`、`零元购`
               </div>
             </div>
+
+            <div className="sm:col-span-2 mt-2 border-t border-border pt-4">
+              <div className="text-sm font-semibold text-foreground">高级字段</div>
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                覆盖详情页购买须知、使用说明，以及起购门槛与封面图等扩展字段。
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <Label>分类标识</Label>
+              <Input
+                value={form.category}
+                onChange={(event) => updateForm("category", event.target.value)}
+                placeholder="内部标识，留空保持默认"
+              />
+              <p className="text-[11px] text-muted-foreground">
+                内部分类码，C 端栏目分类目前由「标签」驱动。
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <Label>起购金额（¥）</Label>
+              <Input
+                type="number"
+                min="0"
+                step="0.01"
+                value={form.minAmount}
+                onChange={(event) => updateForm("minAmount", event.target.value)}
+                placeholder="可留空"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label>起购数量</Label>
+              <Input
+                type="number"
+                min="1"
+                step="1"
+                value={form.minQuantity}
+                onChange={(event) => updateForm("minQuantity", event.target.value)}
+                placeholder="可留空"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label>封面图</Label>
+              {form.coverImage ? (
+                <div className="relative inline-block">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={form.coverImage}
+                    alt="封面图"
+                    className="aspect-square h-32 rounded-lg border border-border object-cover"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => updateForm("coverImage", "")}
+                    className="absolute -right-2 -top-2 flex h-6 w-6 items-center justify-center rounded-full bg-destructive text-destructive-foreground shadow-sm hover:bg-destructive/90"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              ) : (
+                <label className="flex h-32 cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-border bg-secondary/30 text-muted-foreground transition-colors hover:border-primary/50 hover:bg-secondary/50">
+                  {coverUploading ? (
+                    <Loader2 className="h-5 w-5 animate-spin" />
+                  ) : (
+                    <ImagePlus className="h-5 w-5" />
+                  )}
+                  <span className="text-[11px]">
+                    {coverUploading ? "上传中..." : "海报/分享场景使用，可留空"}
+                  </span>
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp,image/gif"
+                    className="hidden"
+                    disabled={coverUploading}
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) handleImageUpload(file, "coverImage");
+                      e.target.value = "";
+                    }}
+                  />
+                </label>
+              )}
+            </div>
+
+            <div className="space-y-2 sm:col-span-2">
+              <Label>购买须知</Label>
+              <Textarea
+                value={form.purchaseNotes}
+                onChange={(event) => updateForm("purchaseNotes", event.target.value)}
+                rows={3}
+                placeholder="每行一条，例如：&#10;不与其他优惠叠加&#10;限新用户使用"
+              />
+              <p className="text-[11px] text-muted-foreground">
+                每行一条须知，将在 C 端商品详情按列表展示。
+              </p>
+            </div>
+
+            <div className="space-y-2 sm:col-span-2">
+              <Label>使用说明</Label>
+              <Textarea
+                value={form.usageNotes}
+                onChange={(event) => updateForm("usageNotes", event.target.value)}
+                rows={3}
+                placeholder="一段文字说明使用流程或注意事项"
+              />
+            </div>
           </div>
 
           <DialogFooter>
@@ -999,6 +1332,7 @@ export default function ProductsPage() {
               {bulkDialog === "delta" ? "增减库存" : null}
               {bulkDialog === "price" ? "批量调价" : null}
               {bulkDialog === "csv" ? "粘贴导入库存" : null}
+              {bulkDialog === "delete" ? "批量删除商品" : null}
             </DialogTitle>
           </DialogHeader>
 
@@ -1097,6 +1431,17 @@ export default function ProductsPage() {
             </div>
           ) : null}
 
+          {bulkDialog === "delete" ? (
+            <div className="space-y-3 text-sm">
+              <p className="text-foreground">
+                即将永久删除已选 {selectedIds.length} 个商品，及其全部券码、已完结订单与核销记录。
+              </p>
+              <p className="text-xs text-muted-foreground">
+                含未完结订单（待支付/已支付）的商品会被自动跳过。
+              </p>
+            </div>
+          ) : null}
+
           <DialogFooter className="gap-2 sm:gap-0">
             <Button type="button" variant="outline" onClick={() => setBulkDialog(null)}>
               取消
@@ -1158,6 +1503,23 @@ export default function ProductsPage() {
                   </>
                 ) : (
                   "导入"
+                )}
+              </Button>
+            ) : null}
+            {bulkDialog === "delete" ? (
+              <Button
+                type="button"
+                variant="destructive"
+                disabled={bulkBusy}
+                onClick={() => void runBulkDelete()}
+              >
+                {bulkDeleteMutation.isPending ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    删除中...
+                  </>
+                ) : (
+                  "确认删除"
                 )}
               </Button>
             ) : null}
