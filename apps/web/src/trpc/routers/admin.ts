@@ -1479,4 +1479,86 @@ export const adminRouter = createTRPCRouter({
       });
       return { success: true };
     }),
+
+  listWithdrawals: adminProcedure
+    .input(z.object({
+      status: z.enum(["all", "PENDING", "APPROVED", "REJECTED", "PAID"]).default("all"),
+      page: z.number().int().min(1).default(1),
+      pageSize: z.number().int().min(1).max(100).default(20),
+    }).optional())
+    .query(async ({ ctx, input }) => {
+      const page = input?.page ?? 1;
+      const pageSize = input?.pageSize ?? 20;
+      const where: Record<string, unknown> = {};
+      if (input?.status && input.status !== "all") {
+        where.status = input.status;
+      }
+
+      const [items, total] = await Promise.all([
+        ctx.prisma.commissionWithdrawal.findMany({
+          where,
+          include: {
+            agent: { select: { id: true, name: true, email: true } },
+          },
+          orderBy: { createdAt: "desc" },
+          take: pageSize,
+          skip: (page - 1) * pageSize,
+        }),
+        ctx.prisma.commissionWithdrawal.count({ where }),
+      ]);
+      return { items, total, page, pageSize };
+    }),
+
+  reviewWithdrawal: adminProcedure
+    .input(z.object({
+      id: z.string(),
+      action: z.enum(["approve", "reject", "markPaid"]),
+      reviewNote: z.string().max(500).optional(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const w = await ctx.prisma.commissionWithdrawal.findUnique({
+        where: { id: input.id },
+      });
+      if (!w) throw new TRPCError({ code: "NOT_FOUND", message: "提现记录不存在" });
+
+      if (input.action === "approve") {
+        if (w.status !== "PENDING") {
+          throw new TRPCError({ code: "BAD_REQUEST", message: "仅待审核状态可审批" });
+        }
+      } else if (input.action === "reject") {
+        if (w.status !== "PENDING" && w.status !== "APPROVED") {
+          throw new TRPCError({ code: "BAD_REQUEST", message: "已支付或已驳回的不能再驳回" });
+        }
+      } else if (input.action === "markPaid") {
+        if (w.status !== "APPROVED") {
+          throw new TRPCError({ code: "BAD_REQUEST", message: "仅已批准的可标记为已支付" });
+        }
+      }
+
+      const newStatus =
+        input.action === "approve" ? "APPROVED"
+        : input.action === "reject" ? "REJECTED"
+        : "PAID";
+
+      const updated = await ctx.prisma.commissionWithdrawal.update({
+        where: { id: input.id },
+        data: {
+          status: newStatus,
+          reviewNote: input.reviewNote ?? null,
+          reviewedBy: ctx.user.id,
+          reviewedAt: new Date(),
+          paidAt: input.action === "markPaid" ? new Date() : w.paidAt,
+        },
+      });
+
+      await writeAuditLog({
+        actorId: ctx.user.id,
+        action: `withdrawal.${input.action}`,
+        targetType: "CommissionWithdrawal",
+        targetId: input.id,
+        summary: `提现 ¥${Number(w.amount).toFixed(2)} → ${newStatus}`,
+        headers: ctx.headers,
+      });
+      return updated;
+    }),
 });

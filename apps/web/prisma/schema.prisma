@@ -46,6 +46,7 @@ model User {
   footprints       Footprint[]
   agentApplication AgentApplication?
   agentCommissions AgentCommission[]    @relation("CommissionAgent")
+  withdrawals      CommissionWithdrawal[] @relation("WithdrawalAgent")
   apiKeys          ApiKey[]             @relation("ApiKeyOwner")
   auditLogs        AuditLog[]           @relation("AuditActor")
   noticeReads      NoticeRead[]
@@ -405,6 +406,42 @@ model AgentCommission {
   @@index([agentId, status, createdAt])
   @@index([orderId])
   @@map("agent_commissions")
+}
+
+// ─── Commission Withdrawal / 代理佣金提现 ──────────
+
+enum WithdrawalMethod {
+  ALIPAY
+  WECHAT
+  BANK
+}
+
+enum WithdrawalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  PAID
+}
+
+model CommissionWithdrawal {
+  id          String           @id @default(cuid())
+  agentId     String
+  agent       User             @relation("WithdrawalAgent", fields: [agentId], references: [id])
+  amount      Decimal          @db.Decimal(10, 2)
+  method      WithdrawalMethod
+  // Free-form payout target: { account: "...", realName: "...", bankName?: "...", branch?: "..." }
+  accountInfo Json             @default("{}")
+  status      WithdrawalStatus @default(PENDING)
+  reviewNote  String?
+  reviewedBy  String?
+  reviewedAt  DateTime?
+  paidAt      DateTime?
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  @@index([agentId, status, createdAt])
+  @@index([status, createdAt])
+  @@map("commission_withdrawals")
 }
 
 // ─── Incentive Config / 激励策略配置 ────────────────

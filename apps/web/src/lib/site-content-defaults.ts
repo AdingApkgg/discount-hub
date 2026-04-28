@@ -31,7 +31,7 @@ export const SITE_CONTENT_CATEGORIES: { id: string; label: string; description: 
   { id: "homepage", label: "首页文案", description: "首页搜索栏、邀请徽章等" },
   { id: "invite", label: "邀请页", description: "邀请页标题、奖励描述、分享话术" },
   { id: "member", label: "会员页", description: "会员页 slogan、区块标题" },
-  { id: "agent", label: "代理页", description: "代理申请步骤、表单提示" },
+  { id: "agent", label: "代理页", description: "代理申请步骤、表单提示、代理中心文案" },
   { id: "footprints", label: "足迹页", description: "近 N 天浏览相关" },
   { id: "notice", label: "公告", description: "公告 toast 时长、最大显示数" },
   { id: "earn", label: "刷内容赚积分", description: "首页 / 会员页「刷内容赚积分」卡片列表" },
@@ -113,6 +113,21 @@ export const SITE_CONTENT_DEFAULTS: SiteContentDefault[] = [
   { key: "agent.approved_message", category: "agent", label: "审核通过文案", valueType: "string", default: "恭喜成为官方代理商！", sortOrder: 4 },
   { key: "agent.not_agent_title", category: "agent", label: "非代理商提示标题", valueType: "string", default: "您还不是代理商", sortOrder: 5 },
   { key: "agent.not_agent_subtitle", category: "agent", label: "非代理商提示副标题", valueType: "string", default: "成为代理商后可在此查看下级与佣金", sortOrder: 6 },
+  { key: "agent.center_title", category: "agent", label: "代理中心标题", valueType: "string", default: "代理商中心", sortOrder: 10 },
+  { key: "agent.welcome_tagline", category: "agent", label: "代理中心欢迎语", valueType: "string", default: "邀请下单 · 持续返佣 · 团队躺赚", sortOrder: 11 },
+  { key: "agent.withdrawal_min_amount", category: "agent", label: "最低提现金额（元）", valueType: "number", default: 10, sortOrder: 20 },
+  { key: "agent.withdrawal_fee_rate", category: "agent", label: "提现手续费率（0-1）", description: "例如 0.006 代表 0.6%；最终到账 = 金额 × (1 - 费率)", valueType: "number", default: 0, sortOrder: 21 },
+  { key: "agent.withdrawal_rules", category: "agent", label: "提现规则说明（数组）", valueType: "array", default: [
+    "已结算佣金可申请提现，未结算佣金需等订单确认收货",
+    "提现申请提交后 1-3 个工作日内审核",
+    "审核通过后预计 1-5 个工作日到账",
+    "请确保收款账户实名信息与本人一致",
+  ], sortOrder: 22 },
+  { key: "agent.training_links", category: "agent", label: "新手培训链接（数组：{ title, url }）", valueType: "array", default: [
+    { title: "代理新手指南", url: "/about" },
+    { title: "如何快速建立团队", url: "/about" },
+    { title: "佣金结算规则说明", url: "/about" },
+  ], sortOrder: 30 },
 
   // ───── 足迹页 ─────
   { key: "footprints.recent_days", category: "footprints", label: "最近 N 天", valueType: "number", default: 30, sortOrder: 1 },

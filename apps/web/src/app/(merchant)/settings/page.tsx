@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { CheckCircle, ClipboardList, Code2, Copy, FileText, Gift, Headphones, Image, KeyRound, Loader2, Lock, Plus, Save, Share2, ShieldAlert, Store, Bell, Shield, Palette, Sun, Moon, Monitor, Trash2, Unlock, Users, Zap } from "lucide-react";
+import { CheckCircle, ClipboardList, Code2, Copy, FileText, Gift, Headphones, Image, KeyRound, Loader2, Lock, Plus, Save, Share2, ShieldAlert, Store, Bell, Shield, Palette, Sun, Moon, Monitor, Trash2, Unlock, Users, Wallet, Zap } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTheme } from "next-themes";
 import { toast } from "sonner";
@@ -2704,6 +2704,239 @@ function SiteContentTab() {
   );
 }
 
+const WITHDRAWAL_STATUS_LABEL: Record<string, string> = {
+  PENDING: "待审核",
+  APPROVED: "已批准",
+  REJECTED: "已驳回",
+  PAID: "已支付",
+};
+
+const WITHDRAWAL_STATUS_TONE: Record<string, string> = {
+  PENDING: "border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-400",
+  APPROVED: "border-blue-500/40 bg-blue-500/10 text-blue-700 dark:text-blue-400",
+  REJECTED: "border-rose-500/40 bg-rose-500/10 text-rose-700 dark:text-rose-400",
+  PAID: "border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400",
+};
+
+const WITHDRAWAL_METHOD_LABEL: Record<string, string> = {
+  ALIPAY: "支付宝",
+  WECHAT: "微信",
+  BANK: "银行卡",
+};
+
+function WithdrawalReviewTab() {
+  const trpc = useTRPC();
+  const queryClient = useQueryClient();
+  const [filter, setFilter] = useState<"all" | "PENDING" | "APPROVED" | "REJECTED" | "PAID">("PENDING");
+  const [rejectingId, setRejectingId] = useState<string | null>(null);
+  const [rejectNote, setRejectNote] = useState("");
+
+  const { data, isLoading } = useQuery(
+    trpc.admin.listWithdrawals.queryOptions({
+      status: filter,
+      page: 1,
+      pageSize: 50,
+    }),
+  );
+  const reviewMutation = useMutation(trpc.admin.reviewWithdrawal.mutationOptions());
+
+  async function handleReview(id: string, action: "approve" | "reject" | "markPaid", reviewNote?: string) {
+    try {
+      await reviewMutation.mutateAsync({ id, action, reviewNote });
+      await queryClient.invalidateQueries();
+      toast.success(
+        action === "approve" ? "已批准" : action === "reject" ? "已驳回" : "已标记为支付",
+      );
+      if (action === "reject") {
+        setRejectingId(null);
+        setRejectNote("");
+      }
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "操作失败");
+    }
+  }
+
+  if (isLoading) {
+    return (
+      <Card className="border-border">
+        <CardContent className="flex justify-center p-6">
+          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        </CardContent>
+      </Card>
+    );
+  }
+
+  const items = data?.items ?? [];
+
+  return (
+    <Card className="border-border">
+      <CardContent className="space-y-4 p-6">
+        <div>
+          <h3 className="text-sm font-medium text-foreground">提现审核</h3>
+          <p className="mt-1 text-xs text-muted-foreground">
+            审核代理商提现申请。批准后再标记为「已支付」（实际打款完成后操作）。
+          </p>
+        </div>
+
+        <div className="flex flex-wrap gap-2">
+          {(["PENDING", "APPROVED", "PAID", "REJECTED", "all"] as const).map((s) => {
+            const active = filter === s;
+            const label = s === "all" ? "全部" : WITHDRAWAL_STATUS_LABEL[s];
+            return (
+              <button
+                key={s}
+                type="button"
+                onClick={() => setFilter(s)}
+                className={cn(
+                  "rounded-full border px-3 py-1.5 text-xs transition-all",
+                  active
+                    ? "border-primary bg-primary/10 text-primary"
+                    : "border-border text-muted-foreground hover:bg-secondary/50",
+                )}
+              >
+                {label}
+              </button>
+            );
+          })}
+        </div>
+
+        {items.length === 0 ? (
+          <div className="rounded-xl border border-dashed border-border bg-secondary/30 p-12 text-center text-sm text-muted-foreground">
+            暂无符合条件的提现申请
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {items.map((w) => {
+              const account = (w.accountInfo as Record<string, unknown> | null) ?? {};
+              const isRejecting = rejectingId === w.id;
+              return (
+                <div key={w.id} className="rounded-xl border border-border bg-card p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0 flex-1 space-y-1.5">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="font-semibold text-foreground">
+                          {w.agent.name ?? w.agent.email}
+                        </span>
+                        <span className="text-xs text-muted-foreground">
+                          {w.agent.email}
+                        </span>
+                        <span
+                          className={cn(
+                            "rounded-full border px-2 py-0.5 text-[11px] font-bold",
+                            WITHDRAWAL_STATUS_TONE[w.status],
+                          )}
+                        >
+                          {WITHDRAWAL_STATUS_LABEL[w.status]}
+                        </span>
+                      </div>
+                      <div className="grid gap-1 text-xs text-muted-foreground sm:grid-cols-2">
+                        <div>金额：<span className="font-bold text-foreground">¥{Number(w.amount).toFixed(2)}</span></div>
+                        <div>方式：{WITHDRAWAL_METHOD_LABEL[w.method] ?? w.method}</div>
+                        <div>账号：<span className="font-mono text-foreground">{String(account.account ?? "")}</span></div>
+                        <div>姓名：<span className="text-foreground">{String(account.realName ?? "")}</span></div>
+                        {account.bankName ? (
+                          <div className="sm:col-span-2">
+                            开户行：{String(account.bankName)}
+                            {account.branch ? ` · ${String(account.branch)}` : ""}
+                          </div>
+                        ) : null}
+                        <div>申请：{new Date(w.createdAt).toLocaleString("zh-CN")}</div>
+                        {w.reviewedAt ? (
+                          <div>审核：{new Date(w.reviewedAt).toLocaleString("zh-CN")}</div>
+                        ) : null}
+                        {w.paidAt ? (
+                          <div className="sm:col-span-2">支付：{new Date(w.paidAt).toLocaleString("zh-CN")}</div>
+                        ) : null}
+                        {w.reviewNote ? (
+                          <div className="sm:col-span-2 text-rose-600">备注：{w.reviewNote}</div>
+                        ) : null}
+                      </div>
+                    </div>
+                  </div>
+
+                  {w.status === "PENDING" && !isRejecting ? (
+                    <div className="mt-3 flex gap-2">
+                      <Button
+                        size="sm"
+                        onClick={() => handleReview(w.id, "approve")}
+                        disabled={reviewMutation.isPending}
+                      >
+                        批准
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="border-rose-500/40 text-rose-600 hover:bg-rose-500/10"
+                        onClick={() => setRejectingId(w.id)}
+                        disabled={reviewMutation.isPending}
+                      >
+                        驳回
+                      </Button>
+                    </div>
+                  ) : null}
+
+                  {w.status === "APPROVED" ? (
+                    <div className="mt-3 flex gap-2">
+                      <Button
+                        size="sm"
+                        onClick={() => handleReview(w.id, "markPaid")}
+                        disabled={reviewMutation.isPending}
+                      >
+                        标记已支付
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="border-rose-500/40 text-rose-600 hover:bg-rose-500/10"
+                        onClick={() => setRejectingId(w.id)}
+                        disabled={reviewMutation.isPending}
+                      >
+                        驳回
+                      </Button>
+                    </div>
+                  ) : null}
+
+                  {isRejecting ? (
+                    <div className="mt-3 space-y-2 rounded-lg bg-secondary/40 p-3">
+                      <Label className="text-xs">驳回原因（可选）</Label>
+                      <Input
+                        value={rejectNote}
+                        onChange={(e) => setRejectNote(e.target.value)}
+                        placeholder="向用户说明驳回原因"
+                      />
+                      <div className="flex gap-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="border-rose-500/40 text-rose-600"
+                          onClick={() => handleReview(w.id, "reject", rejectNote || undefined)}
+                          disabled={reviewMutation.isPending}
+                        >
+                          确认驳回
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => {
+                            setRejectingId(null);
+                            setRejectNote("");
+                          }}
+                        >
+                          取消
+                        </Button>
+                      </div>
+                    </div>
+                  ) : null}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 export default function SettingsPage() {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
@@ -2862,6 +3095,12 @@ export default function SettingsPage() {
           <TabsTrigger value="agent-commission" className="gap-2">
             <Users className="h-4 w-4" />
             代理佣金
+          </TabsTrigger>
+          ) : null}
+          {isAdmin ? (
+          <TabsTrigger value="withdrawal-review" className="gap-2">
+            <Wallet className="h-4 w-4" />
+            提现审核
           </TabsTrigger>
           ) : null}
           {isAdmin ? (
@@ -3121,6 +3360,12 @@ export default function SettingsPage() {
         {isAdmin ? (
         <TabsContent value="api-keys">
           <ApiKeyTab />
+        </TabsContent>
+        ) : null}
+
+        {isAdmin ? (
+        <TabsContent value="withdrawal-review">
+          <WithdrawalReviewTab />
         </TabsContent>
         ) : null}
 
