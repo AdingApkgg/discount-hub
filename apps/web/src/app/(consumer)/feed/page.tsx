@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo } from "react";
 import { useRouter } from "next/navigation";
 import {
   Crown,
@@ -11,6 +12,7 @@ import {
 import { useQuery } from "@tanstack/react-query";
 import { useSession } from "@/lib/auth-client";
 import { useTRPC } from "@/trpc/client";
+import { useSiteContent, asArray } from "@/hooks/use-site-content";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -29,13 +31,35 @@ import {
   HoverScale,
 } from "@/components/motion";
 
-const VIP_TIERS = [
+type VipTier = {
+  level: number;
+  label: string;
+  points: number;
+  color: string;
+};
+
+const FALLBACK_VIP_TIERS: VipTier[] = [
   { level: 1, label: "VIP1", points: 200, color: "from-amber-400 to-orange-400" },
   { level: 2, label: "VIP2", points: 500, color: "from-orange-500 to-red-500" },
   { level: 3, label: "VIP3", points: 1200, color: "from-rose-500 to-pink-500" },
   { level: 4, label: "VIP4", points: 2000, color: "from-pink-500 to-red-600" },
   { level: 5, label: "VIP5", points: 5000, color: "from-yellow-500 to-amber-600" },
 ];
+
+function normalizeVipTiers(raw: unknown[]): VipTier[] {
+  const out: VipTier[] = [];
+  for (const r of raw) {
+    if (!r || typeof r !== "object") continue;
+    const o = r as Record<string, unknown>;
+    const level = typeof o.level === "number" ? o.level : Number(o.level);
+    const label = typeof o.label === "string" ? o.label : "";
+    const points = typeof o.points === "number" ? o.points : Number(o.points);
+    const color = typeof o.color === "string" ? o.color : "";
+    if (!Number.isFinite(level) || !label || !Number.isFinite(points) || !color) continue;
+    out.push({ level, label, points, color });
+  }
+  return out;
+}
 
 const mockPosts = [
   { id: "mp1", title: "今天刷到的隐藏福利，真的香", content: "限时神卷叠加后到手价太离谱了…赶紧冲，先到先得", images: [] as string[], likeCount: 2400, app: "抖音", user: { name: "用户A", image: null as string | null }, _count: { comments: 128 }, createdAt: new Date().toISOString() },
@@ -54,6 +78,12 @@ export default function FeedPage() {
   const router = useRouter();
   const trpc = useTRPC();
   const { data: session } = useSession();
+  const feedContent = useSiteContent("feed");
+
+  const vipTiers = useMemo(() => {
+    const arr = normalizeVipTiers(asArray<unknown>(feedContent["feed.vip_tiers"]));
+    return arr.length > 0 ? arr : FALLBACK_VIP_TIERS;
+  }, [feedContent]);
 
   const { data: profile } = useQuery({
     ...trpc.user.me.queryOptions(),
@@ -89,7 +119,7 @@ export default function FeedPage() {
         <AnimatedSection>
           <ScrollArea className="w-full">
             <div className="flex gap-3 pb-2">
-              {VIP_TIERS.map((tier) => (
+              {vipTiers.map((tier) => (
                 <Card key={tier.level} className={`w-[140px] shrink-0 gap-0 overflow-hidden rounded-[22px] border-0 py-0 bg-gradient-to-br ${tier.color} text-white shadow-lg`}>
                   <CardContent className="p-4 text-center">
                     <Crown className="mx-auto h-6 w-6" />

@@ -942,28 +942,16 @@ function EarnContentCard({
 }
 
 /* ============ 信任底栏 ============ */
-const TRUST_MARQUEE_LINE =
-  "🛡 官方授权  ·  ⚡ 极速到账  ·  ✨ 7天售后  ·  💰 积分抵现  ·  ";
-
-function TrustMarquee() {
+function TrustMarquee({ line }: { line: string }) {
   return (
     <div className="overflow-hidden rounded-full bg-[linear-gradient(90deg,#FE2C55_0%,#FF4D6A_50%,#FF6E37_100%)] py-2 text-[11px] font-black text-white shadow-[0_4px_12px_rgba(254,44,85,0.22)]">
       <div className="consumer-marquee-track">
-        <span className="shrink-0 whitespace-nowrap px-5">{TRUST_MARQUEE_LINE}</span>
-        <span className="shrink-0 whitespace-nowrap px-5">{TRUST_MARQUEE_LINE}</span>
+        <span className="shrink-0 whitespace-nowrap px-5">{line}</span>
+        <span className="shrink-0 whitespace-nowrap px-5">{line}</span>
       </div>
     </div>
   );
 }
-
-/* ============ 弹幕抢购通栏 ============ */
-const DANMU_ITEMS = [
-  "🎉 张**在 3 秒前抢到 ¥1 神券",
-  "🔥 李**节省了 ¥128",
-  "⚡ 王**用积分换了视频VIP",
-  "💎 赵**拿下 0 元专区",
-  "📣 最近 1 小时 1.2 万人参团",
-];
 
 /* ============ 页面 ============ */
 export default function HomePage() {
@@ -978,6 +966,18 @@ export default function HomePage() {
   const shortcuts = useMemo(
     () => normalizeShortcuts(asArray<unknown>(homepageContent["homepage.shortcuts"])),
     [homepageContent],
+  );
+  const danmuItems = useMemo(() => {
+    const arr = asArray<unknown>(homepageContent["homepage.danmu_items"]).filter(
+      (s): s is string => typeof s === "string" && s.length > 0,
+    );
+    return arr.length > 0
+      ? arr
+      : ["🎉 张**在 3 秒前抢到 ¥1 神券", "🔥 李**节省了 ¥128"];
+  }, [homepageContent]);
+  const trustMarqueeLine = asString(
+    homepageContent["homepage.trust_marquee"],
+    "🛡 官方授权  ·  ⚡ 极速到账  ·  ✨ 7天售后  ·  💰 积分抵现  ·  ",
   );
   const earnContents = asArray<EarnContent>(earnContent["earn.contents"]);
   const hotPosts = asArray<{ id: string; title: string; excerpt: string; likeText: string; app: string }>(
@@ -1076,7 +1076,7 @@ export default function HomePage() {
         </AnimatedItem>
 
         <AnimatedItem>
-          <DanmuBubble items={DANMU_ITEMS} />
+          <DanmuBubble items={danmuItems} />
         </AnimatedItem>
 
         <AnimatedItem>
@@ -1232,7 +1232,7 @@ export default function HomePage() {
         </AnimatedSection>
 
         <AnimatedSection>
-          <TrustMarquee />
+          <TrustMarquee line={trustMarqueeLine} />
         </AnimatedSection>
       </div>
     </PageTransition>

@@ -1,20 +1,14 @@
 "use client";
 
 import Link from "next/link";
+import { useMemo } from "react";
 import { useRouter } from "next/navigation";
-import {
-  Bell,
-  ChevronRight,
-  FileText,
-  HelpCircle,
-  Info,
-  LogOut,
-  UserCog,
-} from "lucide-react";
+import { ChevronRight, LogOut } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { signOut } from "@/lib/auth-client";
 import { useTRPC } from "@/trpc/client";
+import { useSiteContent, asArray } from "@/hooks/use-site-content";
 import type { RouterOutputs } from "@/trpc/types";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -150,21 +144,69 @@ function ProfileHeader({
 }
 
 /* ============ 四宫格入口 ============ */
-const QUICK_ACTIONS = [
-  { id: "orders", emoji: "📦", label: "我的订单", path: "/my-orders", tone: "red" as const },
-  { id: "coupons", emoji: "🎟️", label: "券包", path: "/coupons", tone: "orange" as const, badge: "NEW" },
-  { id: "favorites", emoji: "❤️", label: "收藏", path: "/favorites", tone: "pink" as const },
-  { id: "footprints", emoji: "👣", label: "足迹", path: "/footprints", tone: "gold" as const },
+type QuickActionTone = "red" | "pink" | "orange" | "gold" | "gradient";
+
+type QuickAction = {
+  id: string;
+  emoji?: string;
+  iconUrl?: string;
+  label: string;
+  path: string;
+  tone: QuickActionTone;
+  badge?: string;
+};
+
+const QUICK_ACTION_TONES: ReadonlySet<QuickActionTone> = new Set([
+  "red",
+  "pink",
+  "orange",
+  "gold",
+  "gradient",
+]);
+
+const FALLBACK_QUICK_ACTIONS: QuickAction[] = [
+  { id: "orders", emoji: "📦", label: "我的订单", path: "/my-orders", tone: "red" },
+  { id: "coupons", emoji: "🎟️", label: "券包", path: "/coupons", tone: "orange", badge: "NEW" },
+  { id: "favorites", emoji: "❤️", label: "收藏", path: "/favorites", tone: "pink" },
+  { id: "footprints", emoji: "👣", label: "足迹", path: "/footprints", tone: "gold" },
 ];
 
-function QuickActionsGrid({ onGo }: { onGo: (path: string) => void }) {
+function normalizeQuickActions(raw: unknown[]): QuickAction[] {
+  const out: QuickAction[] = [];
+  for (const r of raw) {
+    if (!r || typeof r !== "object") continue;
+    const o = r as Record<string, unknown>;
+    const id = typeof o.id === "string" ? o.id : "";
+    const label = typeof o.label === "string" ? o.label : "";
+    const path = typeof o.path === "string" ? o.path : "";
+    if (!id || !label || !path) continue;
+    const toneRaw = typeof o.tone === "string" ? o.tone : "red";
+    const tone: QuickActionTone = QUICK_ACTION_TONES.has(toneRaw as QuickActionTone)
+      ? (toneRaw as QuickActionTone)
+      : "red";
+    const emoji = typeof o.emoji === "string" ? o.emoji : undefined;
+    const iconUrl = typeof o.iconUrl === "string" ? o.iconUrl : undefined;
+    const badge = typeof o.badge === "string" ? o.badge : undefined;
+    out.push({ id, label, path, tone, emoji, iconUrl, badge });
+  }
+  return out;
+}
+
+function QuickActionsGrid({
+  actions,
+  onGo,
+}: {
+  actions: QuickAction[];
+  onGo: (path: string) => void;
+}) {
   return (
     <div className="rounded-2xl bg-[var(--app-card)] p-3 shadow-[0_4px_14px_rgba(122,60,30,0.08)]">
       <div className="grid grid-cols-4 gap-1">
-        {QUICK_ACTIONS.map((a) => (
+        {actions.map((a) => (
           <EmojiShortcut
             key={a.id}
             emoji={a.emoji}
+            iconUrl={a.iconUrl}
             label={a.label}
             tone={a.tone}
             badge={a.badge}
@@ -255,31 +297,58 @@ function AccountInfoCard({ profile }: { profile: UserProfile | undefined }) {
 }
 
 /* ============ 设置列表 ============ */
-const SETTING_ITEMS = [
-  { id: "account", emoji: "⚙️", icon: UserCog, label: "账户设置" },
-  { id: "notify", emoji: "🔔", icon: Bell, label: "消息通知" },
-  { id: "notices", emoji: "📢", icon: Bell, label: "公告中心", path: "/notices-center" },
-  { id: "help", emoji: "💡", icon: HelpCircle, label: "帮助中心" },
-  { id: "terms", emoji: "📄", icon: FileText, label: "服务条款" },
-  { id: "about", emoji: "ℹ️", icon: Info, label: "关于我们" },
-] as const;
+type SettingItem = {
+  id: string;
+  emoji: string;
+  label: string;
+  path?: string;
+};
 
-function SettingsList({ onGo }: { onGo?: (id: string) => void }) {
+const FALLBACK_SETTING_ITEMS: SettingItem[] = [
+  { id: "account", emoji: "⚙️", label: "账户设置" },
+  { id: "notify", emoji: "🔔", label: "消息通知" },
+  { id: "notices", emoji: "📢", label: "公告中心", path: "/notices-center" },
+  { id: "help", emoji: "💡", label: "帮助中心" },
+  { id: "terms", emoji: "📄", label: "服务条款" },
+  { id: "about", emoji: "ℹ️", label: "关于我们" },
+];
+
+function normalizeSettingItems(raw: unknown[]): SettingItem[] {
+  const out: SettingItem[] = [];
+  for (const r of raw) {
+    if (!r || typeof r !== "object") continue;
+    const o = r as Record<string, unknown>;
+    const id = typeof o.id === "string" ? o.id : "";
+    const label = typeof o.label === "string" ? o.label : "";
+    if (!id || !label) continue;
+    const emoji = typeof o.emoji === "string" ? o.emoji : "•";
+    const path = typeof o.path === "string" ? o.path : undefined;
+    out.push({ id, emoji, label, path });
+  }
+  return out;
+}
+
+function SettingsList({
+  items,
+  onGo,
+}: {
+  items: SettingItem[];
+  onGo?: (id: string) => void;
+}) {
   const router = useRouter();
   return (
     <div className="overflow-hidden rounded-2xl bg-[var(--app-card)] shadow-[0_4px_14px_rgba(122,60,30,0.06)]">
-      {SETTING_ITEMS.map((item, i) => (
+      {items.map((item, i) => (
         <button
           key={item.id}
           type="button"
           onClick={() => {
-            const path = (item as { path?: string }).path;
-            if (path) router.push(path);
+            if (item.path) router.push(item.path);
             else onGo?.(item.id);
           }}
           className={cn(
             "flex w-full items-center gap-2.5 px-3.5 py-3 text-left active:bg-[var(--app-soft)]",
-            i !== SETTING_ITEMS.length - 1 &&
+            i !== items.length - 1 &&
               "border-b border-dashed border-[var(--app-card-border)]",
           )}
         >
@@ -298,6 +367,17 @@ function SettingsList({ onGo }: { onGo?: (id: string) => void }) {
 export default function ProfilePage() {
   const router = useRouter();
   const trpc = useTRPC();
+  const profileContent = useSiteContent("profile");
+
+  const quickActions = useMemo(() => {
+    const arr = normalizeQuickActions(asArray<unknown>(profileContent["profile.quick_actions"]));
+    return arr.length > 0 ? arr : FALLBACK_QUICK_ACTIONS;
+  }, [profileContent]);
+
+  const settingItems = useMemo(() => {
+    const arr = normalizeSettingItems(asArray<unknown>(profileContent["profile.setting_items"]));
+    return arr.length > 0 ? arr : FALLBACK_SETTING_ITEMS;
+  }, [profileContent]);
 
   const { data: profileData, isLoading } = useQuery(
     trpc.user.me.queryOptions(),
@@ -338,7 +418,7 @@ export default function ProfilePage() {
         </AnimatedItem>
 
         <AnimatedItem>
-          <QuickActionsGrid onGo={(p) => router.push(p)} />
+          <QuickActionsGrid actions={quickActions} onGo={(p) => router.push(p)} />
         </AnimatedItem>
 
         <AnimatedItem>
@@ -355,7 +435,7 @@ export default function ProfilePage() {
 
         <AnimatedSection className="space-y-2">
           <FloorHeader emoji="🔧" title="其他" tone="gold" />
-          <SettingsList />
+          <SettingsList items={settingItems} />
         </AnimatedSection>
 
         <AnimatedSection>

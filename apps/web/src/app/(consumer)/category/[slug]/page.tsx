@@ -13,7 +13,10 @@ import {
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { useTRPC } from "@/trpc/client";
+import { useSiteContent, asArray } from "@/hooks/use-site-content";
 import type { RouterOutputs } from "@/trpc/types";
+import type { LucideIcon } from "lucide-react";
+import { Crown, Gift } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import {
@@ -36,45 +39,64 @@ import {
 type ProductItem = RouterOutputs["product"]["list"][number];
 type CategoryId = "limited" | "today" | "zero";
 
+type CategoryAccent = "red" | "gold" | "pink";
+
 type CategoryMeta = {
   title: string;
   subtitle: string;
-  Icon: typeof Flame;
-  accent: "red" | "gold" | "pink";
+  Icon: LucideIcon;
+  accent: CategoryAccent;
   emoji: string;
 };
 
-const CATEGORY_META: Record<string, CategoryMeta> = {
-  limited: {
-    title: "限时神券",
-    subtitle: "倒计时结束自动下架 · 错过等明天",
-    Icon: Flame,
-    accent: "red",
-    emoji: "限时",
-  },
-  today: {
-    title: "今日值得兑",
-    subtitle: "今天最稳妥的权益组合 · 编辑精挑",
-    Icon: Sparkles,
-    accent: "gold",
-    emoji: "推荐",
-  },
-  zero: {
-    title: "0 元兑专区",
-    subtitle: "只需积分 · 不花一分钱",
-    Icon: Coins,
-    accent: "pink",
-    emoji: "0元",
-  },
+const CATEGORY_ICON_BY_NAME: Record<string, LucideIcon> = {
+  flame: Flame,
+  sparkles: Sparkles,
+  coins: Coins,
+  zap: Zap,
+  gift: Gift,
+  crown: Crown,
 };
 
-const DANMU_ITEMS = [
+const FALLBACK_CATEGORY_META: Record<string, CategoryMeta> = {
+  limited: { title: "限时神券", subtitle: "倒计时结束自动下架 · 错过等明天", Icon: Flame, accent: "red", emoji: "限时" },
+  today: { title: "今日值得兑", subtitle: "今天最稳妥的权益组合 · 编辑精挑", Icon: Sparkles, accent: "gold", emoji: "推荐" },
+  zero: { title: "0 元兑专区", subtitle: "只需积分 · 不花一分钱", Icon: Coins, accent: "pink", emoji: "0元" },
+};
+
+const FALLBACK_DANMU_ITEMS = [
   "张**刚刚抢到限时券",
   "李**用积分换走最后 1 件",
   "王**节省 ¥128 入手",
   "最近 1 小时 1.2 万人参团",
   "赵**晒单：超值",
 ];
+
+function resolveCategoryMeta(
+  slug: string,
+  rawMetas: unknown,
+): CategoryMeta {
+  const fallback = FALLBACK_CATEGORY_META[slug] ?? {
+    title: slug,
+    subtitle: "",
+    Icon: Sparkles,
+    accent: "red" as const,
+    emoji: "推荐",
+  };
+  if (!rawMetas || typeof rawMetas !== "object") return fallback;
+  const entry = (rawMetas as Record<string, unknown>)[slug];
+  if (!entry || typeof entry !== "object") return fallback;
+  const o = entry as Record<string, unknown>;
+  const title = typeof o.title === "string" ? o.title : fallback.title;
+  const subtitle = typeof o.subtitle === "string" ? o.subtitle : fallback.subtitle;
+  const emoji = typeof o.emoji === "string" ? o.emoji : fallback.emoji;
+  const accentRaw = typeof o.accent === "string" ? o.accent : "";
+  const accent: CategoryAccent =
+    accentRaw === "gold" || accentRaw === "pink" ? accentRaw : "red";
+  const iconName = typeof o.iconName === "string" ? o.iconName : "";
+  const Icon = CATEGORY_ICON_BY_NAME[iconName] ?? fallback.Icon;
+  return { title, subtitle, emoji, accent, Icon };
+}
 
 /* ==============================
  * 限时倒计时 chips
@@ -276,14 +298,18 @@ export default function CategoryPage({
   const trpc = useTRPC();
   const [targetAt] = useState(() => Date.now() + 6 * 60 * 60 * 1000);
 
-  const meta = CATEGORY_META[slug] ?? {
-    title: slug,
-    subtitle: "",
-    Icon: Sparkles,
-    accent: "red" as const,
-    emoji: "推荐",
-  };
+  const categoryContent = useSiteContent("category");
+  const meta = useMemo(
+    () => resolveCategoryMeta(slug, categoryContent["category.metas"]),
+    [slug, categoryContent],
+  );
   const HeaderIcon = meta.Icon;
+  const danmuItems = useMemo(() => {
+    const arr = asArray<unknown>(categoryContent["category.danmu_items"]).filter(
+      (s): s is string => typeof s === "string" && s.length > 0,
+    );
+    return arr.length > 0 ? arr : FALLBACK_DANMU_ITEMS;
+  }, [categoryContent]);
 
   const { data: products, isLoading } = useQuery(
     trpc.product.list.queryOptions({
@@ -361,7 +387,7 @@ export default function CategoryPage({
         {/* 弹幕社证 */}
         {items.length > 0 && (
           <AnimatedItem>
-            <DanmuBubble items={DANMU_ITEMS} />
+            <DanmuBubble items={danmuItems} />
           </AnimatedItem>
         )}
 

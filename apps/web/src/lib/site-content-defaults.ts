@@ -28,7 +28,10 @@ export type SiteContentDefault = {
 export const SITE_CONTENT_CATEGORIES: { id: string; label: string; description: string }[] = [
   { id: "company", label: "公司信息", description: "About 页 / 全站品牌信息" },
   { id: "support", label: "客服联系", description: "Contact 页客服邮箱、电话、工作时间、AI 欢迎语" },
-  { id: "homepage", label: "首页文案", description: "首页搜索栏、邀请徽章等" },
+  { id: "homepage", label: "首页文案", description: "首页搜索栏、金刚区、弹幕、信任带" },
+  { id: "category", label: "分类页", description: "分类落地页 hero 文案、弹幕" },
+  { id: "profile", label: "我的页", description: "四宫格快捷入口、设置列表" },
+  { id: "feed", label: "动态页", description: "VIP 等级展示卡片" },
   { id: "invite", label: "邀请页", description: "邀请页标题、奖励描述、分享话术" },
   { id: "member", label: "会员页", description: "会员页 slogan、区块标题" },
   { id: "agent", label: "代理页", description: "代理申请步骤、表单提示、代理中心文案" },
@@ -40,6 +43,8 @@ export const SITE_CONTENT_CATEGORIES: { id: string; label: string; description: 
 export const SITE_CONTENT_DEFAULTS: SiteContentDefault[] = [
   // ───── 公司信息 ─────
   { key: "company.name", category: "company", label: "公司/品牌名称", valueType: "string", default: "Discount Hub", sortOrder: 1 },
+  { key: "company.brand_tagline", category: "company", label: "顶部导航品牌副标题", description: "桌面端顶栏 logo 旁的小字 slogan", valueType: "string", default: "神券市集 · 积分当钱花", sortOrder: 11 },
+  { key: "company.short_description", category: "company", label: "页脚短描述", description: "桌面端页脚品牌名后的短描述", valueType: "string", default: "优惠券交易平台", sortOrder: 12 },
   { key: "company.description_long", category: "company", label: "公司简介（长文）", valueType: "text", default: "Discount Hub 是一个折扣权益交易平台，致力于为用户提供最优质的数字权益兑换服务。", sortOrder: 2 },
   { key: "company.value_proposition", category: "company", label: "价值主张", valueType: "text", default: "我们通过积分+现金的混合支付模式，让每一位用户都能用更少的钱享受更多优质权益。", sortOrder: 3 },
   { key: "company.supported_payment_methods", category: "company", label: "支持的支付方式", valueType: "text", default: "平台支持多种支付方式，包括支付宝、微信支付、银联卡、PayPal 及加密货币等。", sortOrder: 4 },
@@ -75,6 +80,53 @@ export const SITE_CONTENT_DEFAULTS: SiteContentDefault[] = [
     { id: "p2", title: "0 元兑专区怎么用最划算", excerpt: "签到拿积分，三天就能换到钻石包。", likeText: "1.1w", app: "抖音" },
     { id: "p3", title: "今日值得兑：首充礼的正确打开方式", excerpt: "别直接买，先领券再叠加，立省更多。", likeText: "8.7k", app: "抖音" },
   ], sortOrder: 3 },
+  { key: "homepage.danmu_items", category: "homepage", label: "首页弹幕通栏（字符串数组）", description: "顶部滚动展示的「XX 刚抢到」消息", valueType: "array", default: [
+    "🎉 张**在 3 秒前抢到 ¥1 神券",
+    "🔥 李**节省了 ¥128",
+    "⚡ 王**用积分换了视频VIP",
+    "💎 赵**拿下 0 元专区",
+    "📣 最近 1 小时 1.2 万人参团",
+  ], sortOrder: 4 },
+  { key: "homepage.trust_marquee", category: "homepage", label: "信任跑马灯文案", description: "首页底部的「官方授权 · 极速到账」滚动文字（建议保留分隔点）", valueType: "string", default: "🛡 官方授权  ·  ⚡ 极速到账  ·  ✨ 7天售后  ·  💰 积分抵现  ·  ", sortOrder: 5 },
+
+  // ───── 分类页 ─────
+  { key: "category.metas", category: "category", label: "分类落地页 hero（对象）", description: "对象：slug → { title, subtitle, emoji, accent, iconName }；slug 必须是后端枚举（limited/today/zero）；accent 取 red/gold/pink；iconName 取 flame/sparkles/coins/zap/gift/crown，留空回退 sparkles", valueType: "object", default: {
+    limited: { title: "限时神券", subtitle: "倒计时结束自动下架 · 错过等明天", emoji: "限时", accent: "red", iconName: "flame" },
+    today: { title: "今日值得兑", subtitle: "今天最稳妥的权益组合 · 编辑精挑", emoji: "推荐", accent: "gold", iconName: "sparkles" },
+    zero: { title: "0 元兑专区", subtitle: "只需积分 · 不花一分钱", emoji: "0元", accent: "pink", iconName: "coins" },
+  }, sortOrder: 1 },
+  { key: "category.danmu_items", category: "category", label: "分类页弹幕（字符串数组）", valueType: "array", default: [
+    "张**刚刚抢到限时券",
+    "李**用积分换走最后 1 件",
+    "王**节省 ¥128 入手",
+    "最近 1 小时 1.2 万人参团",
+    "赵**晒单：超值",
+  ], sortOrder: 2 },
+
+  // ───── 我的页 ─────
+  { key: "profile.quick_actions", category: "profile", label: "我的-四宫格快捷入口（数组）", description: "每项 { id, emoji, label, tone, badge?, path }；tone 取 red/pink/orange/gold/gradient", valueType: "array", default: [
+    { id: "orders", emoji: "📦", label: "我的订单", path: "/my-orders", tone: "red" },
+    { id: "coupons", emoji: "🎟️", label: "券包", path: "/coupons", tone: "orange", badge: "NEW" },
+    { id: "favorites", emoji: "❤️", label: "收藏", path: "/favorites", tone: "pink" },
+    { id: "footprints", emoji: "👣", label: "足迹", path: "/footprints", tone: "gold" },
+  ], sortOrder: 1 },
+  { key: "profile.setting_items", category: "profile", label: "我的-设置列表（数组）", description: "每项 { id, emoji, label, path? }；填了 path 则跳转，否则点击无效", valueType: "array", default: [
+    { id: "account", emoji: "⚙️", label: "账户设置" },
+    { id: "notify", emoji: "🔔", label: "消息通知" },
+    { id: "notices", emoji: "📢", label: "公告中心", path: "/notices-center" },
+    { id: "help", emoji: "💡", label: "帮助中心" },
+    { id: "terms", emoji: "📄", label: "服务条款" },
+    { id: "about", emoji: "ℹ️", label: "关于我们" },
+  ], sortOrder: 2 },
+
+  // ───── 动态页 ─────
+  { key: "feed.vip_tiers", category: "feed", label: "动态页 VIP 等级卡片（数组）", description: "每项 { level, label, points, color }；color 是 Tailwind 渐变片段，例如 \"from-amber-400 to-orange-400\"。这里 points 仅展示，不影响实际等级判定", valueType: "array", default: [
+    { level: 1, label: "VIP1", points: 200, color: "from-amber-400 to-orange-400" },
+    { level: 2, label: "VIP2", points: 500, color: "from-orange-500 to-red-500" },
+    { level: 3, label: "VIP3", points: 1200, color: "from-rose-500 to-pink-500" },
+    { level: 4, label: "VIP4", points: 2000, color: "from-pink-500 to-red-600" },
+    { level: 5, label: "VIP5", points: 5000, color: "from-yellow-500 to-amber-600" },
+  ], sortOrder: 1 },
 
   // ───── 邀请页 ─────
   { key: "invite.page_title", category: "invite", label: "邀请页标题", valueType: "string", default: "邀请好友", sortOrder: 1 },

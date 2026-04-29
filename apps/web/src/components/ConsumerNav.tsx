@@ -3,6 +3,7 @@
 import { usePathname, useRouter } from "next/navigation";
 import Image from "next/image";
 import { useSession } from "@/lib/auth-client";
+import { useSiteContent, asString } from "@/hooks/use-site-content";
 import { cn } from "@/lib/utils";
 import { motion } from "@/components/motion";
 
@@ -23,6 +24,12 @@ export default function ConsumerNav() {
   const pathname = usePathname();
   const router = useRouter();
   const { data: session } = useSession();
+  const companyContent = useSiteContent("company");
+  const brandName = asString(companyContent["company.name"], "Discount Hub");
+  const brandTagline = asString(
+    companyContent["company.brand_tagline"],
+    "神券市集 · 积分当钱花",
+  );
 
   const navTabs: Tab[] = TABS.map((tab) =>
     tab.id === "/profile" && !session
@@ -64,10 +71,10 @@ export default function ConsumerNav() {
             </div>
             <div className="min-w-0 text-left">
               <div className="truncate text-base font-black text-[var(--brand-red)]">
-                Discount Hub
+                {brandName}
               </div>
               <div className="truncate text-xs font-semibold text-muted-foreground">
-                神券市集 · 积分当钱花
+                {brandTagline}
               </div>
             </div>
           </button>
