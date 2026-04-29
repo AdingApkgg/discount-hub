@@ -456,42 +456,57 @@ function DoubleBanners({
 }
 
 /* ============ 金刚区 ============ */
+type ShortcutTone = "red" | "pink" | "orange" | "gold" | "gradient";
+
 type ShortcutItem = {
   id: string;
-  emoji: string;
   label: string;
-  tone: "red" | "pink" | "orange" | "gold" | "gradient";
+  tone: ShortcutTone;
+  linkUrl: string;
+  emoji?: string;
+  iconUrl?: string;
   badge?: string;
 };
 
-function buildShortcuts(rebateLabel: string, rebateBadge: string): ShortcutItem[] {
-  return [
-    { id: "video", emoji: "🎬", label: "视频VIP", tone: "red", badge: "HOT" },
-    { id: "music", emoji: "🎵", label: "音乐会员", tone: "pink" },
-    { id: "game", emoji: "🎮", label: "游戏直充", tone: "red", badge: "-90%" },
-    { id: "phone", emoji: "📱", label: "话费充值", tone: "orange" },
-    { id: "food", emoji: "🍜", label: "外卖美食", tone: "orange" },
-    { id: "shop", emoji: "🛍️", label: "品牌券包", tone: "pink", badge: "新" },
-    { id: "learn", emoji: "📚", label: "学习知识", tone: "gold" },
-    { id: "rebate", emoji: "🎁", label: rebateLabel, tone: "gold", badge: rebateBadge },
-    { id: "zero", emoji: "💎", label: "0元兑", tone: "gradient", badge: "爆" },
-    { id: "all", emoji: "🧭", label: "全部分类", tone: "orange" },
-  ];
+const SHORTCUT_TONES: ReadonlySet<ShortcutTone> = new Set([
+  "red",
+  "pink",
+  "orange",
+  "gold",
+  "gradient",
+]);
+
+function normalizeShortcuts(raw: unknown[]): ShortcutItem[] {
+  const out: ShortcutItem[] = [];
+  for (const r of raw) {
+    if (!r || typeof r !== "object") continue;
+    const o = r as Record<string, unknown>;
+    const id = typeof o.id === "string" ? o.id : "";
+    const label = typeof o.label === "string" ? o.label : "";
+    if (!id || !label) continue;
+    const linkUrl = typeof o.linkUrl === "string" ? o.linkUrl : "";
+    const toneRaw = typeof o.tone === "string" ? o.tone : "red";
+    const tone: ShortcutTone = SHORTCUT_TONES.has(toneRaw as ShortcutTone)
+      ? (toneRaw as ShortcutTone)
+      : "red";
+    const emoji = typeof o.emoji === "string" ? o.emoji : undefined;
+    const iconUrl = typeof o.iconUrl === "string" ? o.iconUrl : undefined;
+    const badge = typeof o.badge === "string" ? o.badge : undefined;
+    out.push({ id, label, tone, linkUrl, emoji, iconUrl, badge });
+  }
+  return out;
 }
 
 function ShortcutGrid({
+  shortcuts,
   onSelect,
-  rebateLabel,
-  rebateBadge,
 }: {
-  onSelect: (id: string) => void;
-  rebateLabel: string;
-  rebateBadge: string;
+  shortcuts: ShortcutItem[];
+  onSelect: (s: ShortcutItem) => void;
 }) {
-  const SHORTCUTS = buildShortcuts(rebateLabel, rebateBadge);
   return (
     <div className="grid grid-cols-5 gap-y-3">
-      {SHORTCUTS.map((s, i) => (
+      {shortcuts.map((s, i) => (
         <motion.div
           key={s.id}
           initial={{ opacity: 0, y: 10 }}
@@ -500,10 +515,11 @@ function ShortcutGrid({
         >
           <EmojiShortcut
             emoji={s.emoji}
+            iconUrl={s.iconUrl}
             label={s.label}
             tone={s.tone}
-            badge={"badge" in s ? (s as { badge?: string }).badge : undefined}
-            onClick={() => onSelect(s.id)}
+            badge={s.badge}
+            onClick={() => onSelect(s)}
           />
         </motion.div>
       ))}
@@ -959,13 +975,9 @@ export default function HomePage() {
     homepageContent["homepage.search_tagline"],
     "搜神券 · 省到抽筋",
   );
-  const inviteBadgeLabel = asString(
-    homepageContent["homepage.invite_badge_text"],
-    "邀请返利",
-  );
-  const inviteBadgeAmount = asString(
-    homepageContent["homepage.invite_badge_amount"],
-    "¥100",
+  const shortcuts = useMemo(
+    () => normalizeShortcuts(asArray<unknown>(homepageContent["homepage.shortcuts"])),
+    [homepageContent],
   );
   const earnContents = asArray<EarnContent>(earnContent["earn.contents"]);
   const hotPosts = asArray<{ id: string; title: string; excerpt: string; likeText: string; app: string }>(
@@ -1070,9 +1082,8 @@ export default function HomePage() {
         <AnimatedItem>
           <div className="rounded-2xl bg-[var(--app-card)] p-2.5 shadow-[0_4px_14px_rgba(122,60,30,0.06)]">
             <ShortcutGrid
-              onSelect={() => router.push("/member")}
-              rebateLabel={inviteBadgeLabel}
-              rebateBadge={inviteBadgeAmount}
+              shortcuts={shortcuts}
+              onSelect={(s) => followAdLink(s.linkUrl || "/member")}
             />
           </div>
         </AnimatedItem>

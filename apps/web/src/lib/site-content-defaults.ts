@@ -58,13 +58,23 @@ export const SITE_CONTENT_DEFAULTS: SiteContentDefault[] = [
 
   // ───── 首页文案 ─────
   { key: "homepage.search_tagline", category: "homepage", label: "搜索栏占位词", valueType: "string", default: "搜神券 · 省到抽筋", sortOrder: 1 },
-  { key: "homepage.invite_badge_text", category: "homepage", label: "邀请徽章文字", valueType: "string", default: "邀请返利", sortOrder: 2 },
-  { key: "homepage.invite_badge_amount", category: "homepage", label: "邀请徽章金额", valueType: "string", default: "¥100", sortOrder: 3 },
+  { key: "homepage.shortcuts", category: "homepage", label: "金刚区图标（数组）", description: "每项 { id, label, tone, linkUrl, emoji?, iconUrl?, badge? }；tone 取值 red/gold/pink/orange/gradient；emoji 与 iconUrl 至少填一个，iconUrl 优先；linkUrl 可填站内路径（/invite）或外链（https://...）", valueType: "array", default: [
+    { id: "video", emoji: "🎬", label: "视频VIP", tone: "red", badge: "HOT", linkUrl: "/member" },
+    { id: "music", emoji: "🎵", label: "音乐会员", tone: "pink", linkUrl: "/member" },
+    { id: "game", emoji: "🎮", label: "游戏直充", tone: "red", badge: "-90%", linkUrl: "/member" },
+    { id: "phone", emoji: "📱", label: "话费充值", tone: "orange", linkUrl: "/member" },
+    { id: "food", emoji: "🍜", label: "外卖美食", tone: "orange", linkUrl: "/member" },
+    { id: "shop", emoji: "🛍️", label: "品牌券包", tone: "pink", badge: "新", linkUrl: "/coupons" },
+    { id: "learn", emoji: "📚", label: "学习知识", tone: "gold", linkUrl: "/member" },
+    { id: "rebate", emoji: "🎁", label: "邀请返利", tone: "gold", badge: "¥100", linkUrl: "/invite" },
+    { id: "zero", emoji: "💎", label: "0元兑", tone: "gradient", badge: "爆", linkUrl: "/promotions" },
+    { id: "all", emoji: "🧭", label: "全部分类", tone: "orange", linkUrl: "/feed" },
+  ], sortOrder: 2 },
   { key: "homepage.hot_posts", category: "homepage", label: "薅羊毛攻略列表（数组）", description: "每项 { id, title, excerpt, likeText, app }", valueType: "array", default: [
     { id: "p1", title: "今天刷到的隐藏福利，真的香", excerpt: "限时神卷叠加后到手价太离谱了…", likeText: "2.4w", app: "抖音" },
     { id: "p2", title: "0 元兑专区怎么用最划算", excerpt: "签到拿积分，三天就能换到钻石包。", likeText: "1.1w", app: "抖音" },
     { id: "p3", title: "今日值得兑：首充礼的正确打开方式", excerpt: "别直接买，先领券再叠加，立省更多。", likeText: "8.7k", app: "抖音" },
-  ], sortOrder: 4 },
+  ], sortOrder: 3 },
 
   // ───── 邀请页 ─────
   { key: "invite.page_title", category: "invite", label: "邀请页标题", valueType: "string", default: "邀请好友", sortOrder: 1 },

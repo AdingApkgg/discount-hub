@@ -465,16 +465,18 @@ export function SaleHighlightStrip({
 
 /* ==============================
  * EmojiShortcut — 金刚区单项
- *   大 emoji + 彩色光晕底 + 文字
+ *   iconUrl 优先；否则展示 emoji
  * ============================== */
 export function EmojiShortcut({
   emoji,
+  iconUrl,
   label,
   onClick,
   tone = "red",
   badge,
 }: {
-  emoji: string;
+  emoji?: string;
+  iconUrl?: string;
   label: string;
   onClick?: () => void;
   tone?: "red" | "gold" | "pink" | "orange" | "gradient";
@@ -499,7 +501,17 @@ export function EmojiShortcut({
           toneBg[tone],
         )}
       >
-        <span className="drop-shadow-sm">{emoji}</span>
+        {iconUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={iconUrl}
+            alt=""
+            className="h-9 w-9 object-contain drop-shadow-sm"
+            loading="lazy"
+          />
+        ) : (
+          <span className="drop-shadow-sm">{emoji ?? ""}</span>
+        )}
         {badge && (
           <span className="absolute -right-1 -top-1 inline-flex min-w-[22px] items-center justify-center rounded-full bg-[linear-gradient(135deg,#FE2C55_0%,#FF6E37_100%)] px-1 py-0.5 text-[9px] font-black leading-none text-white shadow-[0_2px_4px_rgba(254,44,85,0.4)]">
             {badge}
