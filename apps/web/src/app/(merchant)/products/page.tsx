@@ -768,7 +768,7 @@ export default function ProductsPage() {
           </div>
 
           {selectedIds.length > 0 ? (
-            <div className="flex flex-wrap items-center gap-2 rounded-lg border border-primary/25 bg-primary/5 px-3 py-2.5 text-sm">
+            <div className="sticky top-14 z-20 flex flex-wrap items-center gap-2 rounded-lg border border-primary/30 bg-card px-3 py-2.5 text-sm shadow-md ring-1 ring-primary/15 lg:top-2">
               <span className="font-medium text-foreground">已选 {selectedIds.length} 项</span>
               <Button size="sm" variant="outline" type="button" onClick={() => openBulk("status")}>
                 改状态
@@ -833,9 +833,7 @@ export default function ProductsPage() {
                     <TableHead className="w-14 px-0">图</TableHead>
                     <TableHead>商品</TableHead>
                     <TableHead>状态</TableHead>
-                    <TableHead className="text-right">积分价</TableHead>
-                    <TableHead className="text-right">现金价</TableHead>
-                    <TableHead className="text-right">库存</TableHead>
+                    <TableHead className="min-w-[140px]">价格 · 库存</TableHead>
                     <TableHead>过期时间</TableHead>
                     <TableHead>标签</TableHead>
                     <TableHead className="text-right">操作</TableHead>
@@ -884,27 +882,32 @@ export default function ProductsPage() {
                         </div>
                       </TableCell>
                       <TableCell>{statusBadge(product.status)}</TableCell>
-                      <TableCell className="text-right text-foreground">
-                        {product.pointsPrice}
-                      </TableCell>
-                      <TableCell className="text-right text-foreground">
-                        ¥{Number(product.cashPrice).toFixed(2)}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <span
-                          className={
-                            isOutOfStock
-                              ? "font-semibold text-rose-300"
-                              : isLowStock
-                                ? "inline-flex items-center gap-1 font-semibold text-amber-300"
-                                : "text-muted-foreground"
-                          }
-                        >
+                      <TableCell className="min-w-[140px] align-top pt-3 text-sm leading-tight">
+                        <div>
+                          <span className="text-muted-foreground">积分 </span>
+                          <span className="font-medium text-foreground">{product.pointsPrice}</span>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground">现金 </span>
+                          <span className="font-medium text-foreground">¥{Number(product.cashPrice).toFixed(2)}</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <span className="text-muted-foreground">库存 </span>
                           {isLowStock && !isOutOfStock ? (
-                            <AlertTriangle className="h-3.5 w-3.5" />
+                            <AlertTriangle className="h-3.5 w-3.5 text-amber-300" />
                           ) : null}
-                          {product.stock}
-                        </span>
+                          <span
+                            className={
+                              isOutOfStock
+                                ? "font-semibold text-rose-300"
+                                : isLowStock
+                                  ? "font-semibold text-amber-300"
+                                  : "font-medium text-foreground"
+                            }
+                          >
+                            {product.stock}
+                          </span>
+                        </div>
                       </TableCell>
                       <TableCell>
                         <span

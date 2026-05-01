@@ -6,7 +6,9 @@ import { auth } from "@/lib/auth";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { withSecurityHeaders } from "@/lib/security-headers";
 
-const UPLOAD_DIR = path.join(process.cwd(), "public", "uploads", "products");
+const UPLOADS_ROOT = path.join(process.cwd(), "public", "uploads");
+const DEFAULT_KIND = "products";
+const KIND_PATTERN = /^[a-z0-9-]{1,32}$/;
 const MAX_SIZE = 5 * 1024 * 1024; // 5 MB
 const ALLOWED_TYPES = new Set([
   "image/jpeg",
@@ -66,13 +68,20 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  const kindRaw = formData.get("kind");
+  const kind =
+    typeof kindRaw === "string" && KIND_PATTERN.test(kindRaw)
+      ? kindRaw
+      : DEFAULT_KIND;
+  const targetDir = path.join(UPLOADS_ROOT, kind);
+
   const ext = file.name.split(".").pop()?.toLowerCase() ?? "jpg";
   const filename = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
 
-  await mkdir(UPLOAD_DIR, { recursive: true });
+  await mkdir(targetDir, { recursive: true });
   const buffer = Buffer.from(await file.arrayBuffer());
-  await writeFile(path.join(UPLOAD_DIR, filename), buffer);
+  await writeFile(path.join(targetDir, filename), buffer);
 
-  const url = `/uploads/products/${filename}`;
+  const url = `/uploads/${kind}/${filename}`;
   return withSecurityHeaders(NextResponse.json({ url }));
 }

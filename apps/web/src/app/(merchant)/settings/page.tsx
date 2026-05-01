@@ -23,6 +23,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { ShortcutsEditor, normalizeShortcutsForEditor } from "@/components/admin/shortcuts-editor";
 import { cn } from "@/lib/utils";
 
 type NotifyPrefs = {
@@ -2486,6 +2487,14 @@ function valueToInput(value: unknown, type: SiteContentValueType): string {
   }
 }
 
+function safeParseJson(input: string): unknown {
+  try {
+    return JSON.parse(input);
+  } catch {
+    return null;
+  }
+}
+
 function inputToValue(input: string, type: SiteContentValueType): { ok: true; value: unknown } | { ok: false; error: string } {
   switch (type) {
     case "string":
@@ -2653,7 +2662,12 @@ function SiteContentTab() {
                 {item.description ? (
                   <p className="text-[11px] text-muted-foreground">{item.description}</p>
                 ) : null}
-                {item.valueType === "string" ? (
+                {item.key === "homepage.shortcuts" ? (
+                  <ShortcutsEditor
+                    value={normalizeShortcutsForEditor(safeParseJson(draft))}
+                    onChange={(items) => setDraft(item.key, JSON.stringify(items, null, 2))}
+                  />
+                ) : item.valueType === "string" ? (
                   <Input value={draft} onChange={(e) => setDraft(item.key, e.target.value)} />
                 ) : item.valueType === "number" ? (
                   <Input
