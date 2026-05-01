@@ -55,3 +55,6 @@ apps/mobile/debug.keystore
 grok.md
 apps/mobile/src-tauri/gen/
 apps/mobile/src-tauri/target/
+
+# design reference exports (Axure HTML zips at repo root)
+/*.zip
